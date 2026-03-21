@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables (contains secrets)
+.env
+.env.local
+.env.*.local
+
+# Agent 365 config (contains tenant/subscription IDs)
+a365.config.json
+a365.generated.config.json
+
+# Deployment artifacts
+deploy.zip
+app.zip
+*.zip
+
+# Logs
+logs*/
+
+# Temporary files
+grant.json
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Publish folder (deployment package — rebuild from src)
+publish/

@@ -1,0 +1,71 @@
+{
+  "version": "1.0",
+  "mcpServers": [
+    {
+      "name": "mcp_MailTools",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_MailTools",
+      "scope": "McpServers.Mail.All",
+      "audience": "<mcp-platform-audience>"
+    },
+    {
+      "name": "mcp_TeamsServer",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_TeamsServer",
+      "scope": "McpServers.Teams.All",
+      "audience": "<mcp-platform-audience>"
+    },
+    {
+      "name": "mcp_SharePointRemoteServer",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_SharePointRemoteServer",
+      "scope": "McpServers.SharePoint.All",
+      "audience": "<mcp-platform-audience>"
+    },
+    {
+      "name": "mcp_SharePointListsTools",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_SharePointListsTools",
+      "scope": "McpServers.SharepointLists.All",
+      "audience": "<mcp-platform-audience>"
+    },
+    {
+      "name": "mcp_ODSPRemoteServer",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_ODSPRemoteServer",
+      "scope": "McpServers.OneDriveSharepoint.All",
+      "audience": "<mcp-platform-audience>"
+    },
+    {
+      "name": "mcp_OneDriveRemoteServer",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_OneDriveRemoteServer",
+      "scope": "McpServers.OneDrive.All",
+      "audience": "<mcp-platform-audience>"
+    },
+    {
+      "name": "mcp_ExcelServer",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_ExcelServer",
+      "scope": "McpServers.Excel.All",
+      "audience": "<mcp-platform-audience>"
+    },
+    {
+      "name": "mcp_WordServer",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_WordServer",
+      "scope": "McpServers.Word.All",
+      "audience": "<mcp-platform-audience>"
+    },
+    {
+      "name": "mcp_CalendarTools",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_CalendarTools",
+      "scope": "McpServers.Calendar.All",
+      "audience": "<mcp-platform-audience>"
+    },
+    {
+      "name": "mcp_PlannerServer",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_PlannerServer",
+      "scope": "McpServers.Planner.All",
+      "audience": "<mcp-platform-audience>"
+    },
+    {
+      "name": "mcp_KnowledgeTools",
+      "url": "https://<mcp-platform-endpoint>/agents/servers/mcp_KnowledgeTools",
+      "scope": "McpServers.Knowledge.All",
+      "audience": "<mcp-platform-audience>"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "<your-template-id>",
+  "schemaVersion": "0.1.0-preview",
+  "agentIdentityBlueprintId": "<your-app-id>",
+  "communicationProtocol": "activityProtocol"
+}

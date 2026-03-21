@@ -1,0 +1,32 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/vdevPreview/MicrosoftTeams.schema.json",
+  "id": "<your-app-id>",
+  "name": {
+    "short": "Morgan - Finance Analyst",
+    "full": "Morgan - CFO's Digital Finance Analyst"
+  },
+  "description": {
+    "short": "Autonomous AI finance analyst powered by GPT-5 for analysis and reports.",
+    "full": "Morgan is a Synthetic Worker - an autonomous digital finance employee powered by GPT-5 (Azure OpenAI). Morgan analyses budget vs actuals, identifies spending anomalies, generates board-ready reports, and posts weekly P&L briefings to your Finance Teams channel. Built on Microsoft Agent 365 with Work IQ MCP tools including Mail, Teams, SharePoint, Word, and Calendar. Morgan can work proactively without being asked and is designed to integrate with other AI agents."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#9ec9d9",
+  "version": "1.1.5",
+  "manifestVersion": "devPreview",
+  "developer": {
+    "name": "Microsoft Corporation",
+    "mpnId": "",
+    "websiteUrl": "https://go.microsoft.com/fwlink/?LinkId=518028",
+    "privacyUrl": "https://go.microsoft.com/fwlink/?LinkId=518028",
+    "termsOfUseUrl": "https://shares.datatransfer.microsoft.com/assets/Microsoft_Terms_of_Use.html"
+  },
+  "agenticUserTemplates": [
+    {
+      "id": "7b0926a6-c4ee-445a-a913-bd054594bd09",
+      "file": "agenticUserTemplateManifest.json"
+    }
+  ]
+}
