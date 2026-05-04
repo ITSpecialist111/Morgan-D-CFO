@@ -149,6 +149,17 @@
       font-size: 15px;
       font-weight: 750;
     }
+    .starfield-tools .hint {
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.72;
+      font-style: italic;
+      letter-spacing: 0.02em;
+      transition: opacity 0.24s ease;
+      margin-left: 6px;
+      pointer-events: none;
+    }
+    .starfield-tools .hint.hidden { opacity: 0; }
     .starfield-tools .readout {
       min-width: 48px;
       text-align: center;
@@ -564,6 +575,7 @@
       <div class="starfield-tools" aria-label="Starfield controls">
         <button type="button" id="starZoomOut" title="Zoom out" aria-label="Zoom out">-</button>
         <span class="readout" id="starZoomReadout">100%</span>
+        <span class="hint" id="starZoomHint" aria-hidden="true">zoom in to label</span>
         <button type="button" id="starZoomIn" title="Zoom in" aria-label="Zoom in">+</button>
         <button type="button" id="starReset" title="Reset starfield" aria-label="Reset starfield">0</button>
       </div>
@@ -1006,7 +1018,7 @@
       else setPresence(live ? 'idle' : 'idle');
     }
 
-    function createStarParticle() {
+    function createStarParticle(label) {
       return {
         x: Math.random(),
         y: Math.random(),
@@ -1017,8 +1029,18 @@
         twinkle: Math.random() * Math.PI * 2,
         depth: Math.random() * 0.88 + 0.22,
         hue: Math.random() > 0.42 ? 'teal' : 'blue',
+        label: label || null,
       };
     }
+
+    // Morgan brain anchor labels - real capabilities the agent actually has
+    // (J.A.R.V.I.S.-style: hidden by default, fade in as user zooms / hovers)
+    const MORGAN_BRAIN_LABELS = [
+      'P&L', 'Anomalies', 'WorkIQ', 'FabricIQ', 'FoundryIQ',
+      'Graph', 'Teams', 'Planner', 'Callback', 'Audit',
+      'Mission', 'CorpGen', 'Budget', 'Mail',
+    ];
+    const MORGAN_BRAIN_LABEL_INDICES = [7, 18, 31, 45, 62, 79, 98, 119, 142, 156, 168, 175, 182, 188];
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
@@ -1027,6 +1049,8 @@
     function updateStarfieldReadout() {
       if (!starZoomReadout) return;
       starZoomReadout.textContent = `${Math.round(starfieldZoom * 100)}%`;
+      const hint = document.getElementById('starZoomHint');
+      if (hint) hint.classList.toggle('hidden', starfieldZoom >= 1.2);
     }
 
     function clampStarfieldPan() {
@@ -1132,7 +1156,17 @@
 
     function startStarfield() {
       if (!starfieldCanvas || !starfieldContext || starfieldFrame) return;
-      starfieldParticles = Array.from({ length: 190 }, createStarParticle);
+      starfieldParticles = Array.from({ length: 190 }, (_, i) => {
+        const labelSlot = MORGAN_BRAIN_LABEL_INDICES.indexOf(i);
+        const label = labelSlot >= 0 ? MORGAN_BRAIN_LABELS[labelSlot] : null;
+        const particle = createStarParticle(label);
+        if (label) {
+          // Anchor nodes: slightly bigger and brighter so they read as 'real' brain nodes
+          particle.size *= 1.4;
+          particle.opacity = Math.max(particle.opacity, 0.55);
+        }
+        return particle;
+      });
       resizeStarfield();
       window.addEventListener('resize', resizeStarfield);
       const draw = (timestamp) => {
@@ -1212,6 +1246,41 @@
           }
         }
         starfieldContext.shadowBlur = 0;
+
+        // Second pass: J.A.R.V.I.S.-style anchor labels.
+        // Hidden at default zoom; fade in linearly between zoom 1.2 and 1.8;
+        // any anchor within 60px of the cursor reveals at near-full opacity even
+        // at default zoom (so judges can hover-discover before zooming in).
+        const zoomFade = starfieldZoom <= 1.2 ? 0 : starfieldZoom >= 1.8 ? 1 : (starfieldZoom - 1.2) / 0.6;
+        for (const particle of starfieldParticles) {
+          if (!particle.label) continue;
+          const depthScale = 0.52 + particle.depth * 0.9;
+          const screenX = centerX + ((particle.x - 0.5) * rect.width * starfieldZoom * depthScale) + parallaxX * particle.depth;
+          const screenY = centerY + ((particle.y - 0.5) * rect.height * starfieldZoom * depthScale) + parallaxY * particle.depth;
+          if (screenX < -120 || screenX > rect.width + 160 || screenY < -40 || screenY > rect.height + 40) continue;
+
+          let labelOpacity = zoomFade;
+          if (starfieldPointer.active) {
+            const hoverDistance = Math.hypot(screenX - pointerX, screenY - pointerY);
+            if (hoverDistance < 60) {
+              labelOpacity = Math.max(labelOpacity, 0.95 * (1 - hoverDistance / 90));
+            }
+          }
+          if (labelOpacity < 0.02) continue;
+
+          const labelX = screenX + 10;
+          const labelY = screenY;
+          starfieldContext.font = '11px system-ui, -apple-system, "Segoe UI", Inter, sans-serif';
+          starfieldContext.textBaseline = 'middle';
+          starfieldContext.lineWidth = 2.4;
+          starfieldContext.strokeStyle = `rgba(0, 0, 0, ${0.7 * labelOpacity})`;
+          starfieldContext.strokeText(particle.label, labelX, labelY);
+          starfieldContext.fillStyle = particle.hue === 'teal'
+            ? `rgba(95, 232, 220, ${labelOpacity})`
+            : `rgba(168, 224, 255, ${labelOpacity})`;
+          starfieldContext.fillText(particle.label, labelX, labelY);
+        }
+
         starfieldFrame = requestAnimationFrame(draw);
       };
       starfieldFrame = requestAnimationFrame(draw);
