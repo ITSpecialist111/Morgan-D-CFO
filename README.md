@@ -81,16 +81,55 @@ flowchart LR
 
 ## Showcase Screenshot Walkthrough
 
-Use the screenshots from the current Morgan showcase as a guided customer story:
+The screenshots below are captured from the live Morgan showcase. Together they tell the customer story end-to-end: the digital worker contract, the mind behind the briefings, the instruction set, the enterprise readiness controls, the cognitive toolchain and operating cadence, the autonomous Kanban, the human-facing avatar, and how Morgan appears inside the Microsoft 365 admin surface.
 
-| Screenshot | What it shows | Why it matters |
-|---|---|---|
-| Mission Control and Beta Starfield | The top of Mission Control with Morgan's Digital CFO identity, 09:00-17:00 work window, live Beta Starfield graph, daily counters, and job description. | Proves Morgan is not a hidden chat agent; the worker contract, operating graph, current work, and customer-visible mandate are inspectable. |
-| Agent Mind and Microsoft IQ | Agent Mind telemetry beside the Microsoft IQ command layer, including WorkIQ, Foundry IQ, Fabric IQ, CFO metrics, and autonomous actions. | Shows how Morgan can explain which business signals, model/eval signals, and cross-functional data informed the CFO briefing. |
-| Instructions and Enterprise Capabilities | The instructions Morgan follows plus CorpGen-mapped capabilities such as planning, memory, sub-agents, Microsoft 365 tools, Foundry IQ, Fabric IQ, avatar, and Teams calling. | Makes the autonomous behavior legible to enterprise reviewers before they trust the agent with finance work. |
-| Enterprise Readiness and Cognitive Toolchain | Readiness checks for Agent 365, MCP, App Insights, Foundry IQ, Fabric IQ, Purview, avatar, and the live cognitive tools Morgan can call. | Separates working demo capabilities from tenant-specific production hardening and shows the controls expected for real enterprise pilots. |
-| Operating Cadence and Autonomous Kanban | Morgan's daily rhythm plus the D-CFO board with queue, in-cycle, waiting/escalate, proof/review, and done-today lanes. | Demonstrates CorpGen's core idea: a digital employee keeps a workday, selects next runnable tasks, escalates blockers, and records proof of completion. |
-| Aria as Morgan Avatar | The HD avatar surface with Aria as Morgan, quick CFO prompts, chat/activity tabs, starfield background, and Mission Control link. | Gives the Digital CFO a human-facing presence for spoken briefings while still keeping the underlying work visible and governed. |
+### Mission Control and Beta Starfield
+
+![Morgan Mission Control with Beta Starfield, identity strip, daily counters, and customer-visible job description](docs/screenshots/mission-control-beta-starfield.png)
+
+The top of Mission Control shows Morgan's Digital CFO identity, the 09:00-17:00 seven-day work window, the live Beta Starfield operating graph (180 nodes / 318 paths across plan, execute, delegate, govern, prove), today's task counters, and the customer-visible job description. It proves Morgan is a worker with a visible contract, not a hidden chat agent.
+
+### Agent Mind and Microsoft IQ Command Layer
+
+![Agent Mind tool-calling telemetry above the Microsoft IQ command layer with WorkIQ, Foundry IQ, Fabric IQ, CFO metrics, and autonomous actions](docs/screenshots/agent-mind-microsoft-iq.png)
+
+Agent Mind exposes prompts, LLM turns, tool calls, MCP/Graph activity, and tool results in real time. Below it, the Microsoft IQ Command Layer aligns Morgan's CFO briefing with WorkIQ work signals, Foundry IQ model and evaluation context, and Fabric IQ semantic figures (revenue, gross margin, EBITDA, cash runway, NRR, headcount cost), then lists the autonomous actions Morgan will run through the day.
+
+### Instructions and Enterprise Capabilities
+
+![Instructions Morgan follows alongside CorpGen-mapped enterprise capability cards for planning, memory, sub-agents, tools, evaluation, and communication](docs/screenshots/instructions-enterprise-capabilities.png)
+
+The left panel lists the autonomous instructions Morgan follows; the right panel maps Morgan's enterprise capabilities to the CorpGen architecture (hierarchical planning, autonomous workday cycles, tiered memory, isolated specialist sub-agents, Microsoft 365 tool execution, WorkIQ context, Foundry IQ evaluation, Fabric IQ analytics, avatar presence, Teams federation calling). Each card includes the proof artifact reviewers can inspect.
+
+### Enterprise Readiness
+
+![Enterprise Readiness panel with Agent 365 SDK, MCP tooling, Application Insights, Foundry IQ, Fabric IQ, Purview, and Aria-as-Morgan avatar status](docs/screenshots/enterprise-readiness.png)
+
+The Enterprise Readiness panel separates ready/configured/partial controls so a customer can see what is genuinely live (Agent 365 runtime, MCP tooling, App Insights, voice avatar) versus what is configured for tenant data (Foundry IQ project, Fabric IQ semantic model, Purview audit posture). Each row states the operational control behind the status.
+
+### Cognitive Toolchain and Operating Cadence
+
+![Cognitive Toolchain of CFO planning, memory, learning, and artifact tools next to Morgan's daily Operating Cadence](docs/screenshots/cognitive-toolchain-operating-cadence.png)
+
+The Cognitive Toolchain lists the live CorpGen-style tools Morgan can call (operating plan generation, mission task completion, open-task selection, adaptive memory summary, experiential learning playbook, artifact judge, WorkIQ signal queries) with their outputs. The Operating Cadence on the right grounds those tools in a real workday: 09:00 Day Init, recurring 20-25 minute Execution Cycles, 13:00 Cross-Functional IQ Refresh, 16:30 Proof and Artifact Review, 17:00 Day-End Reflection, and Monthly Planning at month start.
+
+### Autonomous Kanban (D-CFO Work Board)
+
+![Morgan's autonomous D-CFO Kanban with queue, in-cycle, waiting/escalate, proof/review, and done-today lanes](docs/screenshots/autonomous-kanban.png)
+
+The Autonomous Kanban is the proof-of-work surface. CFO work flows from the autonomous queue into in-cycle execution, with blocked items escalated, artifacts gated through proof/review, and completed work logged in done-today with the sub-agents and tools that ran. This makes Morgan's autonomy auditable rather than opaque.
+
+### Aria-as-Morgan Avatar
+
+![Aria-as-Morgan HD avatar in business attire with chat/activity tabs, starfield background, and quick CFO prompts](docs/screenshots/avatar-aria-as-morgan.png)
+
+The avatar surface gives Morgan a human-facing presence powered by Azure Voice Live and Speech avatar with WebRTC media. The header pins Morgan's Digital CFO role, quick prompts launch morning briefing / CFO checks / end-of-day wrap-up / readiness check, and the chat panel preserves the spoken conversation as written evidence. A direct link back to Mission Control keeps the underlying work visible and governed.
+
+### Microsoft 365 Admin: Agents and Shadow AI
+
+![Microsoft 365 admin center Agents > Shadow AI view inside the Contoso tenant](docs/screenshots/m365-admin-shadow-ai.png)
+
+This is how Morgan and other agentic workloads are governed inside the Microsoft 365 admin centre. The Agents node exposes Overview, All agents, Shadow AI, Tools, and Settings, so tenants can detect unsanctioned agents, register approved ones (Morgan included), and apply policy alongside Copilot and the rest of M365. It anchors Morgan to the same admin, identity, and governance surface customers already use.
 
 ## Current Live Showcase
 
