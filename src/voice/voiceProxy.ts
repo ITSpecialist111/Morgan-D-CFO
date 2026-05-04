@@ -60,27 +60,27 @@ export function attachVoiceWebSocket(server: Server): void {
 
   server.on('upgrade', (request, socket, head) => {
     const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
-    if (pathname === '/api/voice') {
-      // Check voice gate before accepting connection
-      if (!isVoiceEnabled()) {
-        console.log('[voice] Connection rejected — voice gate is disabled');
-        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
-        socket.destroy();
-        return;
-      }
-      if (browserAuthRequired() && !getPrincipalFromHeaders(request.headers)?.oid) {
-        console.log('[voice] Connection rejected — browser user is not signed in');
-        socket.write(`HTTP/1.1 401 Unauthorized\r\nLocation: ${loginUrlFor('/voice')}\r\n\r\n`);
-        socket.destroy();
-        return;
-      }
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-      });
-    } else {
-      // Not our route — let other handlers deal with it (or destroy)
-      socket.destroy();
+    if (pathname !== '/api/voice') {
+      // Not our route — leave the socket alone so other listeners (e.g. the
+      // ACS media bridge on /api/calls/acs-media) can handle the upgrade.
+      return;
     }
+    // Check voice gate before accepting connection
+    if (!isVoiceEnabled()) {
+      console.log('[voice] Connection rejected — voice gate is disabled');
+      socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    if (browserAuthRequired() && !getPrincipalFromHeaders(request.headers)?.oid) {
+      console.log('[voice] Connection rejected — browser user is not signed in');
+      socket.write(`HTTP/1.1 401 Unauthorized\r\nLocation: ${loginUrlFor('/voice')}\r\n\r\n`);
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
   });
 
   wss.on('connection', async (clientWs) => {
