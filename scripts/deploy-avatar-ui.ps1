@@ -46,8 +46,8 @@ az webapp config appsettings set `
   --resource-group $resourceGroup `
   --name $webAppName `
   --settings `
-    'AVATAR_BACKGROUND_COLOR=#000000' `
-    'AVATAR_STYLE=casual' `
+    'AVATAR_BACKGROUND_COLOR=#FFFFFF' `
+    'AVATAR_STYLE=business' `
     'VOICE_ENABLED_DEFAULT=true' `
     'WEBSITE_NODE_DEFAULT_VERSION=~20' `
     'SCM_DO_BUILD_DURING_DEPLOYMENT=false' `

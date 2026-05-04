@@ -161,7 +161,7 @@ export function attachVoiceWebSocket(server: Server): void {
                 codec: process.env.AVATAR_VIDEO_CODEC || 'h264',
                 background: process.env.AVATAR_BACKGROUND_URL
                   ? { image_url: process.env.AVATAR_BACKGROUND_URL }
-                  : { color: process.env.AVATAR_BACKGROUND_COLOR || '#000000' },
+                  : { color: process.env.AVATAR_BACKGROUND_COLOR || '#FFFFFF' },
               },
             },
             input_audio_sampling_rate: 24000,

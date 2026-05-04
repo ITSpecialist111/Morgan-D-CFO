@@ -766,7 +766,7 @@
       character: 'meg',
       style: 'business',
       voice: 'en-US-Ava:DragonHDLatestNeural',
-      backgroundColor: '#000000',
+      backgroundColor: '#FFFFFF',
       videoFit: 'cover',
     };
     let accessibilityPrefs = loadAccessibilityPrefs();
@@ -780,6 +780,7 @@
       { character: 'lisa', style: 'business', label: 'Lisa Business' },
     ];
     const BG_PRESETS = [
+      { color: '#FFFFFF', label: 'White' },
       { color: '#000000', label: 'Black' },
       { color: '#0d1117', label: 'GitHub Dark' },
       { color: '#0b0e12', label: 'Blank Dark' },
@@ -839,7 +840,7 @@
     }
 
     function applyAvatarVisuals() {
-      const backgroundColor = avatarConfig.backgroundColor || '#000000';
+      const backgroundColor = avatarConfig.backgroundColor || '#FFFFFF';
       avatarFrame.style.background = backgroundColor;
       stageEl.style.background = '#000';
       videoEl.style.objectFit = avatarConfig.videoFit || 'cover';
@@ -1370,8 +1371,19 @@
       }
     }
 
+    function avatarBackgroundNeedsKeying() {
+      const key = parseHexColor(avatarConfig.backgroundColor);
+      if (!key) return false;
+      // Skip the keying compositor for light backgrounds (e.g. white). The Voice Live
+      // avatar already ships on a white backdrop, so no per-frame canvas work is needed
+      // and we can render the raw HD video at full resolution instead of the throttled
+      // 720px composite.
+      const luminance = (0.2126 * key.r + 0.7152 * key.g + 0.0722 * key.b) / 255;
+      return luminance < 0.85;
+    }
+
     function startAvatarComposite() {
-      if (!avatarCompositeContext) {
+      if (!avatarCompositeContext || !avatarBackgroundNeedsKeying()) {
         avatarFrame.classList.add('raw-video');
         return;
       }
@@ -1425,7 +1437,7 @@
           character: config.character || avatarConfig.character,
           style: config.style || avatarConfig.style,
           voice: config.voice || avatarConfig.voice,
-          backgroundColor: config.backgroundColor || avatarConfig.backgroundColor || '#000000',
+          backgroundColor: config.backgroundColor || avatarConfig.backgroundColor || '#FFFFFF',
         };
         applyAvatarVisuals();
         avatarMeta.textContent = `${config.displayName || 'Aria as Morgan'} - ${config.role || 'Digital CFO'} - ${config.voice || 'Voice Live'}`;

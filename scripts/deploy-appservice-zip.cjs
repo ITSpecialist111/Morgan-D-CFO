@@ -115,7 +115,7 @@ function syncAppSettings() {
 
 function syncLiveAvatarSettings() {
   const settings = {
-    AVATAR_BACKGROUND_COLOR: '#000000',
+    AVATAR_BACKGROUND_COLOR: '#FFFFFF',
     AVATAR_CHARACTER: 'meg',
     AVATAR_STYLE: 'business',
     AVATAR_DISPLAY_NAME: 'Aria as Morgan',

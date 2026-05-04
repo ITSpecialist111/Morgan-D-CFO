@@ -14,7 +14,7 @@ export function registerAvatarRoutes(server: express.Express, authMiddleware?: M
       style: process.env.AVATAR_STYLE || 'business',
       voice: process.env.VOICE_NAME || process.env.VOICELIVE_VOICE || 'en-US-Ava:DragonHDLatestNeural',
       backgroundImageUrl: process.env.AVATAR_BACKGROUND_URL || undefined,
-      backgroundColor: process.env.AVATAR_BACKGROUND_COLOR || '#000000',
+      backgroundColor: process.env.AVATAR_BACKGROUND_COLOR || '#FFFFFF',
       agentName: process.env.AGENT_NAME || 'Morgan',
       role: process.env.AGENT_ROLE || 'Digital CFO',
       displayName: process.env.AVATAR_DISPLAY_NAME || 'Aria as Morgan',

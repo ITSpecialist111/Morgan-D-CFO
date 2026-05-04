@@ -339,7 +339,7 @@ Morgan has a browser-based avatar interface powered by Azure Voice Live API and 
 - **Browser Audio Capture** — High-quality mic capture with linear interpolation resampling
 - **Mute Button** — Disable mic during noisy environments
 - **Mission Control Link** — Jump directly from avatar to the live job-description dashboard
-- **Blank Avatar Background** — Voice Live avatar video defaults to a blank black background (`AVATAR_BACKGROUND_COLOR`, default `#000000`) instead of a white backdrop
+- **Blank Avatar Background** — Voice Live avatar video defaults to a clean white backdrop (`AVATAR_BACKGROUND_COLOR`, default `#FFFFFF`) and renders the raw HD video stream directly so detail is preserved at full resolution. Set the env var to a darker preset (e.g. `#000000`) to switch on the keying compositor and matte the avatar onto a dark stage.
 - **Interactive Starfield** — Wheel or button zoom, drag pan, reset, cursor-reactive particle links, and state-aware intensity while Morgan listens, thinks, and speaks
 - **Aria-Style Avatar Shell** — Chat and Activity tabs, prompt chips, text composer, avatar/camera presets, background swatches, accessible mode, text-size controls, high contrast, aura states, quick-launch prompts, and a live tool-call overlay
 - **Showcase Session Guard** — Morgan keeps one active avatar session per app instance and disconnects stale duplicate tabs so Speech avatar capacity is not exhausted during demos
@@ -530,7 +530,7 @@ Morgan connects to Microsoft 365 services via MCP servers:
    - `AVATAR_CHARACTER` = `meg` or your chosen Speech avatar character
    - `AVATAR_STYLE` = `casual` / `business` or the supported style for that character
    - `AVATAR_DISPLAY_NAME` = `Aria as Morgan`
-   - `AVATAR_BACKGROUND_COLOR` = `#000000` for a blank black avatar backdrop
+   - `AVATAR_BACKGROUND_COLOR` = `#FFFFFF` for the default white avatar backdrop (use a dark hex like `#000000` to enable the keying compositor)
 
 The avatar page requires a signed-in browser session for `/api/web-auth/me`, `/api/avatar/config`, `/api/avatar/ice`, and the `/api/voice` WebSocket. If microphone permission is blocked or slow, Morgan still starts the avatar session without microphone capture so the visual avatar can come online for the showcase.
 
