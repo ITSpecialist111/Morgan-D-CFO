@@ -8,6 +8,16 @@ import {
   calculateTrend,
 } from '../tools/financialTools';
 import { lookupPerson } from '../tools/mcpToolSetup';
+import { synthesizeMicrosoftIQBriefing } from '../tools/iqTools';
+import {
+  evaluateMissionArtifact,
+  generateCfoOperatingPlan,
+  getAdaptiveMemorySummary,
+  getEndOfDayReport,
+  getEnterpriseReadiness,
+  getMissionControlSnapshot,
+  runAutonomousCfoWorkday,
+} from '../mission/missionControl';
 
 // Voice Live tool definitions (realtime API format — no `type: 'function'` wrapper)
 export const VOICE_TOOLS = [
@@ -122,6 +132,95 @@ export const VOICE_TOOLS = [
       required: ['name'],
     },
   },
+  {
+    type: 'function',
+    name: 'getMissionControlSnapshot',
+    description: 'Returns Morgan job description, autonomous instructions, key tasks, operating cadence, and current task log for Mission Control.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    type: 'function',
+    name: 'synthesizeMicrosoftIQBriefing',
+    description: 'Combines WorkIQ, Foundry IQ, and Fabric IQ into a spoken CFO-ready briefing with figures, business signals, and evidence labels.',
+    parameters: {
+      type: 'object',
+      properties: {
+        period: { type: 'string' },
+        audience: { type: 'string' },
+        focus: { type: 'string' },
+      },
+      required: [],
+    },
+  },
+  {
+    type: 'function',
+    name: 'getEndOfDayReport',
+    description: 'Returns Morgan end-of-day completed-task breakdown, blocked work, and next working day priorities.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    type: 'function',
+    name: 'generateCfoOperatingPlan',
+    description: 'Returns Morgan strategic, tactical, and operational CFO operating plan with next runnable tasks and proof requirements.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    type: 'function',
+    name: 'getAdaptiveMemorySummary',
+    description: 'Returns Morgan adaptive memory summary, including preserved blockers, finance facts, and reusable context.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    type: 'function',
+    name: 'getEnterpriseReadiness',
+    description: 'Returns enterprise readiness checks for Agent 365 SDK, MCP, observability, Purview, avatar, sub-agents, storage, and scheduler safety.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    type: 'function',
+    name: 'evaluateMissionArtifact',
+    description: 'Scores a Morgan spoken briefing or executive artifact for purpose, evidence, actionability, governance, and readiness.',
+    parameters: {
+      type: 'object',
+      properties: {
+        artifact_type: { type: 'string' },
+        title: { type: 'string' },
+        content: { type: 'string' },
+        evidence: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['content'],
+    },
+  },
+  {
+    type: 'function',
+    name: 'runAutonomousCfoWorkday',
+    description: 'Runs Morgan autonomous CFO workday checks and records completed tasks for Mission Control.',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
 ];
 
 // Execute a voice tool by name — same underlying functions as chat tools
@@ -137,6 +236,22 @@ export async function executeVoiceTool(name: string, params: Record<string, unkn
       return calculateTrend(params as Parameters<typeof calculateTrend>[0]);
     case 'lookupPerson':
       return await lookupPerson(params as Parameters<typeof lookupPerson>[0]);
+    case 'getMissionControlSnapshot':
+      return getMissionControlSnapshot();
+    case 'synthesizeMicrosoftIQBriefing':
+      return synthesizeMicrosoftIQBriefing(params as Parameters<typeof synthesizeMicrosoftIQBriefing>[0]);
+    case 'getEndOfDayReport':
+      return getEndOfDayReport();
+    case 'generateCfoOperatingPlan':
+      return generateCfoOperatingPlan();
+    case 'getAdaptiveMemorySummary':
+      return getAdaptiveMemorySummary();
+    case 'getEnterpriseReadiness':
+      return getEnterpriseReadiness();
+    case 'evaluateMissionArtifact':
+      return evaluateMissionArtifact(params as Parameters<typeof evaluateMissionArtifact>[0]);
+    case 'runAutonomousCfoWorkday':
+      return await runAutonomousCfoWorkday({ source: 'user_request' });
     case 'get_current_date':
       return { isoDate: new Date().toISOString(), utcString: new Date().toUTCString() };
     case 'get_company_context':

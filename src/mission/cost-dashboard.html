@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Morgan Cost Dashboard</title>
+  <style>
+    :root {
+      --bg: #101216;
+      --panel: #181b22;
+      --panel-2: #20242d;
+      --border: #303642;
+      --text: #f3f5f7;
+      --muted: #9aa3af;
+      --teal: #36c2b4;
+      --amber: #f0b429;
+      --red: #e05858;
+      --blue: #5b8def;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: Segoe UI, system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 24px; border-bottom: 1px solid var(--border); background: #151820; }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mark { width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center; color: #061412; background: var(--teal); font-weight: 800; }
+    h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    .subtitle { margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    a, button { color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; }
+    button.primary, a.primary { background: var(--teal); color: #061412; border-color: var(--teal); font-weight: 650; }
+    main { padding: 20px 24px 28px; display: grid; gap: 18px; }
+    section { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; min-width: 0; }
+    .section-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    h2 { margin: 0; font-size: 14px; font-weight: 650; }
+    .body { padding: 14px 16px; }
+    .grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 10px; }
+    .metric { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-height: 78px; }
+    .metric b { display: block; font-size: 22px; margin-bottom: 5px; overflow-wrap: anywhere; }
+    .metric span { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .split { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; }
+    .category-list, .compact-list { display: grid; gap: 9px; }
+    .category { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #141922; border-radius: 0 8px 8px 0; padding: 11px 12px; display: grid; gap: 8px; }
+    .category.voice-avatar { border-left-color: var(--amber); }
+    .category.foundry-ai, .category.compute { border-left-color: var(--blue); }
+    .category.agent365-microsoft-iq, .category.fabric-iq { border-left-color: var(--teal); }
+    .category.storage-observability { border-left-color: #a78bfa; }
+    .category-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .category-head b { font-size: 13px; }
+    .amounts { text-align: right; font-variant-numeric: tabular-nums; }
+    .amounts b { display: block; font-size: 16px; }
+    .amounts span { color: var(--muted); font-size: 11px; }
+    .bar { height: 7px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .bar-fill { height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--blue)); }
+    .category p, .compact-item p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #d8dee9; border-radius: 999px; padding: 3px 6px; font-size: 10px; }
+    .status-dot { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .status-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px rgba(240,180,41,.5); }
+    .status-dot.actual::before, .status-dot.mixed::before, .status-dot.ready::before { background: var(--teal); box-shadow: 0 0 10px rgba(54,194,180,.55); }
+    .status-dot.estimated::before { background: var(--amber); }
+    .compact-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: #151922; }
+    .compact-item b { font-size: 13px; }
+    .trend { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; min-height: 160px; }
+    .trend-day { display: grid; gap: 6px; align-content: end; min-width: 0; }
+    .trend-bar { height: 110px; display: flex; align-items: end; background: #111620; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .trend-fill { width: 100%; min-height: 2%; background: linear-gradient(180deg, var(--teal), var(--blue)); }
+    .trend-day b, .trend-day span { text-align: center; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--border); padding: 9px 8px; text-align: left; vertical-align: top; font-size: 12px; }
+    th { color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    td.amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .resource { color: var(--muted); overflow-wrap: anywhere; max-width: 540px; }
+    .auth-overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: var(--bg); padding: 24px; }
+    .auth-card { width: min(440px, 100%); border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 24px; display: grid; gap: 14px; text-align: center; }
+    .auth-card h2 { font-size: 20px; }
+    .auth-card p { margin: 0; color: var(--muted); line-height: 1.5; }
+    [hidden] { display: none !important; }
+    @media (max-width: 980px) { header { align-items: flex-start; flex-direction: column; } main { padding: 16px; } .grid, .split, .trend { grid-template-columns: 1fr; } .amounts { text-align: left; } }
+  </style>
+</head>
+<body>
+  <div class="auth-overlay" id="authOverlay" hidden>
+    <div class="auth-card">
+      <div class="mark" style="margin:0 auto;">M</div>
+      <h2>Sign in to Morgan</h2>
+      <p>Use your Microsoft work account to view Morgan project cost, value, and chargeback detail.</p>
+      <a class="primary" href="/auth/login?returnTo=/mission-control/costs">Sign in with Microsoft</a>
+    </div>
+  </div>
+  <header>
+    <div class="brand">
+      <div class="mark">M</div>
+      <div>
+        <h1>Morgan Cost Dashboard</h1>
+        <div class="subtitle" id="subtitle">Loading cost and value model...</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <a href="/mission-control">Mission Control</a>
+      <a href="/voice" class="primary">Open Avatar</a>
+      <button onclick="refresh()">Refresh</button>
+    </div>
+  </header>
+  <main id="appMain" hidden>
+    <section>
+      <div class="section-head"><h2>Executive Cost View</h2><span class="status-dot estimated" id="sourceBadge">loading</span></div>
+      <div class="body">
+        <div class="grid">
+          <div class="metric"><b id="dailyRunRate">$0</b><span>daily run-rate</span></div>
+          <div class="metric"><b id="weeklyRunRate">$0</b><span>weekly run-rate</span></div>
+          <div class="metric"><b id="monthlyProjected">$0</b><span>monthly projection</span></div>
+          <div class="metric"><b id="avatarShare">0%</b><span>avatar and Teams voice share</span></div>
+          <div class="metric"><b id="valueRatio">0x</b><span>estimated value to cost</span></div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Impact and Value</h2><span class="status-dot ready">showback</span></div>
+      <div class="body">
+        <div class="grid">
+          <div class="metric"><b id="valueToday">$0</b><span>estimated value today</span></div>
+          <div class="metric"><b id="valueWeek">$0</b><span>estimated value this week</span></div>
+          <div class="metric"><b id="hoursToday">0h</b><span>hours saved today</span></div>
+          <div class="metric"><b id="hoursWeek">0h</b><span>hours saved this week</span></div>
+          <div class="metric"><b id="costPerTask">$0</b><span>cost per completed task</span></div>
+        </div>
+      </div>
+    </section>
+    <div class="split">
+      <section>
+        <div class="section-head"><h2>Cost by Morgan Capability</h2><span id="categoryTotal" class="status-dot mixed">weekly</span></div>
+        <div class="body"><div class="category-list" id="categories"></div></div>
+      </section>
+      <section>
+        <div class="section-head"><h2>Usage Drivers</h2><span class="status-dot ready">live signals</span></div>
+        <div class="body"><div class="compact-list" id="activityDrivers"></div></div>
+      </section>
+    </div>
+    <section>
+      <div class="section-head"><h2>Seven-Day Cost Trend</h2><span id="trendSource" class="status-dot mixed">actual + estimate</span></div>
+      <div class="body"><div class="trend" id="trend"></div></div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Azure Cost Management Detail</h2><span class="status-dot estimated" id="azureBadge">checking</span></div>
+      <div class="body"><div id="azureDetail"></div></div>
+    </section>
+    <div class="split">
+      <section>
+        <div class="section-head"><h2>Assumptions</h2></div>
+        <div class="body"><div class="compact-list" id="assumptions"></div></div>
+      </section>
+      <section>
+        <div class="section-head"><h2>Cost Controls</h2></div>
+        <div class="body"><div class="compact-list" id="recommendations"></div></div>
+      </section>
+    </div>
+  </main>
+  <script>
+    function showSignIn() {
+      document.getElementById('authOverlay').hidden = false;
+      document.getElementById('appMain').hidden = true;
+    }
+    async function requireSignedIn() {
+      try {
+        const response = await fetch('/api/web-auth/me', { credentials: 'include' });
+        if (!response.ok) throw new Error('Not signed in');
+        document.getElementById('authOverlay').hidden = true;
+        document.getElementById('appMain').hidden = false;
+        return true;
+      } catch {
+        showSignIn();
+        return false;
+      }
+    }
+    async function authedJson(url, options = {}) {
+      const response = await fetch(url, { ...options, credentials: 'include' });
+      const text = await response.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+      if (response.status === 401) {
+        showSignIn();
+        throw new Error('Not signed in');
+      }
+      if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
+      return data;
+    }
+    function money(value, currency = 'USD') {
+      return new Intl.NumberFormat([], { style: 'currency', currency, maximumFractionDigits: Number(value || 0) >= 100 ? 0 : 2 }).format(Number(value || 0));
+    }
+    function number(value, digits = 0) {
+      return new Intl.NumberFormat([], { maximumFractionDigits: digits }).format(Number(value || 0));
+    }
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function compactItem(title, body) {
+      return `<div class="compact-item"><b>${escapeHtml(title)}</b><p>${escapeHtml(body)}</p></div>`;
+    }
+    function renderCategories(data) {
+      const currency = data.currency || 'USD';
+      const total = Math.max(1, data.summary?.weeklyRunRate || 0);
+      document.getElementById('categoryTotal').textContent = `${money(data.summary?.weeklyRunRate, currency)} weekly`;
+      document.getElementById('categories').innerHTML = (data.categories || []).map((category) => {
+        const pct = Math.round((category.weeklyCost / total) * 100);
+        return `<article class="category ${escapeHtml(category.id)}">
+          <div class="category-head"><div><b>${escapeHtml(category.label)}</b><p>${escapeHtml(category.description)}</p></div><div class="amounts"><b>${money(category.weeklyCost, currency)}</b><span>${money(category.dailyCost, currency)} / day</span></div></div>
+          <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <div class="chips"><span class="chip">${escapeHtml(category.source)}</span><span class="chip">${escapeHtml(category.confidence)} confidence</span>${(category.drivers || []).slice(0, 3).map((driver) => `<span class="chip">${escapeHtml(driver)}</span>`).join('')}</div>
+        </article>`;
+      }).join('');
+    }
+    function renderActivity(data) {
+      const daily = data.activity?.daily || {};
+      const weekly = data.activity?.weekly || {};
+      const rows = [
+        ['Avatar sessions', `${daily.voiceSessions || 0} today / ${weekly.voiceSessions || 0} week`],
+        ['Teams calls', `${daily.teamsCalls || 0} today / ${weekly.teamsCalls || 0} week`],
+        ['LLM turns', `${daily.llmTurns || 0} today / ${weekly.llmTurns || 0} week`],
+        ['MCP and Graph calls', `${daily.mcpGraphCalls || 0} today / ${weekly.mcpGraphCalls || 0} week`],
+        ['Finance tool calls', `${daily.toolCalls || 0} today / ${weekly.toolCalls || 0} week`],
+        ['Completed CFO tasks', `${daily.completedTasks || 0} today / ${weekly.completedTasks || 0} week`],
+      ];
+      document.getElementById('activityDrivers').innerHTML = rows.map(([title, body]) => compactItem(title, body)).join('');
+    }
+    function renderTrend(data) {
+      const currency = data.currency || 'USD';
+      const max = Math.max(1, ...(data.dailyTrend || []).map((point) => Math.max(point.actual || 0, point.estimated || 0)));
+      document.getElementById('trend').innerHTML = (data.dailyTrend || []).map((point) => {
+        const value = point.actual > 0 ? point.actual : point.estimated;
+        const height = Math.max(4, Math.round((value / max) * 100));
+        return `<div class="trend-day"><div class="trend-bar"><div class="trend-fill" style="height:${height}%"></div></div><b>${escapeHtml(point.date.slice(5))}</b><span>${money(value, currency)}</span></div>`;
+      }).join('');
+    }
+    function renderAzure(data) {
+      const currency = data.currency || 'USD';
+      const azure = data.azure || {};
+      const badge = document.getElementById('azureBadge');
+      badge.className = `status-dot ${azure.available ? 'actual' : 'estimated'}`;
+      badge.textContent = azure.available ? 'actuals connected' : 'estimate mode';
+      if (!azure.available) {
+        document.getElementById('azureDetail').innerHTML = `<div class="compact-item"><b>Azure Cost Management unavailable</b><p>${escapeHtml(azure.error || 'The app identity needs Cost Management Reader access at the Morgan resource group or subscription scope.')}</p></div>`;
+        return;
+      }
+      const rows = (azure.serviceBreakdown || []).slice(0, 20).map((item) => `<tr><td>${escapeHtml(item.serviceName)}<div class="resource">${escapeHtml(item.resourceId || 'resource-group level')}</div></td><td>${escapeHtml(item.category)}</td><td class="amount">${money(item.dailyCost, currency)}</td><td class="amount">${money(item.weeklyCost, currency)}</td></tr>`).join('');
+      document.getElementById('azureDetail').innerHTML = `<div class="compact-item"><b>${money(azure.total, currency)} actual Azure spend this week</b><p>${escapeHtml(azure.scope || '')}</p></div><table><thead><tr><th>Service / Resource</th><th>Category</th><th>Today</th><th>Week</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No Azure Cost Management rows returned yet.</td></tr>'}</tbody></table>`;
+    }
+    function renderLists(data) {
+      document.getElementById('assumptions').innerHTML = (data.assumptions || []).map((item, index) => compactItem(`Assumption ${index + 1}`, item)).join('');
+      document.getElementById('recommendations').innerHTML = (data.recommendations || []).map((item, index) => compactItem(`Control ${index + 1}`, item)).join('');
+    }
+    async function refresh() {
+      if (!(await requireSignedIn())) return;
+      const data = await authedJson('/api/mission-control/costs');
+      const currency = data.currency || 'USD';
+      document.getElementById('subtitle').textContent = `Generated ${new Date(data.generatedAt).toLocaleString()} - ${data.summary?.source || 'estimated'} cost model`;
+      const badge = document.getElementById('sourceBadge');
+      badge.className = `status-dot ${data.summary?.source || 'estimated'}`;
+      badge.textContent = data.summary?.source || 'estimated';
+      document.getElementById('dailyRunRate').textContent = money(data.summary?.dailyRunRate, currency);
+      document.getElementById('weeklyRunRate').textContent = money(data.summary?.weeklyRunRate, currency);
+      document.getElementById('monthlyProjected').textContent = money(data.summary?.monthlyProjected, currency);
+      document.getElementById('avatarShare').textContent = `${data.summary?.avatarSharePct || 0}%`;
+      document.getElementById('valueRatio').textContent = `${number(data.value?.valueToCostRatio, 1)}x`;
+      document.getElementById('valueToday').textContent = money(data.value?.estimatedValueToday, currency);
+      document.getElementById('valueWeek').textContent = money(data.value?.estimatedValueWeekly, currency);
+      document.getElementById('hoursToday').textContent = `${number(data.value?.estimatedHoursSavedToday, 1)}h`;
+      document.getElementById('hoursWeek').textContent = `${number(data.value?.estimatedHoursSavedWeekly, 1)}h`;
+      document.getElementById('costPerTask').textContent = money(data.value?.costPerCompletedTask, currency);
+      renderCategories(data);
+      renderActivity(data);
+      renderTrend(data);
+      renderAzure(data);
+      renderLists(data);
+    }
+    refresh().catch((error) => { document.getElementById('subtitle').textContent = error.message; });
+  </script>
+</body>
+</html>

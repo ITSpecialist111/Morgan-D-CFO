@@ -1,0 +1,44 @@
+name: morgan-digital-cfo
+description: Morgan Digital CFO hosted agent for Microsoft Foundry, Agent 365, Mission Control, avatar voice, Teams escalation, and CFO-office autonomous finance workflows.
+template:
+  kind: hosted
+  protocols:
+    - name: responses
+      version: v1
+    - name: a2a
+      version: v1
+  environment_variables:
+    - AGENT_NAME
+    - AGENT_ROLE
+    - AZURE_OPENAI_ENDPOINT
+    - AZURE_OPENAI_DEPLOYMENT
+    - AZURE_OPENAI_REALTIME_DEPLOYMENT
+    - FOUNDRY_PROJECT_ENDPOINT
+    - FABRIC_WORKSPACE_ID
+    - FABRIC_LAKEHOUSE_ID
+    - FABRIC_SEMANTIC_MODEL_ID
+    - POWERBI_SEMANTIC_MODEL_ID
+    - MCP_PLATFORM_ENDPOINT
+    - MicrosoftAppId
+    - MicrosoftAppTenantId
+    - MicrosoftAppPassword
+    - FINANCE_TEAMS_CHANNEL_ID
+    - CFO_EMAIL
+    - CFO_TEAMS_USER_AAD_OID
+    - VOICELIVE_ENDPOINT
+    - VOICELIVE_MODEL
+    - VOICE_NAME
+    - AVATAR_CHARACTER
+    - AVATAR_STYLE
+    - AVATAR_DISPLAY_NAME
+    - SPEECH_REGION
+    - AZURE_AI_SERVICES_ENDPOINT
+    - AZURE_SPEECH_ENDPOINT
+    - SPEECH_RESOURCE_ID
+    - ACS_CONNECTION_STRING
+    - ACS_SOURCE_USER_ID
+    - BASE_URL
+    - PUBLIC_HOSTNAME
+    - APPLICATIONINSIGHTS_CONNECTION_STRING
+    - PURVIEW_AUDIT_WORKSPACE_ID
+    - PURVIEW_AUDIT_ENABLED

@@ -1,0 +1,182 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "func",
+			"label": "func: host start",
+			"command": "host start",
+			"problemMatcher": "$func-node-watch",
+			"isBackground": true,
+			"dependsOn": "npm watch (functions)",
+			"options": {
+				"cwd": "${workspaceFolder}/azure-function-trigger"
+			}
+		},
+		{
+			"type": "shell",
+			"label": "npm build (functions)",
+			"command": "npm run build",
+			"dependsOn": "npm install (functions)",
+			"problemMatcher": "$tsc",
+			"options": {
+				"cwd": "${workspaceFolder}/azure-function-trigger"
+			}
+		},
+		{
+			"type": "shell",
+			"label": "npm watch (functions)",
+			"command": "npm run watch",
+			"dependsOn": "npm install (functions)",
+			"problemMatcher": "$tsc-watch",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"isBackground": true,
+			"options": {
+				"cwd": "${workspaceFolder}/azure-function-trigger"
+			}
+		},
+		{
+			"type": "shell",
+			"label": "npm install (functions)",
+			"command": "npm install",
+			"options": {
+				"cwd": "${workspaceFolder}/azure-function-trigger"
+			}
+		},
+		{
+			"type": "shell",
+			"label": "npm prune (functions)",
+			"command": "npm prune --production",
+			"dependsOn": "npm build (functions)",
+			"problemMatcher": [],
+			"options": {
+				"cwd": "${workspaceFolder}/azure-function-trigger"
+			}
+		},
+		{
+			"label": "check workspace output",
+			"type": "shell",
+			"command": "Get-Location; Write-Output \"task-ok\"; Get-ChildItem .deploy | Select-Object -Last 3 -ExpandProperty Name",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "deploy updated Morgan avatar UI",
+			"type": "shell",
+			"command": "$ErrorActionPreference = \"Stop\"; npm run build; $stamp = Get-Date -Format \"yyyyMMddHHmmss\"; $deployDir = \".deploy\"; $stage = Join-Path $deployDir \"runtime-live-$stamp\"; $zip = Join-Path $deployDir \"morgan-d-cfo-live-$stamp.zip\"; Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $stage -Force | Out-Null; foreach ($item in @(\"package.json\", \"package-lock.json\", \"dist\", \"manifest\", \"ToolingManifest.json\")) { Copy-Item -LiteralPath $item -Destination (Join-Path $stage $item) -Recurse -Force }; New-Item -ItemType Directory -Path (Join-Path $stage \"scripts\") -Force | Out-Null; Copy-Item -LiteralPath \"scripts/start-production.cjs\" -Destination (Join-Path $stage \"scripts/start-production.cjs\") -Force; if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }; $items = Get-ChildItem -LiteralPath $stage -Force; Compress-Archive -LiteralPath $items.FullName -DestinationPath $zip -Force; $zipFull = (Resolve-Path $zip).Path; Write-Output \"ZIP=$zipFull\"; az account set --subscription \"260948a4-1d5e-42c8-b095-33a6641ad189\"; Write-Output \"AZ_ACCOUNT_SET_OK\"; az webapp deploy --resource-group \"rg-morgan-finance-agent\" --name \"morganfinanceagent-webapp\" --src-path $zipFull --type zip --async false --output json; Write-Output \"DEPLOY_OK\"; az webapp config set --resource-group \"rg-morgan-finance-agent\" --name \"morganfinanceagent-webapp\" --startup-file \"npm start\" --output none; Write-Output \"STARTUP_OK\"; az webapp config appsettings set --resource-group \"rg-morgan-finance-agent\" --name \"morganfinanceagent-webapp\" --settings \"AVATAR_BACKGROUND_COLOR=#000000\" \"AVATAR_STYLE=casual\" \"VOICE_ENABLED_DEFAULT=true\" \"WEBSITE_NODE_DEFAULT_VERSION=~20\" \"SCM_DO_BUILD_DURING_DEPLOYMENT=false\" \"ENABLE_ORYX_BUILD=false\" \"NODE_ENV=production\" \"AUTONOMOUS_WORKDAY_ENABLED=true\" \"AUTONOMOUS_WORKDAY_TIME_ZONE=Australia/Sydney\" \"AUTONOMOUS_WORKDAY_START_HOUR=9\" \"AUTONOMOUS_WORKDAY_END_HOUR=17\" \"AUTONOMOUS_WORKDAY_INTERVAL_MINUTES=25\" --output none; Write-Output \"SETTINGS_OK\"; az webapp restart --resource-group \"rg-morgan-finance-agent\" --name \"morganfinanceagent-webapp\" --output none; Write-Output \"RESTART_OK\"",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy avatar UI script",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"scripts/deploy-avatar-ui.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "build Morgan after mission starfield",
+			"type": "shell",
+			"command": "npm run build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "deploy mission starfield update",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"scripts/deploy-avatar-ui.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "build Morgan D-CFO Kanban",
+			"type": "shell",
+			"command": "npm run build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "verify D-CFO Kanban generator",
+			"type": "shell",
+			"command": "@'\nconst m = require('./dist/mission/missionControl.js');\nconst b = m.getAutonomousKanbanBoard();\nconsole.log(JSON.stringify({ columns: b.columns.map((c) => [c.id, c.cards.length]), next: b.nextBestAction, total: b.metrics.total, ai: b.aiKanbanAgent.status }, null, 2));\n'@ | node",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy Morgan D-CFO Kanban",
+			"type": "shell",
+			"command": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-avatar-ui.ps1",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "build Morgan Teams federation",
+			"type": "shell",
+			"command": "npm run build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "verify Teams federation status function",
+			"type": "shell",
+			"command": "@'\nconst bridge = require('./dist/voice/acsBridge.js');\nconst status = bridge.getTeamsFederationCallingStatus();\nconsole.log(JSON.stringify({ configured: status.configured, hasCommand: status.federationAdminCommand.includes('Set-CsTeamsAcsFederationConfiguration'), videoStatus: status.videoPresence.status }, null, 2));\n'@ | node",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy Morgan Teams federation",
+			"type": "shell",
+			"command": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-avatar-ui.ps1",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "verify production workday handoff",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"scripts/verify-production-workday.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

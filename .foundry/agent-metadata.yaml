@@ -1,0 +1,63 @@
+defaultEnvironment: dev
+environments:
+  dev:
+    projectEndpoint: ${FOUNDRY_PROJECT_ENDPOINT}
+    agentName: morgan-digital-cfo
+    azureContainerRegistry: ${AZURE_CONTAINER_REGISTRY_NAME}
+    imageRepository: morgan-digital-cfo
+    protocols:
+      - responses:v1
+      - a2a:v1
+    observability:
+      applicationInsightsConnectionString: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
+      applicationInsightsResourceId: ${APPLICATIONINSIGHTS_RESOURCE_ID}
+      logAnalyticsWorkspaceId: ${LOG_ANALYTICS_WORKSPACE_ID}
+      purviewAuditWorkspaceId: ${PURVIEW_AUDIT_WORKSPACE_ID}
+      agent365AuditCorrelation: true
+    purview:
+      auditEnabled: ${PURVIEW_AUDIT_ENABLED}
+      auditLogSources:
+        - Microsoft 365 user/app activity from Agent 365 MCP tools
+        - Entra ID sign-ins and service principal activity
+        - Exchange/Teams/SharePoint actions executed through Graph/MCP
+        - Morgan custom audit events exported through Application Insights/Log Analytics
+    testCases:
+      - name: morgan-p0-hosted-smoke
+        priority: P0
+        dataset: .foundry/datasets/morgan-digital-cfo-dev-test-v1.jsonl
+        evaluators:
+          - intent_resolution
+          - task_adherence
+          - coherence
+          - hate_unfairness
+          - self_harm
+        thresholds:
+          intent_resolution: 4
+          task_adherence: 4
+          coherence: 4
+      - name: morgan-p0-corpgen-paper-match
+        priority: P0
+        dataset: .foundry/datasets/morgan-digital-cfo-dev-test-v1.jsonl
+        evaluators:
+          - intent_resolution
+          - task_adherence
+          - coherence
+          - groundedness
+        thresholds:
+          intent_resolution: 4
+          task_adherence: 4
+          coherence: 4
+          groundedness: 4
+      - name: morgan-p0-enterprise-runtime
+        priority: P0
+        dataset: .foundry/datasets/morgan-digital-cfo-dev-test-v1.jsonl
+        evaluators:
+          - intent_resolution
+          - task_adherence
+          - coherence
+          - groundedness
+        thresholds:
+          intent_resolution: 4
+          task_adherence: 4
+          coherence: 4
+          groundedness: 4

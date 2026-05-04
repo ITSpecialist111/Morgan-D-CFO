@@ -1,0 +1,5 @@
+{
+  "quality": ["intent_resolution", "task_adherence", "coherence"],
+  "safety": ["hate_unfairness", "self_harm"],
+  "notes": "Default P0 evaluator bundle for Morgan Digital CFO hosted-agent smoke and regression checks. Use a chat-capable judge deployment from the target Foundry project before running batch evals."
+}

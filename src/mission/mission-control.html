@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Morgan Mission Control</title>
+  <style>
+    :root {
+      --bg: #101216;
+      --panel: #181b22;
+      --panel-2: #20242d;
+      --border: #303642;
+      --text: #f3f5f7;
+      --muted: #9aa3af;
+      --teal: #36c2b4;
+      --amber: #f0b429;
+      --red: #e05858;
+      --blue: #5b8def;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Segoe UI, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      background: #151820;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mark {
+      width: 38px; height: 38px; border-radius: 8px;
+      display: grid; place-items: center;
+      color: #061412; background: var(--teal); font-weight: 800;
+    }
+    h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    .subtitle { margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    a, button {
+      color: var(--text); background: var(--panel-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 12px; font: inherit; font-size: 13px; text-decoration: none; cursor: pointer;
+    }
+    button.primary, a.primary { background: var(--teal); color: #061412; border-color: var(--teal); font-weight: 650; }
+    main { padding: 20px 24px 28px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+    section { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; min-width: 0; }
+    .section-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    h2 { margin: 0; font-size: 14px; font-weight: 650; }
+    .body { padding: 14px 16px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .metric { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-height: 70px; }
+    .metric b { display: block; font-size: 22px; margin-bottom: 4px; }
+    .metric span { color: var(--muted); font-size: 12px; }
+    ul { margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.45; }
+    li { margin: 6px 0; }
+    .task-list { display: grid; gap: 10px; }
+    .task { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: #151922; }
+    .task-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .task-title b { font-size: 13px; }
+    .pill { border-radius: 999px; padding: 3px 8px; font-size: 11px; color: #061412; background: var(--teal); white-space: nowrap; }
+    .pill.amber { background: var(--amber); }
+    .task p { margin: 0 0 8px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .wide { grid-column: 1 / -1; }
+    pre { white-space: pre-wrap; margin: 0; color: var(--muted); font: 12px/1.45 Consolas, monospace; }
+    .records { display: grid; gap: 8px; }
+    .record { border-left: 3px solid var(--blue); padding: 8px 10px; background: #141922; border-radius: 0 8px 8px 0; }
+    .record.completed { border-left-color: var(--teal); }
+    .record.blocked, .record.failed { border-left-color: var(--red); }
+    .agent-mind { display: grid; gap: 12px; }
+    .agent-mind-summary { display: grid; grid-template-columns: repeat(5, minmax(110px, 1fr)); gap: 10px; }
+    .agent-mind-stat { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 10px 12px; min-width: 0; }
+    .agent-mind-stat b { display: block; font-size: 18px; margin-bottom: 4px; }
+    .agent-mind-stat span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .agent-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+    .agent-filters button { padding: 7px 9px; color: var(--muted); }
+    .agent-filters button.active { background: rgba(54, 194, 180, .18); border-color: rgba(54, 194, 180, .65); color: var(--text); }
+    .agent-event-list { display: grid; gap: 8px; max-height: 520px; overflow: auto; padding-right: 2px; }
+    .agent-event { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #141922; border-radius: 0 8px 8px 0; overflow: hidden; }
+    .agent-event.tool-call, .agent-event.mcp-invoke, .agent-event.graph-call { border-left-color: var(--amber); }
+    .agent-event.tool-result.ok, .agent-event.agent-reply.ok, .agent-event.mcp-discover.ok { border-left-color: var(--teal); }
+    .agent-event.error { border-left-color: var(--red); }
+    .agent-event summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 78px 122px 1fr auto; gap: 10px; align-items: center; padding: 10px 11px; }
+    .agent-event summary::-webkit-details-marker { display: none; }
+    .agent-time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .agent-kind { color: #d8dee9; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .agent-label { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+    .agent-meta { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .agent-chip { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: var(--muted); border-radius: 999px; padding: 3px 6px; font-size: 10px; white-space: nowrap; }
+    .agent-details { border-top: 1px solid var(--border); padding: 10px 11px; background: #111620; }
+    .agent-details pre { max-height: 220px; overflow: auto; }
+    .capability-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .capability { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: #151922; display: grid; gap: 7px; }
+    .capability b { font-size: 13px; }
+    .capability .tag { color: var(--teal); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .capability p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .iq-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .iq-card { border: 1px solid var(--border); border-left: 3px solid var(--teal); border-radius: 0 8px 8px 0; padding: 12px; background: #151922; min-width: 0; display: grid; gap: 7px; }
+    .iq-card.foundry { border-left-color: var(--blue); }
+    .iq-card.fabric { border-left-color: var(--amber); }
+    .iq-card b { font-size: 13px; }
+    .iq-card .tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .iq-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .iq-metric-grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; }
+    .iq-metric { border: 1px solid var(--border); background: #111620; border-radius: 8px; padding: 10px 12px; min-width: 0; }
+    .iq-metric b { display: block; font-size: 16px; margin-bottom: 4px; overflow-wrap: anywhere; }
+    .iq-metric span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .status-dot { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .status-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px rgba(240,180,41,.5); }
+    .status-dot.ready::before, .status-dot.configured::before, .status-dot.live::before, .status-dot.active::before { background: var(--teal); box-shadow: 0 0 10px rgba(54,194,180,.55); }
+    .status-dot.actual::before, .status-dot.mixed::before { background: var(--teal); box-shadow: 0 0 10px rgba(54,194,180,.55); }
+    .status-dot.estimated::before { background: var(--amber); box-shadow: 0 0 10px rgba(240,180,41,.5); }
+    .status-dot.partial::before, .status-dot.candidate::before, .status-dot.production-hardening::before { background: var(--amber); }
+    .status-dot.needs-configuration::before, .status-dot.needs-enterprise-data::before, .status-dot.blocked::before { background: var(--red); box-shadow: 0 0 10px rgba(224,88,88,.5); }
+    .compact-list { display: grid; gap: 8px; }
+    .compact-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: #151922; }
+    .compact-item b { font-size: 13px; }
+    .compact-item p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .call-panel { display: grid; gap: 14px; }
+    .call-status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .call-stat { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 10px 12px; min-width: 0; }
+    .call-stat b { display: block; font-size: 13px; margin-bottom: 4px; }
+    .call-stat span { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .call-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .call-field { display: grid; gap: 6px; min-width: 0; }
+    .call-field.wide { grid-column: 1 / -1; }
+    .call-field label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .call-field input,
+    .call-field textarea,
+    .call-field select {
+      width: 100%; min-width: 0;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: #111620; color: var(--text);
+      padding: 10px 11px; font: inherit; font-size: 13px;
+    }
+    .call-field textarea { min-height: 86px; resize: vertical; }
+    .call-field input:focus,
+    .call-field textarea:focus,
+    .call-field select:focus { outline: 2px solid rgba(54, 194, 180, .45); outline-offset: 1px; }
+    .call-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .call-actions button[disabled] { opacity: .55; cursor: not-allowed; }
+    .call-result { border: 1px solid var(--border); background: #111620; border-radius: 8px; padding: 11px 12px; color: var(--muted); font-size: 12px; line-height: 1.45; min-height: 44px; }
+    .call-result.ready { border-color: rgba(54, 194, 180, .55); color: #dffcf8; }
+    .call-result.error { border-color: rgba(224, 88, 88, .65); color: #ffd7d7; }
+    .active-call-list { display: grid; gap: 8px; }
+    .active-call { border-left: 3px solid var(--teal); border-radius: 0 8px 8px 0; padding: 9px 10px; background: #141922; }
+    .active-call b { display: block; font-size: 13px; margin-bottom: 3px; }
+    .kanban-summary { display: grid; grid-template-columns: 1.5fr repeat(4, minmax(96px, .5fr)); gap: 10px; margin-bottom: 12px; }
+    .kanban-summary-item { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 10px 12px; min-width: 0; }
+    .kanban-summary-item b { display: block; font-size: 16px; margin-bottom: 4px; }
+    .kanban-summary-item span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .kanban-board { display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 2px; }
+    .kanban-column { border: 1px solid var(--border); background: #121720; border-radius: 8px; min-width: 220px; display: flex; flex-direction: column; max-height: 560px; }
+    .kanban-column-head { padding: 10px 11px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .kanban-column-head b { display: block; font-size: 13px; }
+    .kanban-column-head span { display: block; color: var(--muted); font-size: 11px; line-height: 1.3; margin-top: 3px; }
+    .kanban-count { color: #061412; background: var(--teal); border-radius: 999px; padding: 2px 7px; font-size: 11px; font-weight: 700; }
+    .kanban-cards { display: grid; gap: 8px; padding: 10px; overflow: auto; }
+    .kanban-card { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #181d27; border-radius: 8px; padding: 10px; display: grid; gap: 7px; }
+    .kanban-card.active { border-left-color: var(--teal); }
+    .kanban-card.waiting { border-left-color: var(--red); }
+    .kanban-card.review { border-left-color: var(--amber); }
+    .kanban-card.done { border-left-color: #81c784; }
+    .kanban-card-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .kanban-card-title b { font-size: 13px; line-height: 1.25; }
+    .kanban-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .kanban-meta { color: var(--muted); font-size: 11px; display: flex; flex-wrap: wrap; gap: 5px; }
+    .kanban-chip { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #d8dee9; border-radius: 999px; padding: 3px 6px; font-size: 10px; }
+    .kanban-empty { color: var(--muted); font-size: 12px; padding: 10px; border: 1px dashed var(--border); border-radius: 8px; }
+    .cost-summary { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; }
+    .cost-card { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 11px 12px; min-width: 0; }
+    .cost-card b { display: block; font-size: 18px; margin-bottom: 4px; overflow-wrap: anywhere; }
+    .cost-card span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .cost-body { display: grid; grid-template-columns: 1.2fr .8fr; gap: 10px; margin-top: 12px; }
+    .cost-bars { display: grid; gap: 8px; }
+    .cost-bar-row { display: grid; grid-template-columns: minmax(130px, .85fr) 1fr minmax(72px, auto); gap: 10px; align-items: center; color: var(--muted); font-size: 12px; }
+    .cost-bar-row b { color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
+    .cost-track { height: 7px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .cost-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--blue)); }
+    .cost-fill.avatar { background: linear-gradient(90deg, var(--amber), var(--teal)); }
+    .cost-fill.ai { background: linear-gradient(90deg, var(--blue), #a78bfa); }
+    .cost-link { display: inline-flex; align-items: center; gap: 6px; }
+    .alignment-list { display: grid; gap: 8px; }
+    .alignment { border-left: 3px solid var(--teal); padding: 10px 12px; background: #141922; border-radius: 0 8px 8px 0; display: grid; gap: 6px; }
+    .alignment.production-hardening { border-left-color: var(--amber); }
+    .alignment.mapped { border-left-color: var(--blue); }
+    .alignment b { font-size: 13px; }
+    .alignment .small strong { color: var(--text); }
+    .mindmap-section { overflow: hidden; order: -1; }
+    .mindmap-shell {
+      position: relative;
+      height: min(64vh, 620px);
+      min-height: 440px;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(54, 194, 180, 0.15), transparent 24%),
+        radial-gradient(circle at 18% 20%, rgba(91, 141, 239, 0.16), transparent 28%),
+        radial-gradient(circle at 82% 76%, rgba(240, 180, 41, 0.1), transparent 24%),
+        #080b10;
+      border-radius: 0 0 8px 8px;
+      overflow: hidden;
+    }
+    #mindmapCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+      touch-action: none;
+    }
+    #mindmapCanvas.is-dragging { cursor: grabbing; }
+    #mindmapCanvas:focus-visible { outline: 2px solid var(--teal); outline-offset: -4px; }
+    .mindmap-controls {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      max-width: min(560px, calc(100% - 24px));
+      z-index: 4;
+    }
+    .mindmap-controls button {
+      border-color: rgba(255,255,255,0.14);
+      background: rgba(16, 18, 24, 0.82);
+      backdrop-filter: blur(10px);
+      color: var(--muted);
+      padding: 7px 9px;
+      font-size: 11px;
+    }
+    .mindmap-controls button.active {
+      background: rgba(54, 194, 180, 0.2);
+      border-color: rgba(54, 194, 180, 0.64);
+      color: var(--text);
+    }
+    .mindmap-viewport-tools {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      z-index: 5;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(16, 18, 24, 0.78);
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 6px;
+    }
+    .mindmap-viewport-tools button {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+    }
+    .mindmap-viewport-tools .readout {
+      min-width: 48px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .mindmap-stats {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: calc(100% - 24px);
+      z-index: 3;
+    }
+    .mindmap-stat {
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(16, 18, 24, 0.82);
+      backdrop-filter: blur(10px);
+      border-radius: 8px;
+      padding: 7px 9px;
+      min-width: 88px;
+    }
+    .mindmap-stat b { display: block; font-size: 16px; }
+    .mindmap-stat span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    .mindmap-legend {
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      z-index: 3;
+      max-width: calc(100% - 340px);
+    }
+    .mindmap-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(16, 18, 24, 0.76);
+      border-radius: 999px;
+      padding: 5px 8px;
+    }
+    .mindmap-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .mindmap-activity {
+      position: absolute;
+      right: 12px;
+      top: 58px;
+      width: min(320px, calc(100% - 24px));
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(16, 18, 24, 0.78);
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 11px;
+      z-index: 3;
+      display: grid;
+      gap: 8px;
+    }
+    .mindmap-activity-title { display: flex; justify-content: space-between; gap: 10px; color: var(--text); font-size: 12px; font-weight: 650; }
+    .activity-row { display: grid; grid-template-columns: 70px 1fr; gap: 8px; align-items: center; color: var(--muted); font-size: 11px; }
+    .activity-row b { color: var(--text); font-size: 11px; }
+    .activity-track { height: 5px; border-radius: 999px; background: rgba(255,255,255,0.09); overflow: hidden; }
+    .activity-fill { height: 100%; width: 50%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--blue)); box-shadow: 0 0 16px rgba(54,194,180,.55); }
+    .live-trace { display: grid; gap: 7px; max-height: 310px; overflow: auto; }
+    .live-trace-row { border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.045); border-radius: 8px; padding: 8px; display: grid; gap: 4px; }
+    .live-trace-row b { color: var(--text); font-size: 11px; }
+    .live-trace-row span { color: var(--teal); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    .live-trace-row p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.38; }
+    .live-trace-row.prompt { border-left: 3px solid var(--blue); }
+    .live-trace-row.reasoning { border-left: 3px solid var(--amber); }
+    .live-trace-row.response { border-left: 3px solid var(--teal); }
+    .live-trace-row.tool { border-left: 3px solid #7dd3fc; }
+    .live-trace-row.voice, .live-trace-row.teams { border-left: 3px solid #a78bfa; }
+    .mindmap-detail {
+      position: absolute;
+      left: 12px;
+      bottom: 52px;
+      width: min(310px, calc(100% - 24px));
+      max-height: 300px;
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(16, 18, 24, 0.9);
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 13px;
+      z-index: 3;
+    }
+    .mindmap-detail h3 { margin: 0 0 5px; font-size: 14px; }
+    .mindmap-detail p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .mindmap-detail .type { color: var(--teal); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+    .mindmap-detail-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .mindmap-detail-actions span {
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      border-radius: 999px;
+      color: #d8dee9;
+      font-size: 10px;
+      padding: 4px 7px;
+    }
+    [hidden] { display: none !important; }
+    .auth-overlay {
+      position: fixed; inset: 0; z-index: 20;
+      display: grid; place-items: center;
+      background: var(--bg);
+      padding: 24px;
+    }
+    .auth-card {
+      width: min(440px, 100%);
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 24px;
+      display: grid;
+      gap: 14px;
+      text-align: center;
+    }
+    .auth-card h2 { font-size: 20px; }
+    .auth-card p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .signed-in { color: var(--muted); font-size: 12px; }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; padding: 16px; }
+      header { align-items: flex-start; flex-direction: column; }
+      .grid { grid-template-columns: 1fr; }
+      .capability-grid { grid-template-columns: 1fr; }
+      .iq-grid { grid-template-columns: 1fr; }
+      .iq-metric-grid { grid-template-columns: 1fr; }
+      .agent-mind-summary { grid-template-columns: 1fr; }
+      .agent-event summary { grid-template-columns: 1fr; }
+      .agent-meta { justify-content: flex-start; }
+      .call-status-grid { grid-template-columns: 1fr; }
+      .call-grid { grid-template-columns: 1fr; }
+      .kanban-summary { grid-template-columns: 1fr; }
+      .cost-summary, .cost-body, .cost-bar-row { grid-template-columns: 1fr; }
+      .mindmap-shell { min-height: 520px; }
+      .mindmap-legend { display: none; }
+      .mindmap-controls { position: static; padding: 10px 10px 0; justify-content: flex-start; max-width: none; }
+      .mindmap-activity { display: none; }
+      .mindmap-detail { left: 12px; right: 12px; width: auto; bottom: 58px; }
+      .mindmap-viewport-tools { right: 12px; bottom: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-overlay" id="authOverlay" hidden>
+    <div class="auth-card">
+      <div class="mark" style="margin:0 auto;">M</div>
+      <h2>Sign in to Morgan</h2>
+      <p>Use your Microsoft work account to view Mission Control, daily work records, and autonomous CFO instructions.</p>
+      <a class="primary" id="signInButton" href="/auth/login?returnTo=/mission-control">Sign in with Microsoft</a>
+    </div>
+  </div>
+  <header>
+    <div class="brand">
+      <div class="mark">M</div>
+      <div>
+        <h1>Morgan Mission Control</h1>
+        <div class="subtitle" id="subtitle">Loading autonomous CFO operating view...</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="signed-in" id="signedInUser"></span>
+      <a href="#betaStarfield">Beta Starfield</a>
+      <a href="#agentMind">Agent Mind</a>
+      <a href="#costOfMorgan">Cost</a>
+      <a href="#microsoftIQ">Microsoft IQ</a>
+      <a href="#teamsCallControl">Teams Call</a>
+      <a href="#autonomousKanban">D-CFO Kanban</a>
+      <a href="/auth/logout?returnTo=/mission-control">Sign out</a>
+      <a href="/voice" class="primary">Open Avatar</a>
+      <button onclick="refresh()">Refresh</button>
+    </div>
+  </header>
+  <main id="appMain" hidden>
+    <section>
+      <div class="section-head"><h2>Today</h2><span class="small" id="date"></span></div>
+      <div class="body">
+        <div class="grid">
+          <div class="metric"><b id="completed">0</b><span>completed tasks</span></div>
+          <div class="metric"><b id="progress">0</b><span>in progress</span></div>
+          <div class="metric"><b id="blocked">0</b><span>blocked</span></div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Job Description</h2><span class="pill">customer visible</span></div>
+      <div class="body">
+        <div class="small" id="purpose"></div>
+        <br>
+        <ul id="mandate"></ul>
+      </div>
+    </section>
+    <section class="wide" id="costOfMorgan">
+      <div class="section-head"><h2>Cost of Morgan</h2><span class="status-dot partial" id="costBadge">loading</span></div>
+      <div class="body">
+        <div class="cost-summary">
+          <div class="cost-card"><b id="costDaily">$0</b><span>daily run-rate</span></div>
+          <div class="cost-card"><b id="costWeekly">$0</b><span>weekly run-rate</span></div>
+          <div class="cost-card"><b id="costAvatarShare">0%</b><span>avatar share</span></div>
+          <div class="cost-card"><b id="costValueRatio">0x</b><span>value to cost</span></div>
+          <div class="cost-card"><b id="costAzureActual">$0</b><span>Azure actual week</span></div>
+        </div>
+        <div class="cost-body">
+          <div class="cost-bars" id="costCategoryBars"></div>
+          <div class="compact-list" id="costValueSummary"></div>
+        </div>
+      </div>
+    </section>
+    <section class="wide mindmap-section" id="betaStarfield">
+      <div class="section-head"><h2>Beta Starfield</h2><span class="pill">Aria-style enterprise mode</span></div>
+      <div class="mindmap-shell">
+        <canvas id="mindmapCanvas" tabindex="0" aria-label="Interactive Morgan beta starfield"></canvas>
+        <div class="mindmap-controls" id="mindmapControls" aria-label="Beta Starfield modes">
+          <button type="button" data-mode="all" class="active">All</button>
+          <button type="button" data-mode="autonomy">Autonomy</button>
+          <button type="button" data-mode="workflow">Workflow</button>
+          <button type="button" data-mode="tools">Tools</button>
+          <button type="button" data-mode="governance">Governance</button>
+          <button type="button" data-mode="memory">Memory</button>
+          <button type="button" data-mode="live">Live Run</button>
+        </div>
+        <div class="mindmap-stats">
+          <div class="mindmap-stat"><b id="mindNodes">0</b><span>nodes</span></div>
+          <div class="mindmap-stat"><b id="mindTools">0</b><span>tools</span></div>
+          <div class="mindmap-stat"><b id="mindAgents">0</b><span>agents</span></div>
+          <div class="mindmap-stat"><b id="mindCaps">0</b><span>capabilities</span></div>
+          <div class="mindmap-stat"><b id="mindPaper">0</b><span>paper</span></div>
+          <div class="mindmap-stat"><b id="mindEvents">0</b><span>audit</span></div>
+        </div>
+        <div class="mindmap-activity" id="mindmapActivity"></div>
+        <div class="mindmap-legend" id="mindmapLegend"></div>
+        <div class="mindmap-viewport-tools" aria-label="Beta Starfield camera controls">
+          <button type="button" id="mindZoomOut" title="Zoom out" aria-label="Zoom out">-</button>
+          <span class="readout" id="mindZoomReadout">100%</span>
+          <button type="button" id="mindZoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+          <button type="button" id="mindZoomReset" title="Reset camera" aria-label="Reset camera">0</button>
+        </div>
+        <div class="mindmap-detail" id="mindmapDetail">
+          <div class="type">Morgan beta starfield</div>
+          <h3>Click a node</h3>
+          <p>Cassidy-style starfield view of Morgan's mission, instructions, finance signals, tools, sub-agents, avatar stack, task records, and audit memory.</p>
+        </div>
+      </div>
+    </section>
+    <section class="wide" id="agentMind">
+      <div class="section-head"><h2>Agent Mind: Tool Calling</h2><span class="status-dot partial" id="agentMindBadge">waiting</span></div>
+      <div class="body">
+        <div class="agent-mind">
+          <div class="agent-mind-summary">
+            <div class="agent-mind-stat"><b id="agentEventTotal">0</b><span>events</span></div>
+            <div class="agent-mind-stat"><b id="agentEventRecent">0</b><span>last 5 min</span></div>
+            <div class="agent-mind-stat"><b id="agentToolCalls">0</b><span>tool calls</span></div>
+            <div class="agent-mind-stat"><b id="agentMcpCalls">0</b><span>MCP/Graph</span></div>
+            <div class="agent-mind-stat"><b id="agentLlmTurns">0</b><span>LLM turns</span></div>
+          </div>
+          <div class="agent-filters" id="agentMindFilters" aria-label="Agent Mind event filters">
+            <button type="button" data-kind="all" class="active">All</button>
+            <button type="button" data-kind="agent.message">Messages</button>
+            <button type="button" data-kind="llm.turn">LLM</button>
+            <button type="button" data-kind="tool.call">Tool Calls</button>
+            <button type="button" data-kind="tool.result">Tool Results</button>
+            <button type="button" data-kind="mcp.discover">MCP Discovery</button>
+            <button type="button" data-kind="mcp.invoke">MCP Invoke</button>
+            <button type="button" data-kind="graph.call">Graph</button>
+          </div>
+          <div class="agent-event-list" id="agentMindEvents" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+    <section class="wide" id="microsoftIQ">
+      <div class="section-head"><h2>Microsoft IQ Command Layer</h2><span class="status-dot live" id="microsoftIqBadge">working demo</span></div>
+      <div class="body">
+        <div class="compact-list" id="microsoftIqHeadline"></div>
+        <div class="iq-grid" id="microsoftIqPillars"></div>
+        <div class="iq-metric-grid" id="microsoftIqMetrics"></div>
+        <div class="compact-list" id="microsoftIqActions"></div>
+      </div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Instructions Morgan Follows</h2></div>
+      <div class="body"><ul id="instructions"></ul></div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Enterprise Capabilities</h2><span class="pill">CorpGen mapped</span></div>
+      <div class="body"><div class="capability-grid" id="capabilities"></div></div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Enterprise Readiness</h2><span class="pill amber">live setup</span></div>
+      <div class="body"><div class="compact-list" id="readiness"></div></div>
+    </section>
+    <section class="wide" id="teamsCallControl">
+      <div class="section-head"><h2>Teams Call Control</h2><span class="status-dot partial" id="teamsCallBadge">checking</span></div>
+      <div class="body">
+        <div class="call-panel">
+          <div class="call-status-grid">
+            <div class="call-stat"><b>Bridge</b><span id="teamsCallBridge">Checking</span></div>
+            <div class="call-stat"><b>Default target</b><span id="teamsCallDefault">Checking</span></div>
+            <div class="call-stat"><b>Active calls</b><span id="teamsCallActiveCount">0</span></div>
+            <div class="call-stat"><b>Video presence</b><span id="teamsCallVideo">Audio bridge</span></div>
+          </div>
+          <div class="call-grid">
+            <div class="call-field">
+              <label for="teamsCallTarget">Teams user object ID</label>
+              <input id="teamsCallTarget" autocomplete="off" placeholder="Use configured CFO target">
+            </div>
+            <div class="call-field">
+              <label for="teamsCallDisplayName">Display name</label>
+              <input id="teamsCallDisplayName" autocomplete="off" placeholder="CFO/operator">
+            </div>
+            <div class="call-field">
+              <label for="teamsCallReason">Reason</label>
+              <input id="teamsCallReason" autocomplete="off" value="Mission Control finance escalation">
+            </div>
+            <div class="call-field">
+              <label for="teamsCallVoice">Voice</label>
+              <input id="teamsCallVoice" autocomplete="off" placeholder="verse">
+            </div>
+            <div class="call-field wide">
+              <label for="teamsCallInstructions">Morgan call brief</label>
+              <textarea id="teamsCallInstructions">Open as Morgan, the Digital CFO. Say this call was initiated from Mission Control, summarize the finance reason, ask what decision or follow-up is needed, and keep it brief.</textarea>
+            </div>
+          </div>
+          <div class="call-actions">
+            <button class="primary" id="teamsCallDial" type="button">Dial with Morgan AI</button>
+            <button id="teamsCallRefresh" type="button">Refresh status</button>
+          </div>
+          <div class="call-result" id="teamsCallResult">Ready for a protected operator command.</div>
+          <div class="active-call-list" id="teamsCallActiveList"></div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Cognitive Toolchain</h2><span class="pill">Agent 365 aligned</span></div>
+      <div class="body"><div class="compact-list" id="cognitiveTools"></div></div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Operating Cadence</h2></div>
+      <div class="body"><div class="records" id="cadence"></div></div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Adaptive Memory</h2><span class="pill">critical content</span></div>
+      <div class="body"><div class="compact-list" id="adaptiveMemory"></div></div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Experiential Learning</h2><span class="pill">playbook</span></div>
+      <div class="body"><div class="compact-list" id="experientialLearning"></div></div>
+    </section>
+    <section class="wide" id="autonomousKanban">
+      <div class="section-head"><h2>Autonomous Kanban</h2><span class="pill">D-CFO work board</span></div>
+      <div class="body">
+        <div class="kanban-summary" id="kanbanSummary"></div>
+        <div class="kanban-board" id="kanbanBoard" aria-label="Morgan D-CFO autonomous Kanban board"></div>
+      </div>
+    </section>
+    <section class="wide">
+      <div class="section-head"><h2>CFO Operating Plan</h2><span class="pill">next runnable work</span></div>
+      <div class="body"><div class="task-list" id="operatingPlan"></div></div>
+    </section>
+    <section class="wide">
+      <div class="section-head"><h2>Artifact Judge</h2><span class="pill amber">proof quality</span></div>
+      <div class="body"><div class="compact-list" id="artifactJudge"></div></div>
+    </section>
+    <section class="wide">
+      <div class="section-head"><h2>Paper Match Matrix</h2><span class="pill amber">enterprise controls</span></div>
+      <div class="body"><div class="alignment-list" id="paperAlignment"></div></div>
+    </section>
+    <section class="wide">
+      <div class="section-head"><h2>Key Tasks</h2></div>
+      <div class="body"><div class="task-list" id="tasks"></div></div>
+    </section>
+    <section class="wide">
+      <div class="section-head"><h2>Completed Work Log</h2><button onclick="loadReport()">Day-End Report</button></div>
+      <div class="body"><div class="records" id="records"></div></div>
+    </section>
+    <section class="wide">
+      <div class="section-head"><h2>End-of-Day Breakdown</h2></div>
+      <div class="body"><pre id="report">Use Day-End Report to load the current breakdown.</pre></div>
+    </section>
+  </main>
+  <script>
+    const mindmapCanvas = document.getElementById('mindmapCanvas');
+    const mindmapCtx = mindmapCanvas.getContext('2d');
+    const mindmapDetail = document.getElementById('mindmapDetail');
+    const mindmapLegend = document.getElementById('mindmapLegend');
+    const mindmapControls = document.getElementById('mindmapControls');
+    const mindmapActivity = document.getElementById('mindmapActivity');
+    const mindZoomIn = document.getElementById('mindZoomIn');
+    const mindZoomOut = document.getElementById('mindZoomOut');
+    const mindZoomReset = document.getElementById('mindZoomReset');
+    const mindZoomReadout = document.getElementById('mindZoomReadout');
+    const mindmapColors = {
+      core: '#6ea8fe',
+      mission: '#36c2b4',
+      instruction: '#f0b429',
+      finance: '#74c0fc',
+      tool: '#7dd3fc',
+      agent: '#f6ad55',
+      task: '#f472b6',
+      memory: '#81c784',
+      voice: '#a78bfa',
+      planning: '#22d3ee',
+      governance: '#fb7185',
+      evaluation: '#c4b5fd',
+      communication: '#60a5fa',
+      audit: '#cbd5e1'
+    };
+    const mindmapModes = {
+      all: { label: 'All', groups: null, phase: 'Enterprise operating graph', activity: ['Plan', 'Execute', 'Delegate', 'Govern', 'Prove'], speed: 1 },
+      autonomy: { label: 'Autonomy', groups: ['planning', 'task', 'mission'], phase: 'Day init and autonomous cycles', activity: ['Load context', 'Rank tasks', 'Pick next runnable', 'Record outcome'], speed: 1.18 },
+      workflow: { label: 'Workflow', groups: ['task', 'finance', 'communication'], phase: 'CFO work execution', activity: ['Analyze', 'Draft', 'Deliver', 'Follow up'], speed: 1.35 },
+      tools: { label: 'Tools', groups: ['tool', 'agent', 'voice', 'communication'], phase: 'Tool and sub-agent calls', activity: ['Discover tools', 'Call finance APIs', 'Use M365', 'Present in avatar'], speed: 1.55 },
+      governance: { label: 'Governance', groups: ['governance', 'instruction', 'evaluation'], phase: 'Approval and evidence controls', activity: ['Check rules', 'Verify source', 'Escalate', 'Judge result'], speed: 1.08 },
+      memory: { label: 'Memory', groups: ['memory', 'audit'], phase: 'Reflection and reusable context', activity: ['Capture evidence', 'Recall records', 'Consolidate lessons'], speed: 0.95 },
+      live: { label: 'Live Run', groups: [], phase: 'Live black-box trace', activity: ['Prompt', 'Reasoning summary', 'Tool/action', 'Response'], speed: 1.85 }
+    };
+    let mindmapGraph = {
+      baseNodes: [],
+      baseLinks: [],
+      nodes: [],
+      links: [],
+      positions: new Map(),
+      selected: null,
+      hover: null,
+      frameStarted: false,
+      focusMode: 'all',
+      particles: [],
+      live: {
+        activeIds: new Set(),
+        traces: [],
+        lastUpdatedAt: null,
+      },
+      camera: {
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+        targetZoom: 1,
+        targetPanX: 0,
+        targetPanY: 0,
+        dragging: false,
+        didDrag: false,
+        lastPointer: null,
+        pointer: { x: 0.5, y: 0.5, active: false },
+        cinematicBoost: 0,
+      }
+    };
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function slug(value) {
+      return String(value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 80) || 'node';
+    }
+
+    function updateMindmapZoomReadout() {
+      mindZoomReadout.textContent = `${Math.round(mindmapGraph.camera.targetZoom * 100)}%`;
+    }
+
+    function clampMindmapCamera() {
+      const rect = mindmapCanvas.getBoundingClientRect();
+      const camera = mindmapGraph.camera;
+      const limitX = rect.width * Math.max(0.42, camera.targetZoom - 0.2);
+      const limitY = rect.height * Math.max(0.42, camera.targetZoom - 0.2);
+      camera.targetPanX = clamp(camera.targetPanX, -limitX, limitX);
+      camera.targetPanY = clamp(camera.targetPanY, -limitY, limitY);
+    }
+
+    function transformMindmapPoint(x, y) {
+      const rect = mindmapCanvas.getBoundingClientRect();
+      const camera = mindmapGraph.camera;
+      const parallaxX = camera.pointer.active ? (camera.pointer.x - 0.5) * 18 * Math.min(camera.zoom, 1.8) : 0;
+      const parallaxY = camera.pointer.active ? (camera.pointer.y - 0.5) * 14 * Math.min(camera.zoom, 1.8) : 0;
+      return {
+        x: rect.width / 2 + camera.panX + (x - rect.width / 2) * camera.zoom + parallaxX,
+        y: rect.height / 2 + camera.panY + (y - rect.height / 2) * camera.zoom + parallaxY,
+      };
+    }
+
+    function inverseMindmapPoint(x, y) {
+      const rect = mindmapCanvas.getBoundingClientRect();
+      const camera = mindmapGraph.camera;
+      const parallaxX = camera.pointer.active ? (camera.pointer.x - 0.5) * 18 * Math.min(camera.zoom, 1.8) : 0;
+      const parallaxY = camera.pointer.active ? (camera.pointer.y - 0.5) * 14 * Math.min(camera.zoom, 1.8) : 0;
+      return {
+        x: rect.width / 2 + (x - rect.width / 2 - camera.panX - parallaxX) / camera.zoom,
+        y: rect.height / 2 + (y - rect.height / 2 - camera.panY - parallaxY) / camera.zoom,
+      };
+    }
+
+    function setMindmapZoom(nextZoom, origin) {
+      const rect = mindmapCanvas.getBoundingClientRect();
+      const camera = mindmapGraph.camera;
+      const previousZoom = camera.targetZoom;
+      const zoom = clamp(nextZoom, 0.52, 3.6);
+      if (Math.abs(zoom - previousZoom) < 0.001) return;
+      const originX = origin?.x ?? rect.width / 2;
+      const originY = origin?.y ?? rect.height / 2;
+      const worldX = (originX - rect.width / 2 - camera.targetPanX) / previousZoom;
+      const worldY = (originY - rect.height / 2 - camera.targetPanY) / previousZoom;
+      camera.targetZoom = zoom;
+      camera.targetPanX = originX - rect.width / 2 - worldX * camera.targetZoom;
+      camera.targetPanY = originY - rect.height / 2 - worldY * camera.targetZoom;
+      camera.cinematicBoost = Math.min(1, camera.cinematicBoost + 0.22);
+      clampMindmapCamera();
+      updateMindmapZoomReadout();
+    }
+
+    function resetMindmapCamera() {
+      const camera = mindmapGraph.camera;
+      camera.targetZoom = 1;
+      camera.targetPanX = 0;
+      camera.targetPanY = 0;
+      camera.cinematicBoost = Math.min(1, camera.cinematicBoost + 0.32);
+      updateMindmapZoomReadout();
+    }
+
+    function focusMindmapNode(node) {
+      if (!node) return;
+      const pos = mindmapGraph.positions.get(node.id);
+      if (!pos) return;
+      const rect = mindmapCanvas.getBoundingClientRect();
+      const camera = mindmapGraph.camera;
+      const nextZoom = node.id === 'morgan-core' ? 1.45 : node.id.startsWith('hub-') ? 1.75 : 2.25;
+      camera.targetZoom = clamp(nextZoom, 0.52, 3.6);
+      camera.targetPanX = (rect.width / 2 - pos.x) * camera.targetZoom;
+      camera.targetPanY = (rect.height / 2 - pos.y) * camera.targetZoom;
+      camera.cinematicBoost = 1;
+      clampMindmapCamera();
+      updateMindmapZoomReadout();
+    }
+
+    function setupMindmapCameraControls() {
+      mindZoomIn.addEventListener('click', () => setMindmapZoom(mindmapGraph.camera.targetZoom * 1.18));
+      mindZoomOut.addEventListener('click', () => setMindmapZoom(mindmapGraph.camera.targetZoom / 1.18));
+      mindZoomReset.addEventListener('click', resetMindmapCamera);
+      mindmapCanvas.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const rect = mindmapCanvas.getBoundingClientRect();
+        setMindmapZoom(mindmapGraph.camera.targetZoom * (event.deltaY < 0 ? 1.12 : 0.88), {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        });
+      }, { passive: false });
+      mindmapCanvas.addEventListener('pointerdown', (event) => {
+        mindmapGraph.camera.dragging = true;
+        mindmapGraph.camera.didDrag = false;
+        mindmapGraph.camera.lastPointer = { x: event.clientX, y: event.clientY };
+        mindmapCanvas.classList.add('is-dragging');
+        mindmapCanvas.setPointerCapture(event.pointerId);
+      });
+      mindmapCanvas.addEventListener('pointermove', (event) => {
+        const rect = mindmapCanvas.getBoundingClientRect();
+        mindmapGraph.camera.pointer = {
+          x: clamp((event.clientX - rect.left) / rect.width, 0, 1),
+          y: clamp((event.clientY - rect.top) / rect.height, 0, 1),
+          active: true,
+        };
+        if (mindmapGraph.camera.dragging && mindmapGraph.camera.lastPointer) {
+          const deltaX = event.clientX - mindmapGraph.camera.lastPointer.x;
+          const deltaY = event.clientY - mindmapGraph.camera.lastPointer.y;
+          if (Math.hypot(deltaX, deltaY) > 2) mindmapGraph.camera.didDrag = true;
+          mindmapGraph.camera.targetPanX += deltaX;
+          mindmapGraph.camera.targetPanY += deltaY;
+          mindmapGraph.camera.lastPointer = { x: event.clientX, y: event.clientY };
+          mindmapGraph.camera.cinematicBoost = Math.min(1, mindmapGraph.camera.cinematicBoost + 0.02);
+          clampMindmapCamera();
+        }
+      });
+      const endDrag = (event) => {
+        mindmapGraph.camera.dragging = false;
+        mindmapGraph.camera.lastPointer = null;
+        mindmapCanvas.classList.remove('is-dragging');
+        try { mindmapCanvas.releasePointerCapture(event.pointerId); } catch {}
+      };
+      mindmapCanvas.addEventListener('pointerup', endDrag);
+      mindmapCanvas.addEventListener('pointercancel', endDrag);
+      mindmapCanvas.addEventListener('pointerleave', () => { mindmapGraph.camera.pointer.active = false; });
+      mindmapCanvas.addEventListener('dblclick', resetMindmapCamera);
+      mindmapCanvas.addEventListener('keydown', (event) => {
+        if (event.key === '+' || event.key === '=') {
+          event.preventDefault();
+          setMindmapZoom(mindmapGraph.camera.targetZoom * 1.18);
+        } else if (event.key === '-' || event.key === '_') {
+          event.preventDefault();
+          setMindmapZoom(mindmapGraph.camera.targetZoom / 1.18);
+        } else if (event.key === '0') {
+          event.preventDefault();
+          resetMindmapCamera();
+        }
+      });
+      updateMindmapZoomReadout();
+    }
+
+    function liveTraceKind(event) {
+      if (event.kind === 'agent.message') return 'prompt';
+      if (event.kind === 'llm.turn') return 'reasoning';
+      if (event.kind === 'agent.reply') return 'response';
+      if (event.kind === 'voice.session') return 'voice';
+      if (event.kind === 'teams.call') return 'teams';
+      if (event.kind === 'tool.call' || event.kind === 'tool.result' || event.kind === 'mcp.discover' || event.kind === 'mcp.invoke' || event.kind === 'graph.call') return 'tool';
+      return event.kind === 'mission.task' ? 'task' : 'reasoning';
+    }
+
+    function liveTraceText(event) {
+      const data = event.data || {};
+      return data.promptPreview || data.responsePreview || data.reasoningSummary || event.label || event.kind;
+    }
+
+    function liveTraceTitle(kind) {
+      if (kind === 'prompt') return 'Prompt';
+      if (kind === 'response') return 'Response';
+      if (kind === 'tool') return 'Tool / MCP / Graph';
+      if (kind === 'voice') return 'Voice';
+      if (kind === 'teams') return 'Teams';
+      if (kind === 'task') return 'Autonomous Task';
+      return 'Reasoning Summary';
+    }
+
+    function baseNodeExists(id) {
+      return mindmapGraph.baseNodes.some((node) => node.id === id);
+    }
+
+    function addActiveNode(activeIds, id) {
+      if (id && (baseNodeExists(id) || String(id).startsWith('live-'))) activeIds.add(id);
+    }
+
+    function pushLiveNode(nodes, activeIds, id, label, type, detail, status, ts) {
+      const node = {
+        id,
+        label,
+        type,
+        group: 'live',
+        importance: 9,
+        detail,
+        status,
+        ts,
+      };
+      nodes.push(node);
+      activeIds.add(id);
+      return node;
+    }
+
+    function pushLiveLink(links, source, target, type = 'capability', strength = 0.76, label = 'live') {
+      links.push({ source, target, type, strength, label });
+    }
+
+    function eventNodeType(kind) {
+      if (kind === 'prompt') return 'instruction';
+      if (kind === 'response') return 'communication';
+      if (kind === 'tool') return 'tool';
+      if (kind === 'voice' || kind === 'teams') return 'voice';
+      if (kind === 'task') return 'task';
+      return 'planning';
+    }
+
+    function eventHubIds(event, traceKind) {
+      const data = event.data || {};
+      const source = String(data.source || '').toLowerCase();
+      const tool = String(data.tool || '').toLowerCase();
+      const ids = ['morgan-core'];
+      if (traceKind === 'prompt') ids.push(source.includes('voice') || String(data.channelId || '').includes('voice') ? 'hub-voice' : 'hub-mission');
+      if (traceKind === 'reasoning') ids.push('hub-planning', 'hub-governance');
+      if (traceKind === 'response') ids.push('hub-mission', 'hub-audit');
+      if (traceKind === 'tool') ids.push('hub-tools');
+      if (traceKind === 'voice') ids.push('hub-voice', 'voice-voice-live');
+      if (traceKind === 'teams') ids.push('hub-voice', 'voice-teams-calling');
+      if (traceKind === 'task') ids.push('hub-workday', 'hub-audit');
+      if (event.kind === 'mcp.discover' || event.kind === 'mcp.invoke' || source.includes('mcp')) ids.push('hub-microsoft-iq');
+      if (event.kind === 'graph.call' || source.includes('graph')) ids.push('hub-tools', 'iq-workiq');
+      if (source.includes('fabric') || tool.includes('fabric')) ids.push('iq-fabriciq', 'hub-finance');
+      if (source.includes('foundry') || tool.includes('foundry')) ids.push('iq-foundryiq', 'hub-cognitive');
+      if (source.includes('workiq') || tool.includes('workiq')) ids.push('iq-workiq');
+      if (data.tool) ids.push(`tool-${slug(data.tool)}`);
+      if (data.taskId) ids.push(`task-${data.taskId}`);
+      return Array.from(new Set(ids));
+    }
+
+    function buildLiveMindmap(events = []) {
+      const now = Date.now();
+      const activeWindowMs = mindmapGraph.focusMode === 'live' ? 150000 : 240000;
+      const recentEvents = (events || [])
+        .filter((event) => event?.ts && now - new Date(event.ts).getTime() <= activeWindowMs)
+        .slice(0, 18);
+      const activeCalls = teamsCallState.status?.activeCalls || [];
+      const activeIds = new Set();
+      const liveNodes = [];
+      const liveLinks = [];
+      const traces = [];
+
+      recentEvents.forEach((event) => {
+        const traceKind = liveTraceKind(event);
+        const text = String(liveTraceText(event) || '').replace(/\s+/g, ' ').trim();
+        const title = liveTraceTitle(traceKind);
+        const liveId = `live-${traceKind}-${event.id}`;
+        const hubIds = eventHubIds(event, traceKind);
+        hubIds.forEach((id) => addActiveNode(activeIds, id));
+        const node = pushLiveNode(
+          liveNodes,
+          activeIds,
+          liveId,
+          `${title}: ${(event.label || text || event.kind).slice(0, 46)}`,
+          eventNodeType(traceKind),
+          traceKind === 'reasoning'
+            ? `${text || 'Safe reasoning summary available.'} Raw hidden chain-of-thought is not exposed; this is the observable reasoning trace Morgan can show.`
+            : text || event.label || event.kind,
+          event.status || traceKind,
+          event.ts,
+        );
+        pushLiveLink(liveLinks, 'morgan-core', node.id, traceKind === 'reasoning' ? 'task_flow' : 'capability', 0.86, title);
+        hubIds.filter((id) => id !== 'morgan-core').slice(0, 4).forEach((id) => pushLiveLink(liveLinks, id, node.id, 'capability', 0.58, title));
+        traces.push({ kind: traceKind, title, text: text || event.label || event.kind, ts: event.ts, status: event.status || '' });
+      });
+
+      activeCalls.forEach((call) => {
+        const id = `live-teams-${call.callConnectionId || call.startedAt || Date.now()}`;
+        ['morgan-core', 'hub-voice', 'voice-teams-calling'].forEach((nodeId) => addActiveNode(activeIds, nodeId));
+        pushLiveNode(
+          liveNodes,
+          activeIds,
+          id,
+          `Teams call: ${call.targetDisplayName || call.targetTeamsOid || 'active call'}`,
+          'voice',
+          `Active ${call.direction || 'Teams'} call for ${call.ageSec || 0}s. Morgan's Teams audio bridge is part of the live brain trace.`,
+          'active',
+          new Date().toISOString(),
+        );
+        pushLiveLink(liveLinks, 'morgan-core', id, 'voice_link', 0.92, 'live Teams call');
+        pushLiveLink(liveLinks, 'voice-teams-calling', id, 'voice_link', 0.72, 'ACS media');
+        traces.unshift({ kind: 'teams', title: 'Teams', text: `Active ${call.direction || 'Teams'} call for ${call.ageSec || 0}s.`, ts: new Date().toISOString(), status: 'active' });
+      });
+
+      mindmapGraph.nodes = [...mindmapGraph.baseNodes, ...liveNodes];
+      mindmapGraph.links = [...mindmapGraph.baseLinks, ...liveLinks];
+      mindmapGraph.live = { activeIds, traces: traces.slice(0, 12), lastUpdatedAt: new Date().toISOString() };
+      if (mindmapGraph.focusMode === 'live') {
+        mindmapGraph.camera.cinematicBoost = Math.min(1, mindmapGraph.camera.cinematicBoost + (traces.length ? 0.12 : 0));
+      }
+      positionMindmapNodes();
+    }
+
+    function resizeMindmap() {
+      const rect = mindmapCanvas.getBoundingClientRect();
+      const scale = window.devicePixelRatio || 1;
+      mindmapCanvas.width = Math.max(1, Math.floor(rect.width * scale));
+      mindmapCanvas.height = Math.max(1, Math.floor(rect.height * scale));
+      mindmapCtx.setTransform(scale, 0, 0, scale, 0, 0);
+      ensureMindmapParticles(rect);
+      positionMindmapNodes();
+      clampMindmapCamera();
+    }
+
+    function ensureMindmapParticles(rect) {
+      const liveCount = mindmapGraph.live?.activeIds?.size || 0;
+      const targetCount = mindmapGraph.focusMode === 'live' ? Math.max(24, Math.min(96, 18 + liveCount * 6)) : 86;
+      while (mindmapGraph.particles.length < targetCount) {
+        mindmapGraph.particles.push({
+          x: Math.random(),
+          y: Math.random(),
+          size: Math.random() * 2.1 + 0.45,
+          speed: Math.random() * 0.34 + 0.08,
+          opacity: Math.random() * 0.48 + 0.14,
+          drift: (Math.random() - 0.5) * 0.22,
+          phase: Math.random() * Math.PI * 2,
+          depth: Math.random() * 0.85 + 0.2
+        });
+      }
+      if (mindmapGraph.particles.length > targetCount) mindmapGraph.particles.length = targetCount;
+      void rect;
+    }
+
+    function typeRing(node) {
+      if (node.id === 'morgan-core') return 0;
+      if (node.id.startsWith('hub-')) return 112;
+      if (node.type === 'planning' || node.type === 'governance' || node.type === 'evaluation') return 185;
+      if (node.type === 'instruction' || node.type === 'task' || node.type === 'agent') return 230;
+      if (node.type === 'tool' || node.type === 'finance' || node.type === 'voice' || node.type === 'communication') return 305;
+      if (node.type === 'memory' || node.type === 'audit') return 390;
+      return 330;
+    }
+
+    function positionMindmapNodes() {
+      const rect = mindmapCanvas.getBoundingClientRect();
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const maxRadius = Math.max(120, Math.min(rect.width, rect.height) * 0.47);
+      const ringScale = maxRadius / 430;
+      const byRing = new Map();
+      mindmapGraph.nodes.forEach((node) => {
+        const ring = typeRing(node);
+        const list = byRing.get(ring) || [];
+        list.push(node);
+        byRing.set(ring, list);
+      });
+      for (const [ring, nodes] of byRing.entries()) {
+        nodes.forEach((node, index) => {
+          const seed = Array.from(node.id).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+          const angle = nodes.length === 1 ? 0 : (index / nodes.length) * Math.PI * 2 + (seed % 19) * 0.017;
+          const active = nodeMatchesMode(node);
+          const radius = ring * ringScale * (active ? 0.95 : 1.08);
+          mindmapGraph.positions.set(node.id, {
+            node,
+            angle,
+            radius,
+            x: cx + Math.cos(angle) * radius,
+            y: cy + Math.sin(angle) * radius,
+            phase: (seed % 360) / 57.2958,
+            size: node.id === 'morgan-core' ? 12 : node.id.startsWith('hub-') ? 7 : Math.max(2.4, Math.min(6.2, 2.2 + Math.sqrt(node.importance || 2)))
+          });
+        });
+      }
+    }
+
+    function nodeMatchesMode(node) {
+      const mode = mindmapModes[mindmapGraph.focusMode] || mindmapModes.all;
+      if (mindmapGraph.focusMode === 'live') return mindmapGraph.live.activeIds.has(node.id);
+      if (node.group === 'live') return false;
+      if (!mode.groups) return true;
+      return mode.groups.includes(node.type) || mode.groups.includes(node.group) || node.id === 'morgan-core' || node.id.startsWith('hub-');
+    }
+
+    function nodeVisibleInMindmap(node) {
+      if (mindmapGraph.focusMode === 'live') return nodeMatchesMode(node);
+      return node.group !== 'live';
+    }
+
+    function setMindmapDetail(node) {
+      mindmapDetail.innerHTML = '';
+      const type = document.createElement('div');
+      type.className = 'type';
+      type.textContent = node ? `${node.type} - importance ${node.importance}/10` : `${mindmapModes[mindmapGraph.focusMode].phase}`;
+      const title = document.createElement('h3');
+      title.textContent = node ? node.label : 'Click a node';
+      const body = document.createElement('p');
+      body.textContent = node
+        ? (node.detail || node.status || 'No detail available yet.')
+        : "Morgan's Aria-style starfield maps the Digital CFO operating contract into live autonomy, workflow, tools, governance, memory, and proof-of-work modes.";
+      mindmapDetail.appendChild(type);
+      mindmapDetail.appendChild(title);
+      mindmapDetail.appendChild(body);
+      if (node && (node.status || node.ts)) {
+        const meta = document.createElement('p');
+        meta.textContent = [node.status ? `Status: ${node.status}` : '', node.ts ? new Date(node.ts).toLocaleString() : ''].filter(Boolean).join(' - ');
+        mindmapDetail.appendChild(meta);
+      }
+      const actions = document.createElement('div');
+      actions.className = 'mindmap-detail-actions';
+      const actionLabels = node ? detailActionsForNode(node) : ['Select mode', 'Click node', 'Inspect evidence'];
+      actionLabels.forEach((label) => {
+        const chip = document.createElement('span');
+        chip.textContent = label;
+        actions.appendChild(chip);
+      });
+      mindmapDetail.appendChild(actions);
+    }
+
+    function detailActionsForNode(node) {
+      if (node.id === 'morgan-core') return ['Plan workday', 'Run CFO cycle', 'Send EOD report'];
+      if (node.type === 'planning') return ['Rank tasks', 'Check dependencies', 'Advance cadence'];
+      if (node.type === 'tool') return ['Call tool', 'Capture evidence', 'Record result'];
+      if (node.type === 'agent') return ['Delegate', 'Isolate context', 'Return summary'];
+      if (node.type === 'governance' || node.type === 'instruction') return ['Check guardrail', 'Escalate if needed', 'Explain rule'];
+      if (node.type === 'memory' || node.type === 'audit') return ['Recall event', 'Use in reflection', 'Add proof'];
+      if (node.type === 'voice' || node.type === 'communication') return ['Open avatar', 'Brief stakeholder', 'Use Teams'];
+      if (node.type === 'evaluation') return ['Judge artifact', 'Score evidence', 'Track outcome'];
+      if (node.type === 'finance') return ['Analyze signal', 'Flag variance', 'Brief CFO'];
+      return ['Inspect detail', 'Connect workflow', 'Record outcome'];
+    }
+
+    function drawMindmap() {
+      const rect = mindmapCanvas.getBoundingClientRect();
+      const time = performance.now() / 1000;
+      const mode = mindmapModes[mindmapGraph.focusMode] || mindmapModes.all;
+      const camera = mindmapGraph.camera;
+      camera.zoom += (camera.targetZoom - camera.zoom) * 0.12;
+      camera.panX += (camera.targetPanX - camera.panX) * 0.12;
+      camera.panY += (camera.targetPanY - camera.panY) * 0.12;
+      camera.cinematicBoost *= 0.94;
+      mindmapCtx.clearRect(0, 0, rect.width, rect.height);
+      const bg = mindmapCtx.createRadialGradient(rect.width * 0.5, rect.height * 0.45, 0, rect.width * 0.5, rect.height * 0.45, Math.max(rect.width, rect.height) * 0.72);
+      bg.addColorStop(0, mindmapGraph.focusMode === 'governance' ? 'rgba(78, 22, 34, 0.95)' : 'rgba(10, 31, 38, 0.95)');
+      bg.addColorStop(0.45, 'rgba(8, 11, 16, 0.98)');
+      bg.addColorStop(1, '#05070b');
+      mindmapCtx.fillStyle = bg;
+      mindmapCtx.fillRect(0, 0, rect.width, rect.height);
+      const vignette = mindmapCtx.createRadialGradient(rect.width / 2, rect.height / 2, rect.width * 0.18, rect.width / 2, rect.height / 2, Math.max(rect.width, rect.height) * 0.72);
+      vignette.addColorStop(0, 'rgba(255,255,255,0.02)');
+      vignette.addColorStop(1, `rgba(0,0,0,${0.38 + camera.cinematicBoost * 0.12})`);
+      mindmapCtx.fillStyle = vignette;
+      mindmapCtx.fillRect(0, 0, rect.width, rect.height);
+
+      drawMindmapParticles(rect, time, mode);
+
+      for (const pos of mindmapGraph.positions.values()) {
+        if (!nodeVisibleInMindmap(pos.node)) continue;
+        const active = nodeMatchesMode(pos.node);
+        const drift = Math.sin(time * 0.45 * mode.speed + pos.phase) * (active ? 10 : 5);
+        const orbit = active ? 0.06 : 0.024;
+        pos.x = rect.width / 2 + Math.cos(pos.angle + Math.sin(time * 0.08 * mode.speed + pos.phase) * orbit) * (pos.radius + drift);
+        pos.y = rect.height / 2 + Math.sin(pos.angle + Math.cos(time * 0.07 * mode.speed + pos.phase) * orbit) * (pos.radius + drift);
+      }
+
+      mindmapCtx.lineCap = 'round';
+      for (const link of mindmapGraph.links) {
+        const source = mindmapGraph.positions.get(link.source);
+        const target = mindmapGraph.positions.get(link.target);
+        if (!source || !target) continue;
+        if (!nodeVisibleInMindmap(source.node) || !nodeVisibleInMindmap(target.node)) continue;
+        const sourcePoint = transformMindmapPoint(source.x, source.y);
+        const targetPoint = transformMindmapPoint(target.x, target.y);
+        const modeLink = nodeMatchesMode(source.node) && nodeMatchesMode(target.node);
+        const highlighted = mindmapGraph.hover && (link.source === mindmapGraph.hover.id || link.target === mindmapGraph.hover.id);
+        const selected = mindmapGraph.selected && (link.source === mindmapGraph.selected.id || link.target === mindmapGraph.selected.id);
+        mindmapCtx.beginPath();
+        mindmapCtx.moveTo(sourcePoint.x, sourcePoint.y);
+        mindmapCtx.lineTo(targetPoint.x, targetPoint.y);
+        mindmapCtx.strokeStyle = highlighted || selected
+          ? 'rgba(244, 246, 248, 0.62)'
+          : modeLink
+            ? 'rgba(94, 234, 212, 0.22)'
+            : 'rgba(154, 164, 178, 0.07)';
+        mindmapCtx.lineWidth = (highlighted || selected ? 1.8 : modeLink ? Math.max(0.75, (link.strength || 0.4) * 1.4) : 0.35) * Math.min(1.4, 0.86 + camera.zoom * 0.18);
+        mindmapCtx.stroke();
+        if (modeLink || highlighted || selected) {
+          const progress = (time * 0.22 * mode.speed + (link.strength || 0.3)) % 1;
+          const px = sourcePoint.x + (targetPoint.x - sourcePoint.x) * progress;
+          const py = sourcePoint.y + (targetPoint.y - sourcePoint.y) * progress;
+          mindmapCtx.beginPath();
+          mindmapCtx.arc(px, py, (highlighted || selected ? 3.2 : 2.1) * Math.min(1.6, 0.85 + camera.zoom * 0.2), 0, Math.PI * 2);
+          mindmapCtx.fillStyle = link.type === 'governance' ? 'rgba(251, 113, 133, 0.85)' : 'rgba(94, 234, 212, 0.8)';
+          mindmapCtx.fill();
+        }
+      }
+
+      for (const pos of mindmapGraph.positions.values()) {
+        const node = pos.node;
+        if (!nodeVisibleInMindmap(node)) continue;
+        const point = transformMindmapPoint(pos.x, pos.y);
+        const color = mindmapColors[node.type] || '#9aa4b2';
+        const selected = mindmapGraph.selected && mindmapGraph.selected.id === node.id;
+        const hovered = mindmapGraph.hover && mindmapGraph.hover.id === node.id;
+        const hub = node.id === 'morgan-core' || node.id.startsWith('hub-');
+        const active = nodeMatchesMode(node);
+        const pulse = 1 + Math.sin(time * (active ? 1.9 : 1.1) + pos.phase) * (active ? 0.12 : 0.04);
+        const radius = (selected || hovered ? pos.size * 1.45 : pos.size) * pulse * Math.min(1.8, 0.78 + camera.zoom * 0.24);
+
+        if (selected || hovered || hub || active) {
+          mindmapCtx.beginPath();
+          mindmapCtx.arc(point.x, point.y, radius * (selected || hovered ? 3.4 : active ? 2.65 : 2.1), 0, Math.PI * 2);
+          mindmapCtx.fillStyle = hexToRgba(color, selected || hovered ? 0.22 : active ? 0.13 : 0.06);
+          mindmapCtx.fill();
+        }
+        if (selected || hovered) {
+          mindmapCtx.beginPath();
+          mindmapCtx.arc(point.x, point.y, radius * (4.2 + camera.cinematicBoost * 1.5), 0, Math.PI * 2);
+          mindmapCtx.strokeStyle = hexToRgba(color, 0.32);
+          mindmapCtx.lineWidth = 1.2;
+          mindmapCtx.stroke();
+        }
+        mindmapCtx.globalAlpha = active ? 1 : 0.32;
+        mindmapCtx.beginPath();
+        mindmapCtx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+        mindmapCtx.fillStyle = color;
+        mindmapCtx.fill();
+        mindmapCtx.globalAlpha = 1;
+
+        if (hub || hovered || selected || camera.zoom > 1.45 || (active && pos.size > 4.5)) {
+          mindmapCtx.font = hub ? '600 12px Segoe UI, sans-serif' : '11px Segoe UI, sans-serif';
+          mindmapCtx.fillStyle = hovered || selected ? '#ffffff' : '#cbd5e1';
+          mindmapCtx.textAlign = 'center';
+          mindmapCtx.textBaseline = 'top';
+          const label = node.label.length > 34 ? node.label.slice(0, 32) + '...' : node.label;
+          mindmapCtx.fillText(label, point.x, point.y + radius + 5);
+        }
+      }
+      requestAnimationFrame(drawMindmap);
+    }
+
+    function drawMindmapParticles(rect, time, mode) {
+      const camera = mindmapGraph.camera;
+      const activeTone = mindmapGraph.focusMode === 'governance'
+        ? [251, 113, 133]
+        : mindmapGraph.focusMode === 'tools' || mindmapGraph.focusMode === 'live'
+          ? [245, 158, 11]
+          : [147, 197, 253];
+      const pointerX = camera.pointer.x * rect.width;
+      const pointerY = camera.pointer.y * rect.height;
+      for (const particle of mindmapGraph.particles) {
+        if (mindmapGraph.focusMode === 'live' && !(mindmapGraph.live?.traces?.length || 0)) {
+          if (particle.depth > 0.44) continue;
+        }
+        particle.y -= particle.speed * 0.0014 * mode.speed * (1 + camera.cinematicBoost * 0.72);
+        particle.x += particle.drift * 0.0012;
+        if (particle.y < -0.05) { particle.y = 1.05; particle.x = Math.random(); }
+        if (particle.x < -0.05) particle.x = 1.05;
+        if (particle.x > 1.05) particle.x = -0.05;
+        const depthScale = 0.5 + particle.depth * 0.88;
+        const parallaxX = camera.pointer.active ? (camera.pointer.x - 0.5) * 34 * particle.depth : 0;
+        const parallaxY = camera.pointer.active ? (camera.pointer.y - 0.5) * 26 * particle.depth : 0;
+        const px = rect.width / 2 + camera.panX * particle.depth * 0.32 + (particle.x - 0.5) * rect.width * camera.zoom * depthScale + parallaxX;
+        const py = rect.height / 2 + camera.panY * particle.depth * 0.32 + (particle.y - 0.5) * rect.height * camera.zoom * depthScale + parallaxY;
+        if (px < -80 || px > rect.width + 80 || py < -80 || py > rect.height + 80) continue;
+        const pointerDistance = camera.pointer.active ? Math.hypot(px - pointerX, py - pointerY) : Infinity;
+        const pointerBoost = Math.max(0, 1 - pointerDistance / 150);
+        const twinkle = 0.72 + Math.sin(time * 1.4 + particle.phase) * 0.28;
+        const alpha = Math.min(0.9, particle.opacity * twinkle * (mindmapGraph.focusMode === 'live' ? 1.32 : 1) + pointerBoost * 0.28 + camera.cinematicBoost * 0.12);
+        const size = particle.size * Math.min(1.8, 0.72 + camera.zoom * 0.25 + particle.depth * 0.42);
+        mindmapCtx.beginPath();
+        mindmapCtx.arc(px, py, size * (3.2 + pointerBoost * 2.2), 0, Math.PI * 2);
+        mindmapCtx.fillStyle = `rgba(${activeTone[0]}, ${activeTone[1]}, ${activeTone[2]}, ${alpha * 0.08})`;
+        mindmapCtx.fill();
+        mindmapCtx.beginPath();
+        mindmapCtx.arc(px, py, size, 0, Math.PI * 2);
+        mindmapCtx.fillStyle = `rgba(${activeTone[0]}, ${activeTone[1]}, ${activeTone[2]}, ${alpha})`;
+        mindmapCtx.fill();
+        if (size > 1.55) {
+          mindmapCtx.beginPath();
+          mindmapCtx.moveTo(px - size * 2.4, py);
+          mindmapCtx.lineTo(px + size * 2.4, py);
+          mindmapCtx.strokeStyle = `rgba(${activeTone[0]}, ${activeTone[1]}, ${activeTone[2]}, ${alpha * 0.18})`;
+          mindmapCtx.lineWidth = 1;
+          mindmapCtx.stroke();
+        }
+        if (pointerBoost > 0.14) {
+          mindmapCtx.beginPath();
+          mindmapCtx.moveTo(pointerX, pointerY);
+          mindmapCtx.lineTo(px, py);
+          mindmapCtx.strokeStyle = `rgba(${activeTone[0]}, ${activeTone[1]}, ${activeTone[2]}, ${pointerBoost * 0.18})`;
+          mindmapCtx.lineWidth = 0.8;
+          mindmapCtx.stroke();
+        }
+      }
+    }
+
+    function hexToRgba(hex, alpha) {
+      const raw = hex.replace('#', '');
+      const value = parseInt(raw.length === 3 ? raw.split('').map((char) => char + char).join('') : raw, 16);
+      return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+    }
+
+    function pickMindmapNode(event) {
+      const rect = mindmapCanvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      let best = null;
+      let bestDistance = 18;
+      for (const pos of mindmapGraph.positions.values()) {
+        if (!nodeVisibleInMindmap(pos.node)) continue;
+        const point = transformMindmapPoint(pos.x, pos.y);
+        const distance = Math.hypot(point.x - x, point.y - y);
+        const targetSize = Math.max(8, pos.size * Math.min(1.8, 0.78 + mindmapGraph.camera.zoom * 0.24));
+        if (distance < bestDistance + targetSize) {
+          best = pos.node;
+          bestDistance = distance;
+        }
+      }
+      return best;
+    }
+
+    mindmapCanvas.addEventListener('mousemove', (event) => {
+      if (!mindmapGraph.camera.dragging) {
+        mindmapGraph.hover = pickMindmapNode(event);
+        mindmapCanvas.style.cursor = mindmapGraph.hover ? 'pointer' : 'grab';
+      }
+    });
+    mindmapCanvas.addEventListener('mouseleave', () => { mindmapGraph.hover = null; });
+    mindmapCanvas.addEventListener('click', (event) => {
+      if (mindmapGraph.camera.didDrag) {
+        mindmapGraph.camera.didDrag = false;
+        return;
+      }
+      mindmapGraph.selected = pickMindmapNode(event);
+      setMindmapDetail(mindmapGraph.selected);
+      focusMindmapNode(mindmapGraph.selected);
+    });
+    window.addEventListener('resize', resizeMindmap);
+
+    mindmapControls.addEventListener('click', (event) => {
+      const button = event.target instanceof HTMLElement ? event.target.closest('button[data-mode]') : null;
+      if (!button) return;
+      const mode = button.getAttribute('data-mode') || 'all';
+      if (!mindmapModes[mode]) return;
+      mindmapGraph.focusMode = mode;
+      mindmapControls.querySelectorAll('button').forEach((item) => item.classList.toggle('active', item === button));
+      buildLiveMindmap(agentMindState.events || []);
+      positionMindmapNodes();
+      ensureMindmapParticles(mindmapCanvas.getBoundingClientRect());
+      renderMindmapActivity();
+      setMindmapDetail(mindmapGraph.selected);
+    });
+
+    function renderMindmapActivity() {
+      const mode = mindmapModes[mindmapGraph.focusMode] || mindmapModes.all;
+      const activeNodes = mindmapGraph.nodes.filter((node) => nodeVisibleInMindmap(node) && nodeMatchesMode(node)).length;
+      const totalNodes = Math.max(1, mindmapGraph.nodes.filter((node) => nodeVisibleInMindmap(node)).length);
+      const activeLinks = mindmapGraph.links.filter((link) => {
+        const source = mindmapGraph.positions.get(link.source)?.node;
+        const target = mindmapGraph.positions.get(link.target)?.node;
+        return source && target && nodeVisibleInMindmap(source) && nodeVisibleInMindmap(target) && nodeMatchesMode(source) && nodeMatchesMode(target);
+      }).length;
+      if (mindmapGraph.focusMode === 'live') {
+        const traces = mindmapGraph.live.traces || [];
+        const traceRows = traces.length
+          ? traces.map((trace) => `<div class="live-trace-row ${escapeHtml(trace.kind)}"><span>${escapeHtml(trace.title)}${trace.status ? ` / ${escapeHtml(trace.status)}` : ''}</span><b>${escapeHtml(new Date(trace.ts).toLocaleTimeString())}</b><p>${escapeHtml(trace.text)}</p></div>`).join('')
+          : '<div class="live-trace-row reasoning"><span>Idle</span><b>Waiting</b><p>No live prompt, Teams call, voice turn, tool call, or autonomous CFO task has fired in the active window.</p></div>';
+        mindmapActivity.innerHTML = `<div class="mindmap-activity-title"><span>${mode.phase}</span><span>${activeNodes} live orbs / ${activeLinks} paths</span></div><div class="live-trace">${traceRows}</div>`;
+        return;
+      }
+      const rows = mode.activity.map((label, index) => {
+        const width = Math.max(24, Math.min(100, Math.round(((index + 1) / mode.activity.length) * 78 + (activeNodes / totalNodes) * 22)));
+        return `<div class="activity-row"><b>${label}</b><div class="activity-track"><div class="activity-fill" style="width:${width}%"></div></div></div>`;
+      }).join('');
+      mindmapActivity.innerHTML = `<div class="mindmap-activity-title"><span>${mode.phase}</span><span>${activeNodes}/${totalNodes} nodes · ${activeLinks} paths</span></div>${rows}`;
+    }
+
+    async function loadMindmap() {
+      const data = await authedJson('/api/mission-control/mindmap');
+      mindmapGraph.baseNodes = data.nodes || [];
+      mindmapGraph.baseLinks = data.links || [];
+      mindmapGraph.nodes = mindmapGraph.baseNodes.slice();
+      mindmapGraph.links = mindmapGraph.baseLinks.slice();
+      buildLiveMindmap(agentMindState.events || []);
+      mindmapGraph.positions = new Map();
+      document.getElementById('mindNodes').textContent = data.stats?.knowledgeNodes || mindmapGraph.baseNodes.length;
+      document.getElementById('mindTools').textContent = data.stats?.toolsUsed || 0;
+      document.getElementById('mindAgents').textContent = data.stats?.agentsOnline || 0;
+      document.getElementById('mindCaps').textContent = data.stats?.enterpriseCapabilities || 0;
+      document.getElementById('mindPaper').textContent = data.stats?.paperConcepts || 0;
+      document.getElementById('mindEvents').textContent = data.stats?.auditEvents || 0;
+      mindmapLegend.innerHTML = '';
+      Object.entries(mindmapColors).forEach(([type, color]) => {
+        const count = mindmapGraph.baseNodes.filter((node) => node.type === type).length;
+        if (!count) return;
+        const item = document.createElement('div');
+        item.className = 'mindmap-legend-item';
+        const dot = document.createElement('span');
+        dot.className = 'mindmap-dot';
+        dot.style.background = color;
+        const label = document.createElement('span');
+        label.textContent = `${type} (${count})`;
+        item.appendChild(dot);
+        item.appendChild(label);
+        mindmapLegend.appendChild(item);
+      });
+      resizeMindmap();
+      renderMindmapActivity();
+      if (!mindmapGraph.frameStarted) {
+        mindmapGraph.frameStarted = true;
+        requestAnimationFrame(drawMindmap);
+      }
+    }
+
+    const missionControlLoginUrl = '/auth/login?returnTo=/mission-control';
+
+    function showSignIn() {
+      document.getElementById('signInButton').href = missionControlLoginUrl;
+      document.getElementById('authOverlay').hidden = false;
+      document.getElementById('appMain').hidden = true;
+    }
+
+    async function requireSignedIn() {
+      try {
+        const response = await fetch('/api/web-auth/me', { credentials: 'include' });
+        if (response.status === 401) {
+          await response.json().catch(() => ({}));
+          showSignIn();
+          return false;
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const principal = data.principal || {};
+        document.getElementById('signedInUser').textContent = principal.name || principal.email || 'Signed in';
+        document.getElementById('authOverlay').hidden = true;
+        document.getElementById('appMain').hidden = false;
+        return true;
+      } catch {
+        showSignIn();
+        return false;
+      }
+    }
+
+    async function authedJson(url, options = {}) {
+      const { timeoutMs = 30000, ...fetchOptions } = options;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      let response;
+      try {
+        response = await fetch(url, { ...fetchOptions, credentials: 'include', signal: controller.signal });
+      } catch (error) {
+        if (error?.name === 'AbortError') throw new Error('Request timed out. Check the service status and try again.');
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
+      const text = await response.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+      if (response.status === 401) {
+        showSignIn();
+        throw new Error('Not signed in');
+      }
+      if (!response.ok) {
+        const message = data && typeof data === 'object' && data.error ? data.error : `HTTP ${response.status}`;
+        throw new Error(message);
+      }
+      return data;
+    }
+
+    const agentMindState = { filter: 'all', events: [], stats: {} };
+    const agentKindLabels = {
+      'agent.message': 'Message',
+      'agent.reply': 'Reply',
+      'llm.turn': 'LLM Turn',
+      'tool.call': 'Tool Call',
+      'tool.result': 'Tool Result',
+      'mcp.discover': 'MCP Discovery',
+      'mcp.invoke': 'MCP Invoke',
+      'graph.call': 'Graph Call',
+      'mission.task': 'Mission Task',
+      'voice.session': 'Voice',
+      'teams.call': 'Teams Call'
+    };
+
+    function safeJson(value) {
+      try { return JSON.stringify(value || {}, null, 2); } catch { return '{}'; }
+    }
+
+    function renderAgentStats(stats) {
+      const byKind = stats?.byKind || {};
+      document.getElementById('agentEventTotal').textContent = String(stats?.total || 0);
+      document.getElementById('agentEventRecent').textContent = String(stats?.last5min || 0);
+      document.getElementById('agentToolCalls').textContent = String((byKind['tool.call'] || 0) + (byKind['tool.result'] || 0));
+      document.getElementById('agentMcpCalls').textContent = String((byKind['mcp.discover'] || 0) + (byKind['mcp.invoke'] || 0) + (byKind['graph.call'] || 0));
+      document.getElementById('agentLlmTurns').textContent = String(byKind['llm.turn'] || 0);
+      const badge = document.getElementById('agentMindBadge');
+      badge.className = `status-dot ${(stats?.last5min || 0) > 0 ? 'live' : 'partial'}`;
+      badge.textContent = (stats?.last5min || 0) > 0 ? 'live' : 'waiting';
+    }
+
+    function classForAgentEvent(event) {
+      const status = event.status || '';
+      return [
+        'agent-event',
+        event.kind.replace('.', '-'),
+        status,
+      ].filter(Boolean).join(' ');
+    }
+
+    function formatAgentTime(ts) {
+      const date = new Date(ts);
+      if (Number.isNaN(date.getTime())) return '';
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function appendAgentChip(container, value) {
+      if (!value && value !== 0) return;
+      const chip = document.createElement('span');
+      chip.className = 'agent-chip';
+      chip.textContent = String(value);
+      container.appendChild(chip);
+    }
+
+    function renderAgentEvents(events) {
+      const listEl = document.getElementById('agentMindEvents');
+      listEl.innerHTML = '';
+      if (!events?.length) {
+        const empty = document.createElement('div');
+        empty.className = 'small';
+        empty.textContent = 'No visible tool activity yet.';
+        listEl.appendChild(empty);
+        return;
+      }
+      events.forEach((event) => {
+        const details = document.createElement('details');
+        details.className = classForAgentEvent(event);
+        const summary = document.createElement('summary');
+
+        const time = document.createElement('span');
+        time.className = 'agent-time';
+        time.textContent = formatAgentTime(event.ts);
+
+        const kind = document.createElement('span');
+        kind.className = 'agent-kind';
+        kind.textContent = agentKindLabels[event.kind] || event.kind;
+
+        const label = document.createElement('span');
+        label.className = 'agent-label';
+        label.textContent = event.label || event.kind;
+
+        const meta = document.createElement('span');
+        meta.className = 'agent-meta';
+        appendAgentChip(meta, event.data?.source || event.data?.server);
+        appendAgentChip(meta, event.status);
+        if (event.durationMs || event.durationMs === 0) appendAgentChip(meta, `${event.durationMs} ms`);
+
+        summary.appendChild(time);
+        summary.appendChild(kind);
+        summary.appendChild(label);
+        summary.appendChild(meta);
+        details.appendChild(summary);
+
+        const body = document.createElement('div');
+        body.className = 'agent-details';
+        const pre = document.createElement('pre');
+        pre.textContent = safeJson({ correlationId: event.correlationId, data: event.data || {} });
+        body.appendChild(pre);
+        details.appendChild(body);
+        listEl.appendChild(details);
+      });
+    }
+
+    function displayCurrency(value) {
+      const amount = Number(value || 0);
+      return `$${Math.round(amount).toLocaleString()}`;
+    }
+
+    function displayCostMoney(value, currency = 'USD') {
+      const amount = Number(value || 0);
+      return new Intl.NumberFormat([], { style: 'currency', currency, maximumFractionDigits: amount >= 100 ? 0 : 2 }).format(amount);
+    }
+
+    function renderMorganCosts(cost) {
+      const currency = cost?.currency || 'USD';
+      const badge = document.getElementById('costBadge');
+      const source = cost?.summary?.source || 'estimated';
+      badge.className = `status-dot ${source}`;
+      badge.textContent = source === 'mixed' ? 'actual + estimate' : source;
+      document.getElementById('costDaily').textContent = displayCostMoney(cost?.summary?.dailyRunRate, currency);
+      document.getElementById('costWeekly').textContent = displayCostMoney(cost?.summary?.weeklyRunRate, currency);
+      document.getElementById('costAvatarShare').textContent = `${cost?.summary?.avatarSharePct || 0}%`;
+      document.getElementById('costValueRatio').textContent = `${Number(cost?.value?.valueToCostRatio || 0).toFixed(1)}x`;
+      document.getElementById('costAzureActual').textContent = displayCostMoney(cost?.summary?.azureActualWeekly, currency);
+      const categories = (cost?.categories || []).slice(0, 6);
+      const max = Math.max(1, ...categories.map((category) => category.weeklyCost || 0));
+      document.getElementById('costCategoryBars').innerHTML = categories.map((category) => {
+        const width = Math.max(3, Math.round(((category.weeklyCost || 0) / max) * 100));
+        const cls = category.id === 'voice-avatar' ? 'avatar' : category.id === 'foundry-ai' ? 'ai' : '';
+        return `<div class="cost-bar-row"><b>${escapeHtml(category.label)}</b><div class="cost-track"><div class="cost-fill ${cls}" style="width:${width}%"></div></div><span>${displayCostMoney(category.weeklyCost, currency)}</span></div>`;
+      }).join('') || '<div class="small">Cost model is initializing.</div>';
+      document.getElementById('costValueSummary').innerHTML = [
+        `<div class="compact-item"><span class="status-dot ${cost?.azure?.available ? 'actual' : 'estimated'}">${cost?.azure?.available ? 'Cost Management connected' : 'estimate mode'}</span><p><b>Weekly value:</b> ${displayCostMoney(cost?.value?.estimatedValueWeekly, currency)} from ${Number(cost?.value?.estimatedHoursSavedWeekly || 0).toFixed(1)} estimated hours saved.</p></div>`,
+        `<div class="compact-item"><p><b>Realtime avatar:</b> ${displayCostMoney(cost?.summary?.avatarWeeklyCost, currency)} this week, currently ${cost?.summary?.avatarSharePct || 0}% of Morgan's run-rate.</p></div>`,
+        `<div class="compact-item"><p><b>Detail:</b> <a class="cost-link" href="${cost?.detailDashboard || '/mission-control/costs'}">Open cost dashboard</a></p></div>`,
+      ].join('');
+    }
+
+    async function loadMorganCosts() {
+      const data = await authedJson('/api/mission-control/costs');
+      renderMorganCosts(data);
+      return data;
+    }
+
+    function renderIqCard(kind, title, subtitle, rows) {
+      return `<div class="iq-card ${kind}"><div class="tag">${subtitle}</div><b>${title}</b><p>${(rows || []).slice(0, 4).join('<br>')}</p></div>`;
+    }
+
+    function renderMicrosoftIQ(iq) {
+      const badge = document.getElementById('microsoftIqBadge');
+      const headline = document.getElementById('microsoftIqHeadline');
+      const pillars = document.getElementById('microsoftIqPillars');
+      const metrics = document.getElementById('microsoftIqMetrics');
+      const actions = document.getElementById('microsoftIqActions');
+      if (!iq || !iq.pillars) {
+        badge.className = 'status-dot partial';
+        badge.textContent = 'loading';
+        headline.innerHTML = '<div class="compact-item"><p><b>Microsoft IQ snapshot unavailable.</b></p></div>';
+        pillars.innerHTML = '';
+        metrics.innerHTML = '';
+        actions.innerHTML = '';
+        return;
+      }
+      badge.className = 'status-dot live';
+      badge.textContent = 'working demo';
+      const work = iq.pillars.workIQ || {};
+      const foundry = iq.pillars.foundryIQ || {};
+      const fabric = iq.pillars.fabricIQ || {};
+      const fabricMetrics = fabric.metrics || {};
+      headline.innerHTML = `<div class="compact-item"><span class="status-dot live">${iq.operatingWindow || '09:00-17:00 daily'}</span><p><b>${iq.headline || 'Microsoft IQ briefing ready.'}</b></p><p>${(iq.executiveSummary || []).join('<br>')}</p></div>`;
+      pillars.innerHTML = [
+        renderIqCard('work', 'WorkIQ', 'Microsoft 365 work graph', work.topSignals || []),
+        renderIqCard('foundry', 'Foundry IQ', 'model, knowledge, trace, eval', foundry.modelInsights || []),
+        renderIqCard('fabric', 'Fabric IQ', fabric.semanticModel || 'semantic model', (fabric.crossFunctionalSignals || []).map((signal) => `${signal.function}: ${signal.value} - ${signal.cfoImplication}`)),
+      ].join('');
+      const metricRows = [
+        ['Revenue', displayCurrency(fabricMetrics.revenue)],
+        ['Gross margin', `${fabricMetrics.grossMarginPct || 0}%`],
+        ['EBITDA', displayCurrency(fabricMetrics.ebitda)],
+        ['Cash runway', `${fabricMetrics.cashRunwayMonths || 0} months`],
+        ['Pipeline coverage', `${fabricMetrics.pipelineCoverage || 0}x`],
+        ['NRR', `${fabricMetrics.netRevenueRetentionPct || 0}%`],
+        ['Headcount cost', displayCurrency(fabricMetrics.headcountCost)],
+        ['Support cost/customer', displayCurrency(fabricMetrics.supportCostPerCustomer)],
+      ];
+      metrics.innerHTML = metricRows.map(([label, value]) => `<div class="iq-metric"><b>${value}</b><span>${label}</span></div>`).join('');
+      const evaluationRows = (foundry.evaluationSignals || []).slice(0, 4).map((item) => `${item.evaluator}: ${item.score}/100 - ${item.finding}`);
+      actions.innerHTML = `<div class="compact-item"><p><b>Autonomous actions</b></p><p>${(iq.autonomousActions || []).join('<br>')}</p></div>` +
+        `<div class="compact-item"><p><b>Foundry IQ evaluation signals</b></p><p>${evaluationRows.length ? evaluationRows.join('<br>') : 'No evaluation signals yet.'}</p></div>` +
+        `<div class="compact-item"><p><b>Production path</b></p><p>${(iq.productionPath || []).slice(0, 4).join('<br>')}</p></div>`;
+    }
+
+    async function loadAgentMind() {
+      const query = agentMindState.filter === 'all' ? '' : `&kinds=${encodeURIComponent(agentMindState.filter)}`;
+      const data = await authedJson(`/api/mission-control/events?limit=300${query}`);
+      agentMindState.events = data.events || [];
+      agentMindState.stats = data.stats || {};
+      buildLiveMindmap(agentMindState.events);
+      ensureMindmapParticles(mindmapCanvas.getBoundingClientRect());
+      renderAgentStats(data.stats || {});
+      renderAgentEvents(data.events || []);
+      renderMindmapActivity();
+      return data;
+    }
+
+    function list(el, items) {
+      el.innerHTML = '';
+      for (const item of items) {
+        const li = document.createElement('li');
+        li.textContent = item;
+        el.appendChild(li);
+      }
+    }
+
+    function appendKanbanSummary(container, label, value) {
+      const item = document.createElement('div');
+      item.className = 'kanban-summary-item';
+      const valueEl = document.createElement('b');
+      valueEl.textContent = value;
+      const labelEl = document.createElement('span');
+      labelEl.textContent = label;
+      item.appendChild(valueEl);
+      item.appendChild(labelEl);
+      container.appendChild(item);
+    }
+
+    function renderKanbanCard(card) {
+      const cardEl = document.createElement('article');
+      cardEl.className = `kanban-card ${card.state || 'queue'}`;
+      const titleRow = document.createElement('div');
+      titleRow.className = 'kanban-card-title';
+      const title = document.createElement('b');
+      title.textContent = card.title || 'Untitled work item';
+      const status = document.createElement('span');
+      status.className = `status-dot ${card.status || 'pending'}`;
+      status.textContent = card.status || 'pending';
+      titleRow.appendChild(title);
+      titleRow.appendChild(status);
+      cardEl.appendChild(titleRow);
+      const summary = document.createElement('p');
+      summary.textContent = card.summary || card.reason || '';
+      cardEl.appendChild(summary);
+      const meta = document.createElement('div');
+      meta.className = 'kanban-meta';
+      [card.priority ? `P${card.priority}` : '', card.cadence || '', card.owner || 'Morgan'].filter(Boolean).forEach((value) => {
+        const chip = document.createElement('span');
+        chip.className = 'kanban-chip';
+        chip.textContent = value;
+        meta.appendChild(chip);
+      });
+      cardEl.appendChild(meta);
+      const tags = document.createElement('div');
+      tags.className = 'kanban-meta';
+      [...(card.tools || []).slice(0, 3), ...(card.subAgents || []).slice(0, 2)].forEach((value) => {
+        const chip = document.createElement('span');
+        chip.className = 'kanban-chip';
+        chip.textContent = value;
+        tags.appendChild(chip);
+      });
+      if (tags.childElementCount) cardEl.appendChild(tags);
+      if (card.updatedAt) {
+        const updated = document.createElement('p');
+        updated.textContent = new Date(card.updatedAt).toLocaleString();
+        cardEl.appendChild(updated);
+      }
+      return cardEl;
+    }
+
+    function renderAutonomousKanban(board) {
+      const summary = document.getElementById('kanbanSummary');
+      const boardEl = document.getElementById('kanbanBoard');
+      summary.innerHTML = '';
+      boardEl.innerHTML = '';
+      if (!board || !Array.isArray(board.columns)) {
+        appendKanbanSummary(summary, 'Kanban', 'No board');
+        return;
+      }
+      appendKanbanSummary(summary, 'Next action', board.nextBestAction || 'Review open work');
+      appendKanbanSummary(summary, 'AI Kanban', board.aiKanbanAgent?.endpointConfigured ? 'Connected' : 'Endpoint missing');
+      appendKanbanSummary(summary, 'Active', String(board.metrics?.active || 0));
+      appendKanbanSummary(summary, 'Waiting', String(board.metrics?.waiting || 0));
+      appendKanbanSummary(summary, 'Done today', String(board.metrics?.done || 0));
+      board.columns.forEach((column) => {
+        const columnEl = document.createElement('section');
+        columnEl.className = 'kanban-column';
+        const head = document.createElement('div');
+        head.className = 'kanban-column-head';
+        const titleWrap = document.createElement('div');
+        const title = document.createElement('b');
+        title.textContent = column.title;
+        const intent = document.createElement('span');
+        intent.textContent = column.intent;
+        titleWrap.appendChild(title);
+        titleWrap.appendChild(intent);
+        const count = document.createElement('span');
+        count.className = 'kanban-count';
+        count.textContent = String((column.cards || []).length);
+        head.appendChild(titleWrap);
+        head.appendChild(count);
+        columnEl.appendChild(head);
+        const cards = document.createElement('div');
+        cards.className = 'kanban-cards';
+        if (column.cards?.length) {
+          column.cards.forEach((card) => cards.appendChild(renderKanbanCard(card)));
+        } else {
+          const empty = document.createElement('div');
+          empty.className = 'kanban-empty';
+          empty.textContent = 'Clear';
+          cards.appendChild(empty);
+        }
+        columnEl.appendChild(cards);
+        boardEl.appendChild(columnEl);
+      });
+    }
+
+    const teamsCallState = { status: null, loading: false };
+
+    function setTeamsCallResult(message, kind = '') {
+      const result = document.getElementById('teamsCallResult');
+      result.textContent = message;
+      result.className = `call-result ${kind}`.trim();
+    }
+
+    function renderTeamsCallStatus(data) {
+      teamsCallState.status = data;
+      buildLiveMindmap(agentMindState.events || []);
+      if (mindmapGraph.focusMode === 'live') renderMindmapActivity();
+      const status = data?.status || {};
+      const defaults = data?.defaults || {};
+      const activeCalls = Array.isArray(data?.activeCalls) ? data.activeCalls : [];
+      const badge = document.getElementById('teamsCallBadge');
+      const bridgeText = status.configured
+        ? status.federationResourceIdConfigured ? 'Federation ready' : 'Audio ready, policy marker pending'
+        : 'Setup incomplete';
+      const badgeClass = status.configured
+        ? status.federationResourceIdConfigured ? 'configured' : 'partial'
+        : 'needs-configuration';
+      badge.className = `status-dot ${badgeClass}`;
+      badge.textContent = bridgeText;
+      document.getElementById('teamsCallBridge').textContent = bridgeText;
+      document.getElementById('teamsCallDefault').textContent = defaults.targetConfigured ? `${defaults.targetDisplayName || 'Configured'}` : 'Enter target ID';
+      document.getElementById('teamsCallActiveCount').textContent = String(activeCalls.length);
+      document.getElementById('teamsCallVideo').textContent = status.videoPresence?.status || data?.videoPresence?.status || 'Audio bridge';
+      const voiceInput = document.getElementById('teamsCallVoice');
+      if (!voiceInput.value && defaults.voice) voiceInput.placeholder = defaults.voice;
+      const displayInput = document.getElementById('teamsCallDisplayName');
+      if (!displayInput.value && defaults.targetDisplayName) displayInput.placeholder = defaults.targetDisplayName;
+      const dialButton = document.getElementById('teamsCallDial');
+      dialButton.disabled = !status.configured || teamsCallState.loading;
+      const blockers = [];
+      if (!status.acsConnectionConfigured) blockers.push('ACS_CONNECTION_STRING');
+      if (!status.publicHostConfigured) blockers.push('BASE_URL or PUBLIC_HOSTNAME');
+      if (!status.realtimeConfigured) blockers.push('Azure OpenAI or Voice Live endpoint');
+      if (status.configured && !status.federationResourceIdConfigured) blockers.push('ACS_TEAMS_FEDERATION_RESOURCE_ID policy marker');
+      dialButton.title = dialButton.disabled
+        ? `Teams call unavailable: ${blockers.length ? blockers.join(', ') : 'request already in progress'}`
+        : 'Dial Morgan over the ACS-to-Teams federation bridge';
+      if (!status.configured && blockers.length) {
+        setTeamsCallResult(`Teams calling needs configuration: ${blockers.join(', ')}.`, 'error');
+      } else if (status.configured && !status.federationResourceIdConfigured) {
+        setTeamsCallResult('Teams audio bridge is configured; tenant federation policy marker is still pending.', '');
+      }
+
+      const activeList = document.getElementById('teamsCallActiveList');
+      activeList.innerHTML = '';
+      if (!activeCalls.length) {
+        const empty = document.createElement('div');
+        empty.className = 'small';
+        empty.textContent = 'No active Teams calls.';
+        activeList.appendChild(empty);
+        return;
+      }
+      activeCalls.forEach((call) => {
+        const item = document.createElement('div');
+        item.className = 'active-call';
+        const title = document.createElement('b');
+        title.textContent = call.targetDisplayName || call.targetTeamsOid || 'Teams call';
+        const detail = document.createElement('div');
+        detail.className = 'small';
+        detail.textContent = `${call.direction || 'outbound'} - ${call.ageSec || 0}s - ${call.callConnectionId || 'pending'}`;
+        item.appendChild(title);
+        item.appendChild(detail);
+        activeList.appendChild(item);
+      });
+    }
+
+    async function loadTeamsCallStatus() {
+      const data = await authedJson('/api/mission-control/teams-call/status');
+      renderTeamsCallStatus(data);
+      return data;
+    }
+
+    async function triggerTeamsCall() {
+      if (teamsCallState.loading) return;
+      const targetInput = document.getElementById('teamsCallTarget');
+      const displayInput = document.getElementById('teamsCallDisplayName');
+      const reasonInput = document.getElementById('teamsCallReason');
+      const voiceInput = document.getElementById('teamsCallVoice');
+      const instructionsInput = document.getElementById('teamsCallInstructions');
+      const defaultTargetConfigured = Boolean(teamsCallState.status?.defaults?.targetConfigured);
+      if (!targetInput.value.trim() && !defaultTargetConfigured) {
+        setTeamsCallResult('Enter a Teams user object ID or configure CFO_TEAMS_USER_AAD_OID.', 'error');
+        return;
+      }
+      teamsCallState.loading = true;
+      document.getElementById('teamsCallDial').disabled = true;
+      setTeamsCallResult('Dialling Morgan through the Teams federation bridge...', '');
+      try {
+        const data = await authedJson('/api/mission-control/teams-call', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          timeoutMs: 30000,
+          body: JSON.stringify({
+            teamsUserAadOid: targetInput.value.trim() || undefined,
+            targetDisplayName: displayInput.value.trim() || undefined,
+            reason: reasonInput.value.trim() || undefined,
+            voice: voiceInput.value.trim() || undefined,
+            instructions: instructionsInput.value.trim() || undefined,
+          }),
+        });
+        setTeamsCallResult(`Morgan call placed: ${data.callConnectionId || data.serverCallId || 'pending connection'}`, 'ready');
+        renderTeamsCallStatus({ ...(teamsCallState.status || {}), activeCalls: data.activeCalls || [] });
+        await loadTeamsCallStatus().catch(() => {});
+      } catch (error) {
+        setTeamsCallResult(error.message || 'Teams call request failed.', 'error');
+      } finally {
+        teamsCallState.loading = false;
+        renderTeamsCallStatus(teamsCallState.status || {});
+      }
+    }
+
+    async function refresh() {
+      if (!(await requireSignedIn())) return;
+      const data = await authedJson('/api/mission-control');
+      document.getElementById('subtitle').textContent = `${data.agent.name} - ${data.agent.role} - ${data.agent.workWindow || data.agent.m365Environment}`;
+      document.getElementById('date').textContent = data.today.date;
+      document.getElementById('completed').textContent = data.today.tasksCompleted;
+      document.getElementById('progress').textContent = data.today.tasksInProgress;
+      document.getElementById('blocked').textContent = data.today.tasksBlocked;
+      document.getElementById('purpose').textContent = data.jobDescription.purpose;
+      list(document.getElementById('mandate'), data.jobDescription.mandate);
+      list(document.getElementById('instructions'), data.jobDescription.customerVisibleInstructions);
+      const capabilities = document.getElementById('capabilities');
+      capabilities.innerHTML = (data.enterpriseCapabilities || []).map((item) => `<div class="capability"><div class="tag">${item.category}</div><b>${item.title}</b><p>${item.morganMapping}</p><p><b>Proof:</b> ${(item.customerProof || []).join(', ')}</p></div>`).join('');
+      const readiness = document.getElementById('readiness');
+      readiness.innerHTML = (data.enterpriseReadiness || []).map((item) => `<div class="compact-item"><span class="status-dot ${item.status}">${item.status}</span><p><b>${item.area}</b></p><p>${item.signal}</p><p><b>Control:</b> ${item.control}</p></div>`).join('');
+      renderMicrosoftIQ(data.microsoftIQ);
+      await loadMorganCosts().catch((error) => {
+        const badge = document.getElementById('costBadge');
+        badge.className = 'status-dot partial';
+        badge.textContent = 'cost unavailable';
+        document.getElementById('costValueSummary').innerHTML = `<div class="compact-item"><p><b>Cost model unavailable.</b></p><p>${escapeHtml(error.message || 'Unable to load Morgan cost dashboard.')}</p></div>`;
+      });
+      const cognitiveTools = document.getElementById('cognitiveTools');
+      cognitiveTools.innerHTML = (data.cognitiveTools || []).map((item) => `<div class="compact-item"><span class="status-dot ${item.status}">${item.status}</span><p><b>${item.title}</b> · ${item.morganTool}</p><p>${item.purpose}</p><p><b>Outputs:</b> ${(item.outputs || []).join(', ')}</p></div>`).join('');
+      const cadence = document.getElementById('cadence');
+      cadence.innerHTML = data.operatingCadence.map((item) => `<div class="record"><b>${item.time}</b> ${item.activity}<div class="small">${item.output}</div></div>`).join('');
+      const memory = data.adaptiveMemory || {};
+      const memoryBlocks = [
+        ['Working context', memory.workingContext || []],
+        ['Preserved critical content', memory.preservedCriticalContent || []],
+        ['Semantic recall', memory.semanticRecall || []],
+      ];
+      document.getElementById('adaptiveMemory').innerHTML = `<div class="compact-item"><p><b>Compression policy:</b> ${memory.compressionPolicy || 'Not generated yet.'}</p><p>${memory.recordsConsidered || 0} record(s), ${memory.auditEventsConsidered || 0} audit event(s)</p></div>` + memoryBlocks.map(([title, items]) => `<div class="compact-item"><b>${title}</b><p>${items.length ? items.slice(0, 5).join('<br>') : 'No entries yet.'}</p></div>`).join('');
+      document.getElementById('experientialLearning').innerHTML = (data.experientialLearning || []).map((item) => `<div class="compact-item"><span class="status-dot ${item.status}">${item.status}</span><p><b>${item.title}</b></p><p><b>Trigger:</b> ${item.trigger}</p><p>${item.reuseInstruction}</p></div>`).join('');
+      renderAutonomousKanban(data.autonomousKanban);
+      const plan = data.operatingPlan || { horizon: {}, nextRunnableTasks: [], dependencyGraph: [], escalationQueue: [], proofRequired: [] };
+      document.getElementById('operatingPlan').innerHTML = `<div class="task"><div class="task-title"><b>Strategic horizon</b><span class="pill">${(plan.horizon.strategic || []).length} objectives</span></div><p>${(plan.horizon.strategic || []).join('<br>')}</p></div>` + (plan.nextRunnableTasks || []).map((task) => `<div class="task"><div class="task-title"><b>${task.title}</b><span class="pill ${task.priority <= 2 ? '' : 'amber'}">P${task.priority}</span></div><p>${task.reason}</p><div class="small"><b>Tools:</b> ${(task.tools || []).join(', ')}</div><div class="small"><b>Sub-agents:</b> ${(task.subAgents || []).join(', ')}</div></div>`).join('') + `<div class="task"><div class="task-title"><b>Proof required</b><span class="pill amber">guardrail</span></div><p>${(plan.proofRequired || []).join('<br>')}</p></div>`;
+      const artifactEvaluations = data.recentArtifactEvaluations || [];
+      document.getElementById('artifactJudge').innerHTML = artifactEvaluations.length
+        ? artifactEvaluations.map((item) => `<div class="compact-item"><span class="status-dot ${item.verdict}">${item.verdict}</span><p><b>${item.title}</b> · ${item.score}/100</p><p>${item.rationale}</p></div>`).join('')
+        : '<div class="compact-item"><p><b>No artifact scored yet.</b></p><p>Run an autonomous workday or call evaluateMissionArtifact to generate the first artifact-quality record.</p></div>';
+      const paperAlignment = document.getElementById('paperAlignment');
+      paperAlignment.innerHTML = (data.paperAlignment || []).map((item) => `<div class="alignment ${item.status}"><b>${item.paperConcept}</b><div class="small"><strong>Status:</strong> ${item.status}</div><div class="small"><strong>Morgan:</strong> ${item.morganImplementation}</div><div class="small"><strong>Enterprise control:</strong> ${item.enterpriseControl}</div><div class="small"><strong>Proof:</strong> ${(item.proof || []).join(', ')}</div></div>`).join('');
+      const tasks = document.getElementById('tasks');
+      tasks.innerHTML = data.keyTasks.map((task) => `<div class="task"><div class="task-title"><b>${task.title}</b><span class="pill ${task.priority <= 2 ? '' : 'amber'}">P${task.priority} ${task.cadence}</span></div><p>${task.description}</p><div class="small"><b>Trigger:</b> ${task.autonomousTrigger}</div><div class="small"><b>Tools:</b> ${task.tools.join(', ')}</div><div class="small"><b>Sub-agents:</b> ${task.subAgents.join(', ')}</div></div>`).join('');
+      const records = document.getElementById('records');
+      records.innerHTML = data.today.records.length
+        ? data.today.records.map((record) => `<div class="record ${record.status}"><b>${record.title}</b><div class="small">${record.status} - ${record.summary}</div></div>`).join('')
+        : '<div class="small">No tasks recorded yet today. Trigger the autonomous workday or ask Morgan to record completed work.</div>';
+      await loadAgentMind().catch(() => {});
+      await loadTeamsCallStatus().catch((error) => setTeamsCallResult(error.message || 'Teams call status unavailable.', 'error'));
+      await loadMindmap();
+    }
+    async function loadReport() {
+      const data = await authedJson('/api/mission-control/end-of-day');
+      document.getElementById('report').textContent = data.summaryMarkdown;
+    }
+    document.getElementById('teamsCallDial').addEventListener('click', triggerTeamsCall);
+    document.getElementById('teamsCallRefresh').addEventListener('click', () => loadTeamsCallStatus().catch((error) => setTeamsCallResult(error.message || 'Teams call status unavailable.', 'error')));
+    document.getElementById('agentMindFilters').addEventListener('click', (event) => {
+      const button = event.target instanceof HTMLElement ? event.target.closest('button[data-kind]') : null;
+      if (!button) return;
+      agentMindState.filter = button.getAttribute('data-kind') || 'all';
+      document.getElementById('agentMindFilters').querySelectorAll('button').forEach((item) => item.classList.toggle('active', item === button));
+      loadAgentMind().catch(() => {});
+    });
+    setupMindmapCameraControls();
+    refresh().catch((error) => { document.getElementById('subtitle').textContent = error.message; });
+    setInterval(() => {
+      if (!document.getElementById('appMain').hidden) loadMindmap().catch(() => {});
+    }, 15000);
+    setInterval(() => {
+      if (!document.getElementById('appMain').hidden) loadTeamsCallStatus().catch(() => {});
+    }, 10000);
+    setInterval(() => {
+      if (!document.getElementById('appMain').hidden) loadAgentMind().catch(() => {});
+    }, 3000);
+    setInterval(() => {
+      if (!document.getElementById('appMain').hidden) loadMorganCosts().catch(() => {});
+    }, 60000);
+  </script>
+</body>
+</html>

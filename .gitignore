@@ -14,19 +14,22 @@ a365.config.json
 a365.generated.config.json
 
 # Deployment artifacts
+.deploy/
 deploy.zip
 app.zip
 *.zip
 
 # Logs
 logs*/
+.appservice-logs/
+.logs/
 
 # Temporary files
 grant.json
 *.tmp
 
 # IDE
-.vscode/
+
 .idea/
 *.swp
 *.swo

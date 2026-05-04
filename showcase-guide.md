@@ -1,8 +1,12 @@
-# Morgan - CFO's Digital Analyst: Enterprise Showcase Guide
+# Morgan - CorpGen Digital CFO: Enterprise Showcase Guide
 
 ## What This Showcases
 
-Morgan is a purpose-built AI analyst for finance teams — not a general-purpose chat assistant bolted onto existing productivity tools. Unlike M365 Copilot, which surfaces information from within your Microsoft tenant, Morgan can autonomously execute multi-step financial workflows: pulling live data from ERP and treasury systems, running calculations, drafting board-ready reports, distributing them via email or Teams, and doing all of this on a schedule — without a human pressing a button. This makes Morgan compelling not just as a productivity tool, but as a genuine digital employee capable of owning repeatable CFO-office deliverables end-to-end.
+Morgan is a purpose-built Digital CFO for finance teams — not a general-purpose chat assistant bolted onto existing productivity tools. Unlike M365 Copilot, which surfaces information from within your Microsoft tenant, Morgan can autonomously execute multi-step financial workflows: pulling live data from ERP and treasury systems, running calculations, drafting board-ready reports, distributing them via email or Teams, calling stakeholders through Teams federation, presenting through an avatar, recording proof, and doing all of this on a schedule without a human pressing a button. This makes Morgan compelling not just as a productivity tool, but as a genuine digital employee capable of owning repeatable CFO-office deliverables end-to-end.
+
+The enterprise version is mapped to the CorpGen paper: Morgan is shown as a Multi-Objective Multi-Horizon digital employee rather than a one-shot assistant. Mission Control exposes the paper alignment directly: hierarchical planning, isolated sub-agents, tiered memory, adaptive summarization, cognitive tools, experiential learning posture, emergent collaboration through Teams/email, artifact-based evaluation, and transparent safety rails.
+
+Morgan also includes the Microsoft IQ layer for the CorpGen story: WorkIQ for Microsoft 365 work context, Foundry IQ for model/agent/knowledge/evaluation intelligence, and Fabric IQ for financial figures plus cross-functional business insight. The demo uses deterministic Contoso data when tenant systems are not connected, so it remains fully working without implying live enterprise data.
 
 ---
 
@@ -99,6 +103,61 @@ If live triggers are unreliable in the demo environment, show a 60-second screen
 - Key finance events for the week ahead (payments due, reporting deadlines)
 
 **Audience Takeaway:** Morgan is always on. The CFO starts every Monday already informed — without anyone spending Sunday night preparing slides.
+
+---
+
+## Demo Scenario 3B: CorpGen Paper Match in Mission Control (3 minutes)
+
+**Goal:** Show that Morgan is not just visually impressive; the operating model maps to the CorpGen autonomous digital employee architecture.
+
+1. Open `/mission-control` and scroll to **Beta Starfield**.
+2. Switch modes: **Autonomy**, **Workflow**, **Tools**, **Governance**, **Memory**, and **Live Run**.
+3. Click a node in each mode and show the proof chips: instruction, tool, sub-agent, evidence, escalation, or completed task.
+4. Scroll to **Paper Match Matrix** and point out which items are implemented now versus which require production hardening.
+
+**Talking Point:** "This is the difference between a chatbot demo and an enterprise digital worker: customers can inspect the job contract, operating cadence, evidence path, safety boundaries, and where the research architecture has been implemented."
+
+---
+
+## Demo Scenario 3C: Next-Gen CorpGen Enterprise Runtime (4 minutes)
+
+**Goal:** Show that Morgan has moved beyond a static paper checklist into an inspectable operating system for a digital CFO worker.
+
+1. Open `/mission-control` and scroll through **Enterprise Readiness**, **Cognitive Toolchain**, **Adaptive Memory**, **Experiential Learning**, **CFO Operating Plan**, and **Artifact Judge**.
+2. Ask Morgan: *"Generate your CFO operating plan and list the next runnable autonomous task."*
+3. Ask Morgan: *"Show your enterprise readiness checks for Agent 365, MCP, observability, Purview, avatar, sub-agents, storage, and scheduler safety."*
+4. Ask Morgan: *"Evaluate this CFO briefing artifact for evidence, actionability, governance, and readiness."* Paste a short briefing draft and show the score.
+
+---
+
+## Demo Scenario 3D: Microsoft IQ Command Layer (4 minutes)
+
+**Goal:** Show how a CorpGen autonomous CFO worker uses Microsoft IQ sources rather than only a static finance dataset.
+
+1. Open `/mission-control` and scroll to **Microsoft IQ Command Layer**.
+2. Point out the three live pillars: **WorkIQ** for meetings/approvals/work graph, **Foundry IQ** for model/evaluation/knowledge readiness, and **Fabric IQ** for semantic-model business figures.
+3. Ask Morgan: *"Combine WorkIQ, Foundry IQ, and Fabric IQ into an executive CFO update."*
+4. Open **Agent Mind** and show the called Microsoft IQ tool and result event.
+5. Show the Fabric IQ metrics and cross-functional signals, then explain that production swaps the deterministic demo adapters for tenant Graph, Foundry, and Fabric sources behind the same contracts.
+
+**Talking Point:** "Morgan works from 09:00 to 17:00, seven days a week. During each autonomous cycle it can refresh work context, governed business figures, and model/evaluation evidence before briefing the CFO."
+5. Return to **Beta Starfield** and point out that the toolchain and readiness checks also appear as operating graph nodes.
+
+**Talking Point:** "Morgan is not asking the audience to trust invisible reasoning. The planning loop, memory compression, experiential playbook, enterprise controls, and artifact judge are callable tools with visible outputs. That is the path from research demo to enterprise pilot."
+
+---
+
+## Demo Scenario 3E: Cost and Value of Morgan (3 minutes)
+
+**Goal:** Show that the project is transparent about run cost, especially the realtime avatar and voice path.
+
+1. Open `/mission-control` and scroll to **Cost of Morgan**.
+2. Point out daily run-rate, weekly run-rate, avatar share, Azure actuals, and value-to-cost ratio.
+3. Open `/mission-control/costs` for the detailed dashboard.
+4. Show the split between Azure Cost Management actuals and showback estimates for avatar, Agent 365, Microsoft IQ, Foundry/AI, Fabric IQ, compute, tools, storage, and observability.
+5. Explain that the model is configurable through `MORGAN_COST_*` and `MORGAN_VALUE_*` app settings so each customer can tune pilot chargeback and value assumptions.
+
+**Talking Point:** "Morgan does not hide the price of autonomy. Customers can see the cost of the avatar, platform services, tools, and projected finance value before a pilot scales."
 
 ---
 

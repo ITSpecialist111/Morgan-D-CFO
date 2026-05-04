@@ -3,670 +3,1833 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Morgan — Voice Assistant</title>
+  <title>Morgan Avatar</title>
   <style>
     :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --border: #2a2d3a;
-      --text: #e4e4e7;
-      --muted: #71717a;
-      --accent: #6366f1;
-      --accent-glow: rgba(99, 102, 241, 0.3);
-      --green: #22c55e;
-      --red: #ef4444;
-      --amber: #f59e0b;
+      --bg: #0f1216;
+      --surface: #181c23;
+      --surface-2: #222733;
+      --border: #313846;
+      --text: #f4f6f8;
+      --muted: #9aa4b2;
+      --teal: #35c2b4;
+      --amber: #f0b429;
+      --red: #e05a5a;
+      --blue: #6698f0;
+      --green: #45d6a2;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      min-height: 100vh;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      font-family: Segoe UI, system-ui, -apple-system, sans-serif;
+      overflow: hidden;
     }
+    body.large-type { font-size: 17px; }
+    body.xlarge-type { font-size: 19px; }
+    body.high-contrast {
+      --bg: #000;
+      --surface: #050505;
+      --surface-2: #111;
+      --border: #f4f6f8;
+      --text: #fff;
+      --muted: #e7edf5;
+      --teal: #7fffe8;
+      --amber: #ffe066;
+      --blue: #9cc2ff;
+    }
+    body.accessible-mode .stage { display: none; }
+    body.accessible-mode .shell { grid-template-columns: 1fr; }
+    body.accessible-mode .side { border-left: 0; }
     header {
-      width: 100%;
-      padding: 20px 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
       border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      background: #151922;
     }
-    header .logo {
-      width: 36px; height: 36px;
-      background: var(--accent);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 18px; color: white;
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mark {
+      width: 38px; height: 38px; border-radius: 8px;
+      display: grid; place-items: center;
+      background: var(--teal); color: #061412; font-weight: 800;
     }
-    header h1 { font-size: 18px; font-weight: 600; }
-    header .badge {
-      font-size: 11px;
-      padding: 2px 8px;
+    h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .status-pill {
+      border: 1px solid var(--border);
       border-radius: 999px;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      padding: 6px 10px;
+      font-size: 12px;
       color: var(--muted);
+      background: var(--surface);
+      white-space: nowrap;
     }
-    .main {
-      flex: 1;
-      width: 100%;
-      max-width: 640px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 40px 24px;
-      gap: 32px;
+    .status-pill.live { color: #051412; background: var(--teal); border-color: var(--teal); }
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
     }
-
-    /* Voice orb */
-    .orb-container {
+    .shell { height: calc(100vh - 64px); display: grid; grid-template-columns: minmax(0, 1fr) 390px; }
+    .stage {
       position: relative;
-      width: 180px; height: 180px;
-      display: flex; align-items: center; justify-content: center;
+      min-width: 0;
+      background: #000;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
     }
-    .orb {
-      width: 120px; height: 120px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 35% 35%, #818cf8, var(--accent), #4338ca);
-      transition: transform 0.3s, box-shadow 0.3s;
-      box-shadow: 0 0 40px var(--accent-glow);
+    .avatar-frame {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: #000;
+      isolation: isolate;
     }
-    .orb.speaking {
-      animation: pulse 1.2s ease-in-out infinite;
-      box-shadow: 0 0 60px var(--accent-glow), 0 0 120px rgba(99,102,241,0.15);
+    .avatar-frame::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 38%, rgba(53, 194, 180, 0.07), transparent 34%),
+        #000;
     }
-    .orb.listening {
-      animation: listen 0.8s ease-in-out infinite;
-      box-shadow: 0 0 50px rgba(34,197,94,0.3);
-      background: radial-gradient(circle at 35% 35%, #4ade80, var(--green), #16a34a);
-    }
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.08); }
-    }
-    @keyframes listen {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-    }
-
-    .status {
-      font-size: 14px;
-      color: var(--muted);
-      text-align: center;
-      min-height: 20px;
-    }
-    .status.active { color: var(--green); }
-    .status.error { color: var(--red); }
-
-    /* Controls */
-    .controls { display: flex; gap: 12px; }
-    button {
-      padding: 12px 28px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    button:hover { border-color: var(--accent); background: rgba(99,102,241,0.1); }
-    button:disabled { opacity: 0.4; cursor: not-allowed; }
-    button.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: white;
-    }
-    button.primary:hover { background: #4f46e5; }
-    button.danger { border-color: var(--red); color: var(--red); }
-    button.danger:hover { background: rgba(239,68,68,0.1); }
-    button.mute { border-color: var(--amber); color: var(--amber); }
-    button.mute:hover { background: rgba(245,158,11,0.1); }
-    button.mute.muted { background: var(--amber); color: var(--bg); border-color: var(--amber); }
-
-    /* Transcript */
-    .transcript {
+    .starfield {
+      position: absolute;
+      inset: 0;
       width: 100%;
-      flex: 1;
-      min-height: 200px;
-      max-height: 400px;
-      overflow-y: auto;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface);
-      padding: 16px;
+      height: 100%;
+      pointer-events: auto;
+      z-index: 1;
+      opacity: .86;
+      mix-blend-mode: normal;
+      filter: drop-shadow(0 0 8px rgba(53, 194, 180, 0.28));
+      transition: opacity .24s ease;
+      cursor: grab;
+      touch-action: none;
+    }
+    .starfield.is-dragging { cursor: grabbing; }
+    .starfield:focus-visible { outline: 2px solid var(--teal); outline-offset: -4px; }
+    .stage.is-live .starfield { opacity: .92; }
+    .stage.is-speaking .starfield { opacity: 1; }
+    .stage.is-tool .starfield { opacity: 1; filter: drop-shadow(0 0 14px rgba(240, 180, 41, 0.35)); }
+    .starfield-tools {
+      position: absolute;
+      top: 74px;
+      right: 18px;
+      z-index: 7;
       display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .transcript:empty::before {
-      content: 'Transcript will appear here...';
-      color: var(--muted);
-      font-style: italic;
-      font-size: 13px;
-    }
-    .msg {
-      font-size: 13px;
-      line-height: 1.5;
-      padding: 8px 12px;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(12, 15, 20, 0.78);
+      backdrop-filter: blur(14px);
       border-radius: 8px;
-      max-width: 85%;
     }
-    .msg.user {
-      background: rgba(99,102,241,0.15);
-      align-self: flex-end;
-      text-align: right;
+    .starfield-tools button {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-size: 15px;
+      font-weight: 750;
     }
-    .msg.assistant {
-      background: rgba(255,255,255,0.05);
-      align-self: flex-start;
-    }
-    .msg .label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      margin-bottom: 2px;
-    }
-
-    footer {
-      padding: 16px;
-      font-size: 11px;
-      color: var(--muted);
+    .starfield-tools .readout {
+      min-width: 48px;
       text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
     }
-
-    /* Offline overlay */
-    .offline-overlay {
+    video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+      opacity: 0;
+      transition: opacity .2s ease;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .avatar-composite {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 3;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease;
+    }
+    .avatar-composite.active { opacity: 1; }
+    .avatar-frame.raw-video video.active { opacity: 1; z-index: 3; }
+    .avatar-aura {
+      position: absolute;
+      inset: 5%;
+      border-radius: 14px;
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0;
+      transition: opacity .24s ease, box-shadow .24s ease;
+    }
+    .stage.is-live .avatar-aura { opacity: 1; }
+    .avatar-aura.aura-idle {
+      box-shadow: inset 0 0 30px rgba(53, 194, 180, 0.08), 0 0 70px rgba(53, 194, 180, 0.16);
+      animation: aura-breathe 4s ease-in-out infinite;
+    }
+    .avatar-aura.aura-listening {
+      box-shadow: inset 0 0 34px rgba(69, 214, 162, 0.16), 0 0 80px rgba(69, 214, 162, 0.28);
+      animation: aura-breathe 2.4s ease-in-out infinite;
+    }
+    .avatar-aura.aura-speaking {
+      box-shadow: inset 0 0 34px rgba(102, 152, 240, 0.18), 0 0 90px rgba(102, 152, 240, 0.28);
+      animation: aura-breathe 1.8s ease-in-out infinite;
+    }
+    .avatar-aura.aura-thinking {
+      box-shadow: inset 0 0 34px rgba(240, 180, 41, 0.18), 0 0 90px rgba(240, 180, 41, 0.32);
+      animation: aura-spin 3.2s linear infinite;
+    }
+    @keyframes aura-breathe {
+      0%, 100% { transform: scale(0.995); opacity: .78; }
+      50% { transform: scale(1.01); opacity: 1; }
+    }
+    @keyframes aura-spin {
+      from { filter: hue-rotate(0deg); transform: scale(1); }
+      to { filter: hue-rotate(35deg); transform: scale(1.012); }
+    }
+    .idle {
+      width: min(620px, 86vw);
+      text-align: center;
+      display: grid;
+      gap: 18px;
+      place-items: center;
+      padding: 32px;
+      position: relative;
+      z-index: 4;
+    }
+    .portrait {
+      width: 150px; height: 150px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: radial-gradient(circle at 35% 30%, #7bd8cf, #35c2b4 50%, #1d6d68 100%);
+      color: #061412;
+      font-size: 64px;
+      font-weight: 800;
+      box-shadow: 0 20px 70px rgba(53, 194, 180, 0.22);
+    }
+    .idle h2 { margin: 0; font-size: 24px; }
+    .idle p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .avatar-standby {
+      width: min(360px, 70vw);
+      aspect-ratio: 1 / 1;
+      position: relative;
+      display: grid;
+      place-items: center;
+      filter: drop-shadow(0 24px 52px rgba(0,0,0,0.38));
+    }
+    .avatar-orb {
+      width: min(170px, 45vw);
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 35% 30%, #7bd8cf, #35c2b4 48%, #165c57 100%);
+      color: #061412;
+      font-size: 66px;
+      font-weight: 850;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 24px 80px rgba(53, 194, 180, 0.24);
+    }
+    .avatar-signal {
+      position: absolute;
+      left: 50%;
+      bottom: 8%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 5px;
+      z-index: 4;
+    }
+    .avatar-signal span {
+      width: 5px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--teal);
+      opacity: .45;
+      animation: signal-pulse 1.1s ease-in-out infinite;
+    }
+    .avatar-signal span:nth-child(2) { animation-delay: .15s; }
+    .avatar-signal span:nth-child(3) { animation-delay: .3s; }
+    .avatar-signal span:nth-child(4) { animation-delay: .45s; }
+    @keyframes signal-pulse {
+      0%, 100% { transform: scaleY(.45); opacity: .34; }
+      50% { transform: scaleY(1.25); opacity: .95; }
+    }
+    .stage-bar {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(12, 15, 20, 0.78);
+      backdrop-filter: blur(14px);
+      border-radius: 8px;
+      z-index: 5;
+    }
+    .quick-launch {
+      position: absolute;
+      left: 18px;
+      bottom: 92px;
+      z-index: 5;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: min(760px, calc(100% - 36px));
+    }
+    .quick-launch button {
+      background: rgba(12, 15, 20, 0.72);
+      border-color: rgba(255,255,255,0.13);
+      backdrop-filter: blur(14px);
+    }
+    .tool-overlay {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 92px;
+      z-index: 6;
+      border: 1px solid rgba(240,180,41,0.32);
+      background: linear-gradient(135deg, rgba(42,31,12,0.86), rgba(12,15,20,0.86));
+      backdrop-filter: blur(16px);
+      border-radius: 8px;
+      padding: 12px;
+      transform: translateY(18px);
+      opacity: 0;
+      transition: transform .22s ease, opacity .22s ease;
+    }
+    .tool-overlay.active { transform: translateY(0); opacity: 1; }
+    .tool-overlay-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .tool-overlay-title { color: #f8d986; font-weight: 700; font-size: 13px; }
+    .tool-overlay-subtitle { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .tool-dots { display: flex; gap: 5px; }
+    .tool-dots span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--amber);
+      animation: tool-dot 1s ease-in-out infinite;
+    }
+    .tool-dots span:nth-child(2) { animation-delay: .12s; }
+    .tool-dots span:nth-child(3) { animation-delay: .24s; }
+    @keyframes tool-dot {
+      0%, 100% { transform: translateY(0); opacity: .45; }
+      50% { transform: translateY(-4px); opacity: 1; }
+    }
+    .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    button, a.button {
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 13px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    button.primary { background: var(--teal); border-color: var(--teal); color: #061412; font-weight: 700; }
+    button.danger { border-color: rgba(224,90,90,0.7); color: #ffb8b8; }
+    button.warn { border-color: rgba(240,180,41,0.75); color: #f8d986; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button:focus-visible, a.button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    .side {
+      min-width: 0;
+      border-left: 1px solid var(--border);
+      background: var(--surface);
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+    }
+    .side-head { padding: 16px; border-bottom: 1px solid var(--border); }
+    .side-head h2 { margin: 0 0 4px; font-size: 15px; }
+    .side-head p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .tabs {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid var(--border);
+      background: rgba(20, 25, 34, 0.72);
+    }
+    .tabs::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 50%;
+      height: 2px;
+      background: var(--teal);
+      transform: translateX(var(--tab-offset, 0));
+      transition: transform .2s ease;
+    }
+    .tabs button {
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 12px;
+      color: var(--muted);
+    }
+    .tabs button.active { color: var(--text); }
+    .panel-stack { min-height: 0; position: relative; }
+    .panel { position: absolute; inset: 0; display: none; min-height: 0; }
+    .panel.active { display: flex; flex-direction: column; }
+    .transcript { overflow: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: #141922; line-height: 1.45; font-size: 13px; }
+    .msg.user { border-color: rgba(102,152,240,0.55); }
+    .msg.assistant { border-color: rgba(53,194,180,0.55); }
+    .label { color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+    .empty-chat { margin: auto; text-align: center; color: var(--muted); display: grid; gap: 14px; padding: 28px; }
+    .prompt-chips { display: grid; gap: 8px; }
+    .prompt-chips button { width: 100%; text-align: left; }
+    .composer { padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: rgba(20,25,34,0.72); }
+    .composer input {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0f131a;
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 13px;
+    }
+    .activity { overflow: auto; padding: 14px; display: grid; gap: 10px; align-content: start; }
+    .activity-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #141922;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .activity-card.running { border-color: rgba(240,180,41,0.55); }
+    .activity-card.completed { border-color: rgba(69,214,162,0.48); }
+    .activity-card.failed { border-color: rgba(224,90,90,0.55); }
+    .activity-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 700; }
+    .activity-status { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .activity-preview { color: var(--muted); line-height: 1.45; word-break: break-word; }
+    .quick { padding: 14px; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+    .quick button { width: 100%; text-align: left; }
+    .config-overlay {
       position: fixed;
       inset: 0;
-      background: var(--bg);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
-      z-index: 100;
+      z-index: 28;
+      display: grid;
+      place-items: center;
+      background: rgba(0,0,0,0.62);
+      backdrop-filter: blur(8px);
+      padding: 18px;
     }
-    .offline-overlay .orb {
-      width: 120px; height: 120px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 35% 35%, #52525b, #3f3f46, #27272a);
-      box-shadow: 0 0 40px rgba(82, 82, 91, 0.3);
+    .config-card {
+      width: min(560px, 100%);
+      max-height: min(760px, 92vh);
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 18px;
+      display: grid;
+      gap: 18px;
     }
-    .offline-overlay h2 {
-      font-size: 22px;
-      font-weight: 600;
+    .config-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .config-head h2 { margin: 0; font-size: 18px; }
+    .config-section { display: grid; gap: 10px; }
+    .config-section h3 { margin: 0; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .preset-grid button { text-align: left; }
+    .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+    .swatch {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border-width: 2px;
+    }
+    .swatch.active, .preset-grid button.active { border-color: var(--teal); color: var(--text); }
+    .field-row { display: grid; gap: 6px; }
+    .field-row label { color: var(--muted); font-size: 12px; }
+    .field-row select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0f131a;
       color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
     }
-    .offline-overlay p {
-      font-size: 14px;
-      color: var(--muted);
+    .offline {
+      position: absolute;
+      top: 18px; left: 18px; right: 18px; z-index: 8;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid rgba(240,180,41,0.42);
+      background: rgba(24, 28, 35, 0.82);
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #f8d986;
+    }
+    .auth-overlay {
+      position: fixed; inset: 0; z-index: 30;
+      display: grid; place-items: center;
+      background: var(--bg);
+      padding: 24px;
+    }
+    .auth-card {
+      width: min(440px, 100%);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 24px;
+      display: grid;
+      gap: 14px;
       text-align: center;
-      max-width: 400px;
-      line-height: 1.6;
     }
-    .offline-overlay .badge-offline {
-      font-size: 12px;
-      padding: 4px 14px;
-      border-radius: 999px;
-      background: rgba(239, 68, 68, 0.1);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: var(--red);
+    .auth-card h2 { margin: 0; font-size: 20px; }
+    .auth-card p { color: var(--muted); margin: 0; line-height: 1.5; }
+    [hidden] { display: none !important; }
+    .offline b { color: #f8d986; font-size: 13px; }
+    .offline span { color: var(--muted); font-size: 12px; line-height: 1.4; }
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      .shell { height: auto; min-height: calc(100vh - 64px); grid-template-columns: 1fr; }
+      .stage { min-height: min(720px, calc(100vh - 64px)); }
+      .idle { transform: translateY(-56px); }
+      .idle h2, .idle p { display: none; }
+      .avatar-standby { width: min(320px, 56vw); }
+      .side { border-left: 0; border-top: 1px solid var(--border); min-height: 42vh; }
+      .stage-bar { position: static; margin: 12px; align-self: end; }
+      .starfield-tools { top: 70px; right: 12px; }
     }
   </style>
 </head>
 <body>
-
-<!-- Offline overlay — shown when voice gate is disabled -->
-<div class="offline-overlay" id="offlineOverlay" style="display:none">
-  <div class="orb"></div>
-  <h2>Morgan is offline</h2>
-  <span class="badge-offline">Voice unavailable</span>
-  <p>Morgan’s voice interface is currently disabled.<br>Contact your administrator to enable voice access.</p>
-</div>
-
-<header>
-  <div class="logo">M</div>
-  <h1>Morgan</h1>
-  <span class="badge">Voice Live · HD</span>
-</header>
-
-<div class="main">
-  <div class="orb-container">
-    <div class="orb" id="orb"></div>
+  <div class="auth-overlay" id="authOverlay" hidden>
+    <div class="auth-card">
+      <div class="portrait" style="margin:0 auto;">M</div>
+      <h2>Sign in to Morgan</h2>
+      <p>Use your Microsoft work account to start the avatar, access Mission Control, and use live CFO tools.</p>
+      <a class="button primary" id="signInButton" href="/auth/login?returnTo=/voice">Sign in with Microsoft</a>
+    </div>
   </div>
 
-  <div class="status" id="status">Click Connect to start a voice session with Morgan</div>
+  <header>
+    <div class="brand">
+      <div class="mark">M</div>
+      <div>
+        <h1>Morgan</h1>
+        <div class="meta" id="avatarMeta">Aria as Morgan - HD avatar</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="status-pill" id="statusPill" role="status" aria-live="polite">Disconnected</div>
+      <button class="icon-btn" id="btnAccessible" type="button" title="Accessible mode" aria-label="Toggle accessible mode">A</button>
+      <button class="icon-btn" id="btnConfig" type="button" title="Avatar and camera settings" aria-label="Open avatar and camera settings">C</button>
+    </div>
+  </header>
 
-  <div class="controls">
-    <button class="primary" id="btnConnect" onclick="connect()">Connect</button>
-    <button class="mute" id="btnMute" onclick="toggleMute()" disabled>Mute</button>
-    <button class="danger" id="btnDisconnect" onclick="disconnect()" disabled>Disconnect</button>
+  <div class="shell">
+    <main class="stage" id="stage">
+      <div class="offline" id="offlineOverlay">
+        <b>Voice paused</b>
+        <span>The avatar is visible. Ask Morgan in Teams to enable live voice when you want the full spoken session.</span>
+      </div>
+      <div class="starfield-tools" aria-label="Starfield controls">
+        <button type="button" id="starZoomOut" title="Zoom out" aria-label="Zoom out">-</button>
+        <span class="readout" id="starZoomReadout">100%</span>
+        <button type="button" id="starZoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+        <button type="button" id="starReset" title="Reset starfield" aria-label="Reset starfield">0</button>
+      </div>
+      <div class="avatar-frame">
+        <canvas class="starfield" id="starfieldCanvas" tabindex="0" aria-label="Interactive starfield"></canvas>
+        <div class="avatar-aura aura-idle" id="avatarAura" aria-hidden="true"></div>
+        <canvas class="avatar-composite" id="avatarCompositeCanvas" aria-hidden="true"></canvas>
+        <video id="avatarVideo" autoplay playsinline muted></video>
+        <audio id="avatarAudio" autoplay></audio>
+        <div class="idle" id="idlePanel">
+          <div class="avatar-standby" id="avatarStandby">
+            <div class="avatar-orb">M</div>
+            <div class="avatar-signal"><span></span><span></span><span></span><span></span></div>
+          </div>
+          <h2>Aria as Morgan</h2>
+          <p>Start Morgan's live HD avatar session.</p>
+        </div>
+      </div>
+      <div class="tool-overlay" id="toolOverlay" hidden role="status" aria-live="polite">
+        <div class="tool-overlay-row">
+          <div>
+            <div class="tool-overlay-title" id="toolOverlayTitle">Morgan is working</div>
+            <div class="tool-overlay-subtitle" id="toolOverlaySubtitle">Preparing the next financial step.</div>
+          </div>
+          <div class="tool-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <div class="quick-launch" id="quickLaunch" aria-label="Quick launch prompts">
+        <button type="button" data-prompt="Give me a morning CFO briefing with risks, cash, and actions.">Morning briefing</button>
+        <button type="button" data-prompt="Run your autonomous CFO workday checks and tell me what you completed.">Run CFO checks</button>
+        <button type="button" data-prompt="Prepare the end-of-day CFO wrap-up.">End-of-day wrap-up</button>
+        <button type="button" data-prompt="Show me enterprise readiness and governance gaps.">Readiness check</button>
+      </div>
+      <div class="stage-bar">
+        <div class="meta" id="statusText">Ready to connect</div>
+        <div class="controls">
+          <a class="button" href="/mission-control">Mission Control</a>
+          <button class="primary" id="btnConnect" onclick="connect()">Start Avatar</button>
+          <button class="warn" id="btnMute" onclick="toggleMute()" disabled>Mute</button>
+          <button class="danger" id="btnDisconnect" onclick="disconnect()" disabled>End</button>
+        </div>
+      </div>
+    </main>
+
+    <aside class="side">
+      <div class="side-head">
+        <h2>Conversation</h2>
+        <p>Financial questions, task updates, and Mission Control requests appear here during the session.</p>
+      </div>
+      <div class="tabs" id="tabs" role="tablist" aria-label="Conversation and activity tabs">
+        <button class="active" id="tabChat" type="button" role="tab" aria-selected="true" aria-controls="chatPanel">Chat</button>
+        <button id="tabActivity" type="button" role="tab" aria-selected="false" aria-controls="activityPanel">Activity</button>
+      </div>
+      <div class="panel-stack">
+        <section class="panel active" id="chatPanel" role="tabpanel" aria-labelledby="tabChat">
+          <div class="transcript" id="transcript" role="log" aria-label="Conversation messages" aria-live="polite">
+            <div class="empty-chat" id="emptyChat">
+              <div>Start a conversation with Morgan</div>
+              <div class="prompt-chips">
+                <button type="button" data-prompt="What should I pay attention to financially today?">What should I watch today?</button>
+                <button type="button" data-prompt="Show me your job description and the key tasks you follow autonomously.">Show job description</button>
+                <button type="button" data-prompt="Run your autonomous CFO workday checks and tell me what you completed.">Run CFO checks</button>
+                <button type="button" data-prompt="Give me an end-of-day breakdown of what you completed today.">End-of-day breakdown</button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="panel" id="activityPanel" role="tabpanel" aria-labelledby="tabActivity">
+          <div class="activity" id="activityLog" aria-label="Tool call and workflow activity" aria-live="polite"></div>
+        </section>
+      </div>
+      <div class="composer">
+        <input id="chatInput" type="text" aria-label="Message Morgan" placeholder="Message Morgan..." autocomplete="off">
+        <button class="primary" id="btnSendText" type="button">Send</button>
+      </div>
+    </aside>
   </div>
 
-  <div class="transcript" id="transcript"></div>
-</div>
+  <div class="config-overlay" id="configOverlay" hidden>
+    <div class="config-card" role="dialog" aria-modal="true" aria-labelledby="configTitle">
+      <div class="config-head">
+        <h2 id="configTitle">Avatar and Camera</h2>
+        <button class="icon-btn" id="btnCloseConfig" type="button" aria-label="Close settings">X</button>
+      </div>
+      <section class="config-section">
+        <h3>Avatar preset</h3>
+        <div class="preset-grid" id="avatarPresetGrid"></div>
+      </section>
+      <section class="config-section">
+        <h3>Background</h3>
+        <div class="swatches" id="backgroundSwatches"></div>
+      </section>
+      <section class="config-section">
+        <h3>Camera framing</h3>
+        <div class="field-row">
+          <label for="videoFitSelect">Video fit</label>
+          <select id="videoFitSelect">
+            <option value="cover">Fill frame</option>
+            <option value="contain">Full body</option>
+          </select>
+        </div>
+      </section>
+      <section class="config-section">
+        <h3>Accessibility</h3>
+        <div class="preset-grid">
+          <button type="button" id="btnFontNormal">Normal text</button>
+          <button type="button" id="btnFontLarge">Large text</button>
+          <button type="button" id="btnFontXLarge">Extra large text</button>
+          <button type="button" id="btnHighContrast">High contrast</button>
+        </div>
+      </section>
+    </div>
+  </div>
 
-<footer>
-  Morgan · Digital Finance Analyst · Powered by Azure Voice Live + GPT-5
-</footer>
+  <script>
+    const statusPill = document.getElementById('statusPill');
+    const statusText = document.getElementById('statusText');
+    const transcript = document.getElementById('transcript');
+    const btnConnect = document.getElementById('btnConnect');
+    const btnMute = document.getElementById('btnMute');
+    const btnDisconnect = document.getElementById('btnDisconnect');
+    const offlineOverlay = document.getElementById('offlineOverlay');
+    const authOverlay = document.getElementById('authOverlay');
+    const signInButton = document.getElementById('signInButton');
+    const stageEl = document.getElementById('stage');
+    const videoEl = document.getElementById('avatarVideo');
+    const avatarFrame = document.querySelector('.avatar-frame');
+    const avatarCompositeCanvas = document.getElementById('avatarCompositeCanvas');
+    const avatarCompositeContext = avatarCompositeCanvas.getContext('2d', { willReadFrequently: true });
+    const audioEl = document.getElementById('avatarAudio');
+    const idlePanel = document.getElementById('idlePanel');
+    const avatarStandby = document.getElementById('avatarStandby');
+    const avatarMeta = document.getElementById('avatarMeta');
+    const starfieldCanvas = document.getElementById('starfieldCanvas');
+    const starfieldContext = starfieldCanvas.getContext('2d');
+    const starZoomIn = document.getElementById('starZoomIn');
+    const starZoomOut = document.getElementById('starZoomOut');
+    const starReset = document.getElementById('starReset');
+    const starZoomReadout = document.getElementById('starZoomReadout');
+    const avatarAura = document.getElementById('avatarAura');
+    const toolOverlay = document.getElementById('toolOverlay');
+    const toolOverlayTitle = document.getElementById('toolOverlayTitle');
+    const toolOverlaySubtitle = document.getElementById('toolOverlaySubtitle');
+    const quickLaunch = document.getElementById('quickLaunch');
+    const tabs = document.getElementById('tabs');
+    const tabChat = document.getElementById('tabChat');
+    const tabActivity = document.getElementById('tabActivity');
+    const chatPanel = document.getElementById('chatPanel');
+    const activityPanel = document.getElementById('activityPanel');
+    const activityLog = document.getElementById('activityLog');
+    const emptyChat = document.getElementById('emptyChat');
+    const chatInput = document.getElementById('chatInput');
+    const btnSendText = document.getElementById('btnSendText');
+    const btnAccessible = document.getElementById('btnAccessible');
+    const btnConfig = document.getElementById('btnConfig');
+    const configOverlay = document.getElementById('configOverlay');
+    const btnCloseConfig = document.getElementById('btnCloseConfig');
+    const avatarPresetGrid = document.getElementById('avatarPresetGrid');
+    const backgroundSwatches = document.getElementById('backgroundSwatches');
+    const videoFitSelect = document.getElementById('videoFitSelect');
+    const btnFontNormal = document.getElementById('btnFontNormal');
+    const btnFontLarge = document.getElementById('btnFontLarge');
+    const btnFontXLarge = document.getElementById('btnFontXLarge');
+    const btnHighContrast = document.getElementById('btnHighContrast');
 
-<script>
-  const orbEl = document.getElementById('orb');
-  const statusEl = document.getElementById('status');
-  const transcriptEl = document.getElementById('transcript');
-  const btnConnect = document.getElementById('btnConnect');
-  const btnMute = document.getElementById('btnMute');
-  const btnDisconnect = document.getElementById('btnDisconnect');
-  const offlineOverlay = document.getElementById('offlineOverlay');
-  const mainUI = document.querySelector('.main');
-  const headerEl = document.querySelector('header');
-  const footerEl = document.querySelector('footer');
+    let ws = null;
+    let pc = null;
+    let micStream = null;
+    let audioContext = null;
+    let processor = null;
+    let micSource = null;
+    let playbackContext = null;
+    let nextPlaybackTime = 0;
+    let activeSources = [];
+    let isMuted = false;
+    let avatarHasVideo = false;
+    let avatarHasRemoteAudio = false;
+    let activeResponseText = '';
+    let greetingSent = false;
+    let avatarStartRequested = false;
+    let starfieldFrame = 0;
+    let starfieldLastTs = 0;
+    let starfieldParticles = [];
+    let authPromptVisible = false;
+    let starfieldZoom = 1;
+    let starfieldPanX = 0;
+    let starfieldPanY = 0;
+    let starfieldDragging = false;
+    let starfieldLastPointer = null;
+    let starfieldPointer = { x: 0.5, y: 0.5, active: false };
+    let avatarCompositeFrame = 0;
+    let activeTab = 'chat';
+    let activePresence = 'idle';
+    let activityItems = [];
+    let avatarConfig = {
+      character: 'meg',
+      style: 'casual',
+      voice: 'en-US-Ava:DragonHDLatestNeural',
+      backgroundColor: '#000000',
+      videoFit: 'cover',
+    };
+    let accessibilityPrefs = loadAccessibilityPrefs();
 
-  let ws = null;
-  let isMuted = false;
+    const AVATAR_PRESETS = [
+      { character: 'meg', style: 'casual', label: 'Meg Casual' },
+      { character: 'meg', style: 'business', label: 'Meg Business' },
+      { character: 'meg', style: 'formal', label: 'Meg Formal' },
+      { character: 'max', style: 'business', label: 'Max Business' },
+      { character: 'max', style: 'casual', label: 'Max Casual' },
+      { character: 'lisa', style: 'business', label: 'Lisa Business' },
+    ];
+    const BG_PRESETS = [
+      { color: '#000000', label: 'Black' },
+      { color: '#0d1117', label: 'GitHub Dark' },
+      { color: '#0b0e12', label: 'Blank Dark' },
+      { color: '#0f172a', label: 'Dark Navy' },
+      { color: '#172554', label: 'Brand Blue' },
+      { color: '#1a1a2e', label: 'Deep Purple' },
+      { color: '#111827', label: 'Slate Black' },
+    ];
 
-  // Check voice gate on page load
-  async function checkVoiceGate() {
-    try {
-      const r = await fetch('/api/health');
-      const data = await r.json();
-      if (!data.voiceEnabled) {
-        showOffline();
+    const voiceLoginUrl = '/auth/login?returnTo=/voice';
+
+    function loadAccessibilityPrefs() {
+      try {
+        return JSON.parse(localStorage.getItem('morgan-avatar-accessibility') || '{}');
+      } catch {
+        return {};
+      }
+    }
+
+    function saveAccessibilityPrefs() {
+      localStorage.setItem('morgan-avatar-accessibility', JSON.stringify(accessibilityPrefs));
+    }
+
+    function applyAccessibilityPrefs() {
+      document.body.classList.toggle('large-type', accessibilityPrefs.fontSize === 'large');
+      document.body.classList.toggle('xlarge-type', accessibilityPrefs.fontSize === 'x-large');
+      document.body.classList.toggle('high-contrast', Boolean(accessibilityPrefs.highContrast));
+      document.body.classList.toggle('accessible-mode', Boolean(accessibilityPrefs.accessibleMode));
+      btnAccessible.textContent = accessibilityPrefs.accessibleMode ? 'V' : 'A';
+      btnAccessible.setAttribute('aria-pressed', String(Boolean(accessibilityPrefs.accessibleMode)));
+      btnHighContrast?.classList.toggle('active', Boolean(accessibilityPrefs.highContrast));
+      btnFontNormal?.classList.toggle('active', !accessibilityPrefs.fontSize || accessibilityPrefs.fontSize === 'normal');
+      btnFontLarge?.classList.toggle('active', accessibilityPrefs.fontSize === 'large');
+      btnFontXLarge?.classList.toggle('active', accessibilityPrefs.fontSize === 'x-large');
+    }
+
+    function setTab(tab) {
+      activeTab = tab;
+      const showActivity = tab === 'activity';
+      tabs.style.setProperty('--tab-offset', showActivity ? '100%' : '0');
+      tabChat.classList.toggle('active', !showActivity);
+      tabActivity.classList.toggle('active', showActivity);
+      tabChat.setAttribute('aria-selected', String(!showActivity));
+      tabActivity.setAttribute('aria-selected', String(showActivity));
+      chatPanel.classList.toggle('active', !showActivity);
+      activityPanel.classList.toggle('active', showActivity);
+    }
+
+    function setPresence(nextPresence) {
+      activePresence = nextPresence;
+      stageEl.classList.toggle('is-speaking', nextPresence === 'speaking');
+      stageEl.classList.toggle('is-listening', nextPresence === 'listening');
+      stageEl.classList.toggle('is-tool', nextPresence === 'thinking');
+      avatarAura.className = `avatar-aura aura-${nextPresence}`;
+    }
+
+    function applyAvatarVisuals() {
+      const backgroundColor = avatarConfig.backgroundColor || '#000000';
+      avatarFrame.style.background = backgroundColor;
+      stageEl.style.background = '#000';
+      videoEl.style.objectFit = avatarConfig.videoFit || 'cover';
+      videoFitSelect.value = avatarConfig.videoFit || 'cover';
+      for (const button of avatarPresetGrid.querySelectorAll('button')) {
+        button.classList.toggle('active', button.dataset.character === avatarConfig.character && button.dataset.style === avatarConfig.style);
+      }
+      for (const button of backgroundSwatches.querySelectorAll('button')) {
+        button.classList.toggle('active', button.dataset.color === avatarConfig.backgroundColor);
+      }
+    }
+
+    function renderConfigControls() {
+      avatarPresetGrid.innerHTML = '';
+      for (const preset of AVATAR_PRESETS) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = preset.label;
+        button.dataset.character = preset.character;
+        button.dataset.style = preset.style;
+        button.addEventListener('click', () => {
+          avatarConfig.character = preset.character;
+          avatarConfig.style = preset.style;
+          applyAvatarVisuals();
+        });
+        avatarPresetGrid.appendChild(button);
+      }
+      backgroundSwatches.innerHTML = '';
+      for (const preset of BG_PRESETS) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'swatch';
+        button.title = preset.label;
+        button.setAttribute('aria-label', preset.label);
+        button.dataset.color = preset.color;
+        button.style.backgroundColor = preset.color;
+        button.addEventListener('click', () => {
+          avatarConfig.backgroundColor = preset.color;
+          applyAvatarVisuals();
+        });
+        backgroundSwatches.appendChild(button);
+      }
+      applyAvatarVisuals();
+    }
+
+    function renderActivityLog() {
+      activityLog.innerHTML = '';
+      if (!activityItems.length) {
+        const empty = document.createElement('div');
+        empty.className = 'activity-card';
+        empty.innerHTML = '<div class="activity-title">No tool activity yet</div><div class="activity-preview">Morgan tool calls, approvals, and CFO workflow steps will appear here.</div>';
+        activityLog.appendChild(empty);
+        return;
+      }
+      for (const item of activityItems.slice().reverse()) {
+        const card = document.createElement('div');
+        card.className = `activity-card ${item.status}`;
+        const title = document.createElement('div');
+        title.className = 'activity-title';
+        const name = document.createElement('span');
+        name.textContent = item.name;
+        const status = document.createElement('span');
+        status.className = 'activity-status';
+        status.textContent = item.status;
+        title.appendChild(name);
+        title.appendChild(status);
+        const preview = document.createElement('div');
+        preview.className = 'activity-preview';
+        preview.textContent = item.preview || 'Waiting for Morgan to complete this step.';
+        card.appendChild(title);
+        card.appendChild(preview);
+        activityLog.appendChild(card);
+      }
+    }
+
+    function setToolOverlay(item) {
+      const running = item && item.status === 'running';
+      toolOverlay.hidden = !running;
+      toolOverlay.classList.toggle('active', running);
+      if (!running) return;
+      toolOverlayTitle.textContent = `${item.name} running`;
+      toolOverlaySubtitle.textContent = item.preview || 'Morgan is using a CFO tool.';
+    }
+
+    function upsertActivity(item) {
+      const existing = activityItems.find((entry) => entry.id === item.id);
+      if (existing) Object.assign(existing, item);
+      else activityItems.push(item);
+      activityItems = activityItems.slice(-12);
+      renderActivityLog();
+      const runningItem = activityItems.find((entry) => entry.status === 'running');
+      setToolOverlay(runningItem || null);
+      setPresence(runningItem ? 'thinking' : activePresence === 'thinking' ? 'idle' : activePresence);
+    }
+
+    function showSignIn() {
+      authPromptVisible = true;
+      signInButton.href = voiceLoginUrl;
+      authOverlay.hidden = false;
+      offlineOverlay.style.display = 'none';
+    }
+
+    async function requireSignedIn() {
+      if (authPromptVisible && !authOverlay.hidden) return false;
+      try {
+        const response = await fetch('/api/web-auth/me', { credentials: 'include' });
+        if (response.status === 401) {
+          await response.json().catch(() => ({}));
+          showSignIn();
+          return false;
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        authPromptVisible = false;
+        authOverlay.hidden = true;
+        return true;
+      } catch {
+        showSignIn();
         return false;
       }
-      showOnline();
-      return true;
-    } catch {
-      showOffline();
-      return false;
     }
-  }
 
-  function showOffline() {
-    offlineOverlay.style.display = 'flex';
-    mainUI.style.display = 'none';
-    headerEl.style.display = 'none';
-    footerEl.style.display = 'none';
-  }
+    function setStatus(text, live = false) {
+      statusText.textContent = text;
+      statusPill.textContent = text;
+      statusPill.className = live ? 'status-pill live' : 'status-pill';
+      stageEl.classList.toggle('is-live', live);
+      if (/thinking|working|using/i.test(text)) setPresence('thinking');
+      else if (/listening/i.test(text)) setPresence('listening');
+      else if (/speaking/i.test(text)) setPresence('speaking');
+      else setPresence(live ? 'idle' : 'idle');
+    }
 
-  function showOnline() {
-    offlineOverlay.style.display = 'none';
-    mainUI.style.display = '';
-    headerEl.style.display = '';
-    footerEl.style.display = '';
-  }
+    function createStarParticle() {
+      return {
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 2.6 + 0.8,
+        speed: Math.random() * 0.58 + 0.18,
+        opacity: Math.random() * 0.46 + 0.34,
+        drift: (Math.random() - 0.5) * 0.34,
+        twinkle: Math.random() * Math.PI * 2,
+        depth: Math.random() * 0.88 + 0.22,
+        hue: Math.random() > 0.42 ? 'teal' : 'blue',
+      };
+    }
 
-  // Check on load and poll every 30s
-  checkVoiceGate();
-  setInterval(checkVoiceGate, 30000);
-  let audioContext = null;
-  let micStream = null;
-  let micWorklet = null;
-  let micSource = null;
-  let nextPlaybackTime = 0;
-  let activeResponseText = '';
-  let activeSources = []; // track playing AudioBufferSourceNodes for barge-in
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
 
-  function setStatus(text, cls = '') {
-    statusEl.textContent = text;
-    statusEl.className = 'status ' + cls;
-  }
+    function updateStarfieldReadout() {
+      if (!starZoomReadout) return;
+      starZoomReadout.textContent = `${Math.round(starfieldZoom * 100)}%`;
+    }
 
-  function addTranscript(role, text) {
-    if (!text.trim()) return;
-    const div = document.createElement('div');
-    div.className = 'msg ' + role;
-    const label = document.createElement('div');
-    label.className = 'label';
-    label.textContent = role === 'user' ? 'You' : 'Morgan';
-    const body = document.createElement('div');
-    body.textContent = text;
-    div.appendChild(label);
-    div.appendChild(body);
-    transcriptEl.appendChild(div);
-    transcriptEl.scrollTop = transcriptEl.scrollHeight;
-  }
+    function clampStarfieldPan() {
+      const rect = starfieldCanvas.getBoundingClientRect();
+      const limitX = rect.width * Math.max(0.35, starfieldZoom - 0.35);
+      const limitY = rect.height * Math.max(0.35, starfieldZoom - 0.35);
+      starfieldPanX = clamp(starfieldPanX, -limitX, limitX);
+      starfieldPanY = clamp(starfieldPanY, -limitY, limitY);
+    }
 
-  async function connect() {
-    // Re-check gate before connecting
-    const gateOpen = await checkVoiceGate();
-    if (!gateOpen) return;
+    function setStarfieldZoom(nextZoom, origin) {
+      const rect = starfieldCanvas.getBoundingClientRect();
+      const previousZoom = starfieldZoom;
+      const zoom = clamp(nextZoom, 0.55, 3.2);
+      if (Math.abs(zoom - previousZoom) < 0.001) return;
+      const originX = origin?.x ?? rect.width / 2;
+      const originY = origin?.y ?? rect.height / 2;
+      const worldX = (originX - rect.width / 2 - starfieldPanX) / previousZoom;
+      const worldY = (originY - rect.height / 2 - starfieldPanY) / previousZoom;
+      starfieldZoom = zoom;
+      starfieldPanX = originX - rect.width / 2 - worldX * starfieldZoom;
+      starfieldPanY = originY - rect.height / 2 - worldY * starfieldZoom;
+      clampStarfieldPan();
+      updateStarfieldReadout();
+    }
 
-    try {
-      btnConnect.disabled = true;
-      setStatus('Requesting microphone access...', '');
+    function resetStarfieldView() {
+      starfieldZoom = 1;
+      starfieldPanX = 0;
+      starfieldPanY = 0;
+      updateStarfieldReadout();
+    }
 
-      // Get mic
-      micStream = await navigator.mediaDevices.getUserMedia({
-        audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+    function relativePointer(event) {
+      const rect = starfieldCanvas.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+
+    function setupStarfieldInteractions() {
+      starZoomIn?.addEventListener('click', () => setStarfieldZoom(starfieldZoom * 1.18));
+      starZoomOut?.addEventListener('click', () => setStarfieldZoom(starfieldZoom / 1.18));
+      starReset?.addEventListener('click', resetStarfieldView);
+      starfieldCanvas.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const point = relativePointer(event);
+        setStarfieldZoom(starfieldZoom * (event.deltaY < 0 ? 1.12 : 0.88), point);
+      }, { passive: false });
+      starfieldCanvas.addEventListener('pointerdown', (event) => {
+        starfieldDragging = true;
+        starfieldLastPointer = { x: event.clientX, y: event.clientY };
+        starfieldCanvas.classList.add('is-dragging');
+        starfieldCanvas.setPointerCapture(event.pointerId);
       });
+      starfieldCanvas.addEventListener('pointermove', (event) => {
+        const point = relativePointer(event);
+        starfieldPointer = { x: point.x / point.width, y: point.y / point.height, active: true };
+        if (starfieldDragging && starfieldLastPointer) {
+          starfieldPanX += event.clientX - starfieldLastPointer.x;
+          starfieldPanY += event.clientY - starfieldLastPointer.y;
+          starfieldLastPointer = { x: event.clientX, y: event.clientY };
+          clampStarfieldPan();
+        }
+      });
+      const endDrag = (event) => {
+        starfieldDragging = false;
+        starfieldLastPointer = null;
+        starfieldCanvas.classList.remove('is-dragging');
+        try { starfieldCanvas.releasePointerCapture(event.pointerId); } catch {}
+      };
+      starfieldCanvas.addEventListener('pointerup', endDrag);
+      starfieldCanvas.addEventListener('pointercancel', endDrag);
+      starfieldCanvas.addEventListener('pointerleave', () => { starfieldPointer.active = false; });
+      starfieldCanvas.addEventListener('dblclick', resetStarfieldView);
+      starfieldCanvas.addEventListener('keydown', (event) => {
+        if (event.key === '+' || event.key === '=') {
+          event.preventDefault();
+          setStarfieldZoom(starfieldZoom * 1.18);
+        } else if (event.key === '-' || event.key === '_') {
+          event.preventDefault();
+          setStarfieldZoom(starfieldZoom / 1.18);
+        } else if (event.key === '0') {
+          event.preventDefault();
+          resetStarfieldView();
+        }
+      });
+      updateStarfieldReadout();
+    }
 
-      // Audio context at native sample rate — let the browser handle hardware resampling
-      audioContext = new AudioContext();
-      nextPlaybackTime = 0;
+    function resizeStarfield() {
+      if (!starfieldCanvas || !starfieldContext) return;
+      const rect = starfieldCanvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      starfieldCanvas.width = Math.max(1, Math.floor(rect.width * ratio));
+      starfieldCanvas.height = Math.max(1, Math.floor(rect.height * ratio));
+      starfieldContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+      clampStarfieldPan();
+    }
 
-      setStatus('Connecting to Morgan...', '');
+    function startStarfield() {
+      if (!starfieldCanvas || !starfieldContext || starfieldFrame) return;
+      starfieldParticles = Array.from({ length: 190 }, createStarParticle);
+      resizeStarfield();
+      window.addEventListener('resize', resizeStarfield);
+      const draw = (timestamp) => {
+        const rect = starfieldCanvas.getBoundingClientRect();
+        const delta = starfieldLastTs ? Math.min(48, timestamp - starfieldLastTs) / 16.67 : 1;
+        starfieldLastTs = timestamp;
+        const live = stageEl.classList.contains('is-live');
+        const speaking = stageEl.classList.contains('is-speaking');
+        const speedMultiplier = speaking ? 2 : live ? 1.45 : 0.78;
+        const opacityMultiplier = speaking ? 1.18 : live ? 1.06 : 0.74;
+        const centerX = rect.width / 2 + starfieldPanX;
+        const centerY = rect.height / 2 + starfieldPanY;
+        const pointerX = starfieldPointer.x * rect.width;
+        const pointerY = starfieldPointer.y * rect.height;
+        const parallaxX = starfieldPointer.active ? (starfieldPointer.x - 0.5) * 28 : 0;
+        const parallaxY = starfieldPointer.active ? (starfieldPointer.y - 0.5) * 22 : 0;
 
-      // WebSocket — connect to our server proxy
-      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${proto}//${location.host}/api/voice`);
+        starfieldContext.clearRect(0, 0, rect.width, rect.height);
+        starfieldContext.globalCompositeOperation = 'source-over';
+        for (const particle of starfieldParticles) {
+          particle.y -= particle.speed * speedMultiplier * delta * 0.0016;
+          particle.x += particle.drift * delta * 0.001;
+          if (particle.y < -0.05) {
+            particle.y = 1.05;
+            particle.x = Math.random();
+          }
+          if (particle.x < -0.05) particle.x = 1.05;
+          if (particle.x > 1.05) particle.x = -0.05;
 
-      ws.onopen = () => {
-        setStatus('Connected — Morgan is listening', 'active');
-        btnDisconnect.disabled = false;
-        btnMute.disabled = false;
-        startMicCapture();
-        // Send a greeting trigger after session is configured
+          const depthScale = 0.52 + particle.depth * 0.9;
+          const x = centerX + ((particle.x - 0.5) * rect.width * starfieldZoom * depthScale) + parallaxX * particle.depth;
+          const y = centerY + ((particle.y - 0.5) * rect.height * starfieldZoom * depthScale) + parallaxY * particle.depth;
+          if (x < -80 || x > rect.width + 80 || y < -80 || y > rect.height + 80) continue;
+          const pointerDistance = starfieldPointer.active ? Math.hypot(x - pointerX, y - pointerY) : Infinity;
+          const pointerBoost = Math.max(0, 1 - pointerDistance / 155);
+          const twinkle = 0.72 + Math.sin(timestamp * 0.0015 + particle.twinkle) * 0.28;
+          const alpha = Math.min(particle.opacity * opacityMultiplier * twinkle + pointerBoost * 0.42, 0.98);
+          const tealShift = speaking || particle.hue === 'teal' || pointerBoost > 0.2;
+          const size = particle.size * (0.72 + particle.depth * 0.45) * Math.min(1.55, 0.82 + starfieldZoom * 0.22);
+
+          starfieldContext.beginPath();
+          starfieldContext.arc(x, y, size * (3.2 + pointerBoost * 2.4), 0, Math.PI * 2);
+          starfieldContext.fillStyle = tealShift
+            ? `rgba(20, 184, 166, ${alpha * 0.12})`
+            : `rgba(37, 99, 235, ${alpha * 0.1})`;
+          starfieldContext.fill();
+
+          starfieldContext.beginPath();
+          starfieldContext.arc(x, y, size, 0, Math.PI * 2);
+          starfieldContext.fillStyle = tealShift
+            ? `rgba(13, 148, 136, ${alpha})`
+            : `rgba(30, 64, 175, ${alpha})`;
+          starfieldContext.shadowColor = tealShift ? 'rgba(20, 184, 166, 0.54)' : 'rgba(37, 99, 235, 0.48)';
+          starfieldContext.shadowBlur = size * (3.2 + pointerBoost * 3.2);
+          starfieldContext.fill();
+
+          if (size > 2.2) {
+            starfieldContext.beginPath();
+            starfieldContext.moveTo(x - size * 2.2, y);
+            starfieldContext.lineTo(x + size * 2.2, y);
+            starfieldContext.moveTo(x, y - size * 2.2);
+            starfieldContext.lineTo(x, y + size * 2.2);
+            starfieldContext.strokeStyle = tealShift
+              ? `rgba(20, 184, 166, ${alpha * 0.42})`
+              : `rgba(30, 64, 175, ${alpha * 0.38})`;
+            starfieldContext.lineWidth = 0.7;
+            starfieldContext.stroke();
+          }
+
+          if (pointerBoost > 0.12) {
+            starfieldContext.beginPath();
+            starfieldContext.moveTo(pointerX, pointerY);
+            starfieldContext.lineTo(x, y);
+            starfieldContext.strokeStyle = `rgba(53, 194, 180, ${pointerBoost * 0.22})`;
+            starfieldContext.lineWidth = 0.8;
+            starfieldContext.stroke();
+          }
+        }
+        starfieldContext.shadowBlur = 0;
+        starfieldFrame = requestAnimationFrame(draw);
+      };
+      starfieldFrame = requestAnimationFrame(draw);
+    }
+
+    function getObjectFitRect(sourceWidth, sourceHeight, targetWidth, targetHeight, fitMode) {
+      const sourceRatio = sourceWidth / sourceHeight;
+      const targetRatio = targetWidth / targetHeight;
+      const useContain = fitMode === 'contain';
+      const scaleByWidth = useContain ? sourceRatio > targetRatio : sourceRatio < targetRatio;
+      const drawWidth = scaleByWidth ? targetWidth : targetHeight * sourceRatio;
+      const drawHeight = scaleByWidth ? targetWidth / sourceRatio : targetHeight;
+      return {
+        x: (targetWidth - drawWidth) / 2,
+        y: (targetHeight - drawHeight) / 2,
+        width: drawWidth,
+        height: drawHeight,
+      };
+    }
+
+    function averageSample(imageData, canvasWidth, centerX, centerY, radius) {
+      const data = imageData.data;
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      let count = 0;
+      const startX = Math.max(0, Math.floor(centerX - radius));
+      const endX = Math.min(canvasWidth - 1, Math.floor(centerX + radius));
+      const startY = Math.max(0, Math.floor(centerY - radius));
+      const endY = Math.min(imageData.height - 1, Math.floor(centerY + radius));
+      for (let sampleY = startY; sampleY <= endY; sampleY += 1) {
+        for (let sampleX = startX; sampleX <= endX; sampleX += 1) {
+          const sampleIndex = (sampleY * canvasWidth + sampleX) * 4;
+          red += data[sampleIndex];
+          green += data[sampleIndex + 1];
+          blue += data[sampleIndex + 2];
+          count += 1;
+        }
+      }
+      return count ? { red: red / count, green: green / count, blue: blue / count } : null;
+    }
+
+    function detectAvatarKeyColor(imageData, canvasWidth, drawRect) {
+      const insetX = Math.max(8, drawRect.width * 0.035);
+      const insetY = Math.max(8, drawRect.height * 0.035);
+      const samples = [
+        averageSample(imageData, canvasWidth, drawRect.x + insetX, drawRect.y + insetY, 5),
+        averageSample(imageData, canvasWidth, drawRect.x + drawRect.width - insetX, drawRect.y + insetY, 5),
+        averageSample(imageData, canvasWidth, drawRect.x + insetX, drawRect.y + drawRect.height - insetY, 5),
+        averageSample(imageData, canvasWidth, drawRect.x + drawRect.width - insetX, drawRect.y + drawRect.height - insetY, 5),
+      ].filter(Boolean);
+      if (!samples.length) return null;
+      const key = samples.reduce((total, sample) => ({
+        red: total.red + sample.red / samples.length,
+        green: total.green + sample.green / samples.length,
+        blue: total.blue + sample.blue / samples.length,
+      }), { red: 0, green: 0, blue: 0 });
+      const brightness = (key.red + key.green + key.blue) / 3;
+      const channelSpread = Math.max(key.red, key.green, key.blue) - Math.min(key.red, key.green, key.blue);
+      if (brightness > 205 || brightness < 55 || channelSpread < 28) return key;
+      return null;
+    }
+
+    function applyAvatarBackgroundKey(imageData, keyColor) {
+      if (!keyColor) return;
+      const brightness = (keyColor.red + keyColor.green + keyColor.blue) / 3;
+      const isLightKey = brightness > 170;
+      const hardDistance = isLightKey ? 34 : 16;
+      const softDistance = isLightKey ? 92 : 48;
+      const data = imageData.data;
+      for (let pixelIndex = 0; pixelIndex < data.length; pixelIndex += 4) {
+        const red = data[pixelIndex];
+        const green = data[pixelIndex + 1];
+        const blue = data[pixelIndex + 2];
+        const pixelBrightness = (red + green + blue) / 3;
+        const channelSpread = Math.max(red, green, blue) - Math.min(red, green, blue);
+        const lightCandidate = isLightKey && pixelBrightness > 198 && channelSpread < 54;
+        const darkCandidate = !isLightKey && pixelBrightness < 62 && channelSpread < 44;
+        if (!lightCandidate && !darkCandidate) continue;
+        const distance = Math.hypot(red - keyColor.red, green - keyColor.green, blue - keyColor.blue);
+        if (distance <= hardDistance) {
+          data[pixelIndex + 3] = 0;
+        } else if (distance < softDistance) {
+          const alphaScale = (distance - hardDistance) / (softDistance - hardDistance);
+          data[pixelIndex + 3] = Math.round(data[pixelIndex + 3] * alphaScale);
+        }
+      }
+    }
+
+    function resizeAvatarComposite() {
+      if (!avatarCompositeCanvas || !avatarCompositeContext) return false;
+      const rect = avatarCompositeCanvas.getBoundingClientRect();
+      const longestEdge = Math.max(rect.width, rect.height);
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 1280 / Math.max(1, longestEdge)));
+      const width = Math.max(1, Math.floor(rect.width * ratio));
+      const height = Math.max(1, Math.floor(rect.height * ratio));
+      if (avatarCompositeCanvas.width !== width || avatarCompositeCanvas.height !== height) {
+        avatarCompositeCanvas.width = width;
+        avatarCompositeCanvas.height = height;
+      }
+      return true;
+    }
+
+    function drawAvatarComposite() {
+      if (!avatarHasVideo || !avatarCompositeContext || !resizeAvatarComposite()) return;
+      const canvasWidth = avatarCompositeCanvas.width;
+      const canvasHeight = avatarCompositeCanvas.height;
+      const sourceWidth = videoEl.videoWidth || canvasWidth;
+      const sourceHeight = videoEl.videoHeight || canvasHeight;
+      if (!sourceWidth || !sourceHeight || videoEl.readyState < 2) return;
+      const drawRect = getObjectFitRect(sourceWidth, sourceHeight, canvasWidth, canvasHeight, avatarConfig.videoFit || 'cover');
+      try {
+        avatarCompositeContext.clearRect(0, 0, canvasWidth, canvasHeight);
+        avatarCompositeContext.drawImage(videoEl, drawRect.x, drawRect.y, drawRect.width, drawRect.height);
+        const imageData = avatarCompositeContext.getImageData(0, 0, canvasWidth, canvasHeight);
+        const keyColor = detectAvatarKeyColor(imageData, canvasWidth, drawRect);
+        applyAvatarBackgroundKey(imageData, keyColor);
+        avatarCompositeContext.putImageData(imageData, 0, 0);
+        avatarCompositeCanvas.classList.add('active');
+      } catch (error) {
+        console.warn('[avatar] Falling back to raw avatar video:', error);
+        avatarFrame.classList.add('raw-video');
+        avatarCompositeCanvas.classList.remove('active');
+      }
+    }
+
+    function startAvatarComposite() {
+      if (!avatarCompositeContext) {
+        avatarFrame.classList.add('raw-video');
+        return;
+      }
+      if (avatarCompositeFrame) return;
+      const draw = () => {
+        drawAvatarComposite();
+        avatarCompositeFrame = requestAnimationFrame(draw);
+      };
+      avatarCompositeFrame = requestAnimationFrame(draw);
+    }
+
+    function stopAvatarComposite() {
+      if (avatarCompositeFrame) cancelAnimationFrame(avatarCompositeFrame);
+      avatarCompositeFrame = 0;
+      avatarCompositeCanvas.classList.remove('active');
+      avatarFrame.classList.remove('raw-video');
+      avatarCompositeContext?.clearRect(0, 0, avatarCompositeCanvas.width, avatarCompositeCanvas.height);
+    }
+
+    function addTranscript(role, text) {
+      if (!text || !text.trim()) return;
+      emptyChat.hidden = true;
+      const entry = document.createElement('div');
+      entry.className = 'msg ' + role;
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = role === 'user' ? 'You' : 'Morgan';
+      const body = document.createElement('div');
+      body.textContent = text;
+      entry.appendChild(label);
+      entry.appendChild(body);
+      transcript.appendChild(entry);
+      transcript.scrollTop = transcript.scrollHeight;
+    }
+
+    async function loadAvatarConfig() {
+      try {
+        const response = await fetch('/api/avatar/config', { credentials: 'include' });
+        if (response.status === 401) {
+          await response.json().catch(() => ({}));
+          showSignIn();
+          return;
+        }
+        const config = await response.json();
+        avatarConfig = {
+          ...avatarConfig,
+          character: config.character || avatarConfig.character,
+          style: config.style || avatarConfig.style,
+          voice: config.voice || avatarConfig.voice,
+          backgroundColor: config.backgroundColor || avatarConfig.backgroundColor || '#000000',
+        };
+        applyAvatarVisuals();
+        avatarMeta.textContent = `${config.displayName || 'Aria as Morgan'} - ${config.role || 'Digital CFO'} - ${config.voice || 'Voice Live'}`;
+      } catch {
+        avatarMeta.textContent = 'Digital CFO avatar';
+      }
+    }
+
+    async function checkGate() {
+      if (!(await requireSignedIn())) return false;
+      try {
+        const response = await fetch('/api/health', { credentials: 'include' });
+        const data = await response.json();
+        offlineOverlay.style.display = data.voiceEnabled ? 'none' : 'flex';
+        if (!data.voiceEnabled && (!ws || ws.readyState !== WebSocket.OPEN)) {
+          setStatus('Avatar visible, voice paused');
+          btnConnect.disabled = true;
+        } else if (!ws || ws.readyState !== WebSocket.OPEN) {
+          btnConnect.disabled = false;
+          setStatus('Ready to connect');
+        }
+        return Boolean(data.voiceEnabled);
+      } catch {
+        offlineOverlay.style.display = 'flex';
+        btnConnect.disabled = true;
+        return false;
+      }
+    }
+
+    async function connect() {
+      if (!(await requireSignedIn())) return;
+      if (!(await checkGate())) return;
+      await loadAvatarConfig();
+      btnConnect.disabled = true;
+      setStatus('Requesting microphone');
+
+      let micError = null;
+      try {
+        micStream = await getMicrophoneWithTimeout(4500);
+        audioContext = new AudioContext();
+      } catch (error) {
+        micError = error;
+        micStream = null;
+        audioContext = null;
+      }
+
+      try {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${proto}//${location.host}/api/voice`);
+        ws.binaryType = 'arraybuffer';
+
+        ws.onopen = async () => {
+          setStatus(micError ? 'Starting avatar without microphone' : 'Voice socket connected', true);
+          btnDisconnect.disabled = false;
+          btnMute.disabled = !micStream;
+        };
+
+        ws.onmessage = (event) => {
+          let msg;
+          try { msg = JSON.parse(event.data); } catch { return; }
+          handleVoiceEvent(msg);
+        };
+        ws.onclose = () => { cleanup(); setStatus('Disconnected'); };
+        ws.onerror = () => { cleanup(); setStatus('Connection error'); };
+      } catch (error) {
+        btnConnect.disabled = false;
+        setStatus(error.message || 'Connection failed');
+      }
+    }
+
+    function getMicrophoneWithTimeout(timeoutMs) {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        return Promise.reject(new Error('Microphone capture is not available in this browser.'));
+      }
+      let settled = false;
+      const request = navigator.mediaDevices.getUserMedia({
+        audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      });
+      const timeout = new Promise((_, reject) => {
         setTimeout(() => {
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'conversation.item.create',
-              item: {
-                type: 'message',
-                role: 'system',
-                content: [{ type: 'input_text', text: 'Greet the user briefly. You are Morgan, their finance analyst. Keep it to one sentence.' }]
-              }
-            }));
-            ws.send(JSON.stringify({ type: 'response.create' }));
+          if (!settled) reject(new Error('Microphone permission timed out. Starting avatar without microphone.'));
+        }, timeoutMs);
+      });
+      request.then((stream) => {
+        if (!settled) return;
+        stream.getTracks().forEach((track) => track.stop());
+      }).catch(() => {});
+      return Promise.race([request, timeout]).then((stream) => {
+        settled = true;
+        return stream;
+      }).catch((error) => {
+        settled = true;
+        throw error;
+      });
+    }
+
+    function normalizeIceServers(input) {
+      if (!Array.isArray(input)) return [];
+      return input.map((server) => ({
+        urls: server.urls || server.Urls,
+        username: server.username || server.Username,
+        credential: server.credential || server.Password,
+      })).filter((server) => server.urls && server.username && server.credential);
+    }
+
+    async function startAvatarWebRtc(sessionIceServers) {
+      if (avatarStartRequested || pc) return;
+      avatarStartRequested = true;
+      try {
+        let iceServers = normalizeIceServers(sessionIceServers);
+        if (!iceServers.length) {
+          const iceResponse = await fetch('/api/avatar/ice', { credentials: 'include' });
+          if (iceResponse.status === 401) {
+            await iceResponse.json().catch(() => ({}));
+            showSignIn();
+            return;
           }
-        }, 1500);
-      };
+          if (!iceResponse.ok) {
+            setStatus('Voice connected, HD avatar relay missing', true);
+            return;
+          }
+          const iceData = await iceResponse.json();
+          iceServers = normalizeIceServers([iceData]);
+        }
+        if (!iceServers.length) {
+          setStatus('Voice connected, HD avatar relay missing', true);
+          return;
+        }
+        pc = new RTCPeerConnection({ iceServers });
+        pc.ontrack = (event) => {
+          if (event.track.kind === 'video') {
+            avatarHasVideo = true;
+            videoEl.srcObject = event.streams[0];
+            videoEl.classList.add('active');
+            videoEl.muted = false;
+            idlePanel.style.display = 'none';
+            avatarStandby.hidden = true;
+            videoEl.play().catch(() => {});
+            startAvatarComposite();
+            setStatus('HD avatar live', true);
+          }
+          if (event.track.kind === 'audio') {
+            avatarHasRemoteAudio = true;
+            const videoStream = videoEl.srcObject;
+            if (videoStream instanceof MediaStream && !videoStream.getAudioTracks().length) {
+              videoStream.addTrack(event.track);
+            }
+            audioEl.srcObject = event.streams[0];
+            audioEl.play().catch(() => {});
+            if (!avatarHasVideo) setStatus('Avatar audio connected, waiting for video', true);
+          }
+        };
+        pc.onconnectionstatechange = () => {
+          if (pc && pc.connectionState === 'failed') setStatus('Avatar media interrupted', true);
+        };
+        pc.createDataChannel('eventChannel');
+        pc.addTransceiver('video', { direction: 'sendrecv' });
+        pc.addTransceiver('audio', { direction: 'sendrecv' });
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await waitForIce(pc);
+        if (ws && ws.readyState === WebSocket.OPEN && pc.localDescription) {
+          ws.send(JSON.stringify({ type: 'session.avatar.connect', client_sdp: btoa(JSON.stringify(pc.localDescription)) }));
+        }
+      } catch (error) {
+        console.warn('[avatar] WebRTC setup failed:', error);
+        setStatus('Voice connected, HD avatar unavailable', true);
+      }
+    }
 
-      ws.onmessage = (e) => {
-        let event;
-        try { event = JSON.parse(e.data); } catch { return; }
-        handleVoiceLiveEvent(event);
-      };
+    function waitForIce(connection) {
+      if (connection.iceGatheringState === 'complete') return Promise.resolve();
+      return new Promise((resolve) => {
+        const timer = setTimeout(resolve, 2000);
+        connection.addEventListener('icegatheringstatechange', () => {
+          if (connection.iceGatheringState === 'complete') {
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+      });
+    }
 
-      ws.onclose = () => {
-        setStatus('Disconnected', '');
-        cleanup();
+    function startMicCapture() {
+      if (!audioContext || !micStream || !ws) return;
+      const nativeRate = audioContext.sampleRate;
+      micSource = audioContext.createMediaStreamSource(micStream);
+      processor = audioContext.createScriptProcessor(4096, 1, 1);
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
+      silentGain.connect(audioContext.destination);
+      processor.onaudioprocess = (event) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN || isMuted) return;
+        const input = event.inputBuffer.getChannelData(0);
+        const pcm16 = resampleToPcm16(input, nativeRate, 24000);
+        ws.send(pcm16.buffer);
       };
+      micSource.connect(processor);
+      processor.connect(silentGain);
+    }
 
-      ws.onerror = () => {
-        setStatus('Connection error', 'error');
-        cleanup();
-      };
+    function resampleToPcm16(float32, sourceRate, targetRate) {
+      const ratio = sourceRate / targetRate;
+      const length = Math.floor(float32.length / ratio);
+      const pcm16 = new Int16Array(length);
+      for (let i = 0; i < length; i++) {
+        const sourceIndex = i * ratio;
+        const index = Math.floor(sourceIndex);
+        const fraction = sourceIndex - index;
+        const sample = (float32[index] || 0) + ((float32[index + 1] || 0) - (float32[index] || 0)) * fraction;
+        const clipped = Math.max(-1, Math.min(1, sample));
+        pcm16[i] = clipped < 0 ? clipped * 0x8000 : clipped * 0x7fff;
+      }
+      return pcm16;
+    }
 
-    } catch (err) {
-      setStatus('Error: ' + err.message, 'error');
+    function queueAudio(base64) {
+      if (avatarHasRemoteAudio) return;
+      if (!playbackContext) playbackContext = new AudioContext();
+      const raw = atob(base64);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      const int16 = new Int16Array(bytes.buffer);
+      const floatData = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) floatData[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7fff);
+      const buffer = playbackContext.createBuffer(1, floatData.length, 24000);
+      buffer.copyToChannel(floatData, 0);
+      const source = playbackContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(playbackContext.destination);
+      const startTime = Math.max(playbackContext.currentTime, nextPlaybackTime);
+      source.start(startTime);
+      nextPlaybackTime = startTime + buffer.duration;
+      activeSources.push(source);
+      source.onended = () => { activeSources = activeSources.filter((item) => item !== source); };
+    }
+
+    function flushPlayback() {
+      for (const source of activeSources) {
+        try { source.stop(); } catch {}
+      }
+      activeSources = [];
+      nextPlaybackTime = 0;
+    }
+
+    function sendText(text) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        setStatus('Start avatar first');
+        chatInput.focus();
+        return;
+      }
+      addTranscript('user', text);
+      ws.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: { type: 'message', role: 'user', content: [{ type: 'input_text', text }] },
+      }));
+      ws.send(JSON.stringify({ type: 'response.create' }));
+    }
+
+    function sendGreeting() {
+      if (greetingSent || !ws || ws.readyState !== WebSocket.OPEN) return;
+      greetingSent = true;
+      ws.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'system',
+          content: [{ type: 'input_text', text: 'Greet the user as Morgan, the Digital CFO avatar. Keep it to one concise sentence.' }],
+        },
+      }));
+      ws.send(JSON.stringify({ type: 'response.create' }));
+    }
+
+    function handleVoiceEvent(event) {
+      switch (event.type) {
+        case 'morgan.tool.started':
+          upsertActivity({
+            id: event.callId || event.name || Date.now().toString(),
+            name: event.name || 'Morgan tool',
+            status: 'running',
+            preview: event.argumentsPreview || 'Tool call started.',
+          });
+          setTab('activity');
+          setStatus('Working with CFO tools', true);
+          break;
+        case 'morgan.tool.completed':
+          upsertActivity({
+            id: event.callId || event.name || Date.now().toString(),
+            name: event.name || 'Morgan tool',
+            status: 'completed',
+            preview: event.resultPreview || 'Tool call completed.',
+          });
+          setStatus('Tool completed', true);
+          break;
+        case 'morgan.tool.failed':
+          upsertActivity({
+            id: event.callId || event.name || Date.now().toString(),
+            name: event.name || 'Morgan tool',
+            status: 'failed',
+            preview: event.error || 'Tool call failed.',
+          });
+          setStatus('Tool needs attention', true);
+          break;
+        case 'session.created':
+          setStatus('Voice session created', true);
+          break;
+        case 'session.updated':
+          setStatus('Starting HD avatar', true);
+          if (event.session?.avatar && !pc) {
+            void startAvatarWebRtc(event.session.avatar.ice_servers);
+          }
+          if (!processor && micStream && audioContext) startMicCapture();
+          break;
+        case 'session.avatar.connecting':
+          if (event.server_sdp && pc) {
+            try {
+              const serverDescription = JSON.parse(atob(event.server_sdp));
+              pc.setRemoteDescription(serverDescription)
+                .then(() => {
+                  setStatus('Avatar media connected', true);
+                  sendGreeting();
+                })
+                .catch((error) => {
+                  console.error('[avatar] setRemoteDescription failed:', error);
+                  setStatus('Voice connected, avatar handshake failed', true);
+                });
+            } catch (error) {
+              console.error('[avatar] Failed to decode server SDP:', error);
+              setStatus('Voice connected, avatar handshake failed', true);
+            }
+          }
+          break;
+        case 'input_audio_buffer.speech_started':
+          flushPlayback();
+          if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'response.cancel' }));
+          setStatus('Listening', true);
+          break;
+        case 'input_audio_buffer.speech_stopped':
+          setStatus('Thinking', true);
+          break;
+        case 'conversation.item.input_audio_transcription.completed':
+          addTranscript('user', event.transcript || '');
+          break;
+        case 'response.created':
+          activeResponseText = '';
+          setStatus('Speaking', true);
+          break;
+        case 'response.audio.delta':
+          if (event.delta) queueAudio(event.delta);
+          break;
+        case 'response.audio_transcript.delta':
+          if (event.delta) activeResponseText += event.delta;
+          break;
+        case 'response.audio_transcript.done':
+          addTranscript('assistant', event.transcript || activeResponseText);
+          activeResponseText = '';
+          break;
+        case 'response.text.done':
+          addTranscript('assistant', event.text || '');
+          break;
+        case 'response.done':
+          setStatus('Avatar connected', true);
+          break;
+        case 'error':
+          if (!String(event.error?.message || '').includes('no active response')) {
+            console.error('[voice] error', event.error);
+            setStatus(event.error?.message || 'Voice error');
+          }
+          break;
+      }
+    }
+
+    function toggleMute() {
+      isMuted = !isMuted;
+      btnMute.textContent = isMuted ? 'Unmute' : 'Mute';
+      if (micStream) micStream.getAudioTracks().forEach((track) => { track.enabled = !isMuted; });
+      setStatus(isMuted ? 'Muted' : 'Avatar connected', true);
+    }
+
+    function disconnect() {
+      if (ws) ws.close();
+      cleanup();
+      setStatus('Disconnected');
+    }
+
+    function cleanup() {
       btnConnect.disabled = false;
-    }
-  }
-
-  function disconnect() {
-    if (ws) ws.close();
-    cleanup();
-    setStatus('Disconnected', '');
-  }
-
-  function cleanup() {
-    btnConnect.disabled = false;
-    btnDisconnect.disabled = true;
-    btnMute.disabled = true;
-    isMuted = false;
-    btnMute.textContent = 'Mute';
-    btnMute.classList.remove('muted');
-    orbEl.className = 'orb';
-    stopMicCapture();
-    if (audioContext) { audioContext.close().catch(() => {}); audioContext = null; }
-    ws = null;
-  }
-
-  // --- Microphone capture: PCM16 at 24kHz via AudioWorklet ---
-  async function startMicCapture() {
-    if (!micStream || !ws) return;
-
-    const nativeSR = audioContext.sampleRate;
-
-    // Register a lightweight AudioWorklet processor inline via Blob
-    const workletCode = `
-      class MicProcessor extends AudioWorkletProcessor {
-        constructor() {
-          super();
-          this.buffer = [];
-        }
-        process(inputs) {
-          const input = inputs[0];
-          if (!input || !input[0]) return true;
-          const samples = input[0];
-          // Accumulate samples, send in ~4096-sample chunks at native rate
-          for (let i = 0; i < samples.length; i++) {
-            this.buffer.push(samples[i]);
-          }
-          if (this.buffer.length >= 4096) {
-            this.port.postMessage({ samples: new Float32Array(this.buffer) });
-            this.buffer = [];
-          }
-          return true;
-        }
-      }
-      registerProcessor('mic-processor', MicProcessor);
-    `;
-    const blob = new Blob([workletCode], { type: 'application/javascript' });
-    const workletUrl = URL.createObjectURL(blob);
-
-    try {
-      await audioContext.audioWorklet.addModule(workletUrl);
-    } catch (e) {
-      // Fallback: if AudioWorklet isn't available (e.g. non-HTTPS localhost), use ScriptProcessor
-      console.warn('[voice] AudioWorklet unavailable, falling back to ScriptProcessor:', e.message);
-      startMicCaptureFallback();
-      return;
-    } finally {
-      URL.revokeObjectURL(workletUrl);
+      btnDisconnect.disabled = true;
+      btnMute.disabled = true;
+      btnMute.textContent = 'Mute';
+      isMuted = false;
+      avatarHasVideo = false;
+      avatarHasRemoteAudio = false;
+      greetingSent = false;
+      avatarStartRequested = false;
+      stopAvatarComposite();
+      idlePanel.style.display = '';
+      avatarStandby.hidden = false;
+      if (processor) { try { processor.disconnect(); } catch {} processor = null; }
+      if (micSource) { try { micSource.disconnect(); } catch {} micSource = null; }
+      if (audioContext) { audioContext.close().catch(() => {}); audioContext = null; }
+      if (playbackContext) { playbackContext.close().catch(() => {}); playbackContext = null; }
+      if (micStream) { micStream.getTracks().forEach((track) => track.stop()); micStream = null; }
+      if (pc) { pc.close(); pc = null; }
+      videoEl.srcObject = null;
+      videoEl.classList.remove('active');
+      audioEl.srcObject = null;
+      ws = null;
+      flushPlayback();
     }
 
-    micSource = audioContext.createMediaStreamSource(micStream);
-    micWorklet = new AudioWorkletNode(audioContext, 'mic-processor');
-
-    micWorklet.port.onmessage = (e) => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      const float32 = e.data.samples;
-
-      // High-quality resample from native rate to 24000 using linear interpolation
-      const ratio = nativeSR / 24000;
-      const targetLen = Math.floor(float32.length / ratio);
-      const pcm16 = new Int16Array(targetLen);
-      for (let i = 0; i < targetLen; i++) {
-        const srcPos = i * ratio;
-        const idx = Math.floor(srcPos);
-        const frac = srcPos - idx;
-        const s0 = float32[idx] || 0;
-        const s1 = float32[Math.min(idx + 1, float32.length - 1)] || 0;
-        const val = Math.max(-1, Math.min(1, s0 + frac * (s1 - s0)));
-        pcm16[i] = val < 0 ? val * 0x8000 : val * 0x7FFF;
-      }
-      ws.send(pcm16.buffer);
-    };
-
-    micSource.connect(micWorklet);
-    // Connect through a silent gain node to keep the audio graph alive
-    // (AudioWorklet needs a downstream connection or the browser suspends processing)
-    const silentGain = audioContext.createGain();
-    silentGain.gain.value = 0;
-    micWorklet.connect(silentGain);
-    silentGain.connect(audioContext.destination);
-  }
-
-  // Fallback for environments without AudioWorklet support
-  function startMicCaptureFallback() {
-    if (!micStream || !ws) return;
-    const nativeSR = audioContext.sampleRate;
-    micSource = audioContext.createMediaStreamSource(micStream);
-
-    // Create a silent destination to drive processing without outputting mic audio
-    const silentGain = audioContext.createGain();
-    silentGain.gain.value = 0;
-    silentGain.connect(audioContext.destination);
-
-    const processor = audioContext.createScriptProcessor(4096, 1, 1);
-    processor.onaudioprocess = (e) => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      const float32 = e.inputBuffer.getChannelData(0);
-      const ratio = nativeSR / 24000;
-      const targetLen = Math.floor(float32.length / ratio);
-      const pcm16 = new Int16Array(targetLen);
-      for (let i = 0; i < targetLen; i++) {
-        const srcPos = i * ratio;
-        const idx = Math.floor(srcPos);
-        const frac = srcPos - idx;
-        const s0 = float32[idx] || 0;
-        const s1 = float32[Math.min(idx + 1, float32.length - 1)] || 0;
-        const val = Math.max(-1, Math.min(1, s0 + frac * (s1 - s0)));
-        pcm16[i] = val < 0 ? val * 0x8000 : val * 0x7FFF;
-      }
-      ws.send(pcm16.buffer);
-    };
-
-    micSource.connect(processor);
-    processor.connect(silentGain); // drives processing without outputting mic audio
-    micWorklet = processor; // store reference for cleanup
-  }
-
-  function stopMicCapture() {
-    if (micWorklet) { micWorklet.disconnect(); micWorklet = null; }
-    if (micSource) { micSource.disconnect(); micSource = null; }
-    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-  }
-
-  function toggleMute() {
-    if (!micStream) return;
-    isMuted = !isMuted;
-    micStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-    btnMute.textContent = isMuted ? 'Unmute' : 'Mute';
-    btnMute.classList.toggle('muted', isMuted);
-    setStatus(isMuted ? 'Microphone muted' : 'Connected — Morgan is listening', 'active');
-  }
-
-  // --- Playback: decode base64 PCM16 at 24kHz, create buffer at native rate ---
-  function queueAudio(base64) {
-    const raw = atob(base64);
-    const bytes = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-    const int16 = new Int16Array(bytes.buffer);
-
-    // Convert PCM16 to float32 at 24kHz source rate
-    const float24k = new Float32Array(int16.length);
-    for (let i = 0; i < int16.length; i++) {
-      float24k[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7FFF);
+    function setupAppUi() {
+      tabChat.addEventListener('click', () => setTab('chat'));
+      tabActivity.addEventListener('click', () => setTab('activity'));
+      btnSendText.addEventListener('click', () => {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        chatInput.value = '';
+        sendText(text);
+      });
+      chatInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') btnSendText.click();
+      });
+      document.querySelectorAll('[data-prompt]').forEach((button) => {
+        button.addEventListener('click', () => sendText(button.dataset.prompt || ''));
+      });
+      btnConfig.addEventListener('click', () => {
+        configOverlay.hidden = false;
+        btnCloseConfig.focus();
+      });
+      btnCloseConfig.addEventListener('click', () => {
+        configOverlay.hidden = true;
+        btnConfig.focus();
+      });
+      configOverlay.addEventListener('click', (event) => {
+        if (event.target === configOverlay) configOverlay.hidden = true;
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !configOverlay.hidden) configOverlay.hidden = true;
+      });
+      btnAccessible.addEventListener('click', () => {
+        accessibilityPrefs.accessibleMode = !accessibilityPrefs.accessibleMode;
+        saveAccessibilityPrefs();
+        applyAccessibilityPrefs();
+      });
+      btnFontNormal.addEventListener('click', () => {
+        accessibilityPrefs.fontSize = 'normal';
+        saveAccessibilityPrefs();
+        applyAccessibilityPrefs();
+      });
+      btnFontLarge.addEventListener('click', () => {
+        accessibilityPrefs.fontSize = 'large';
+        saveAccessibilityPrefs();
+        applyAccessibilityPrefs();
+      });
+      btnFontXLarge.addEventListener('click', () => {
+        accessibilityPrefs.fontSize = 'x-large';
+        saveAccessibilityPrefs();
+        applyAccessibilityPrefs();
+      });
+      btnHighContrast.addEventListener('click', () => {
+        accessibilityPrefs.highContrast = !accessibilityPrefs.highContrast;
+        saveAccessibilityPrefs();
+        applyAccessibilityPrefs();
+      });
+      videoFitSelect.addEventListener('change', () => {
+        avatarConfig.videoFit = videoFitSelect.value;
+        applyAvatarVisuals();
+      });
+      renderConfigControls();
+      renderActivityLog();
+      applyAccessibilityPrefs();
+      setTab('chat');
     }
 
-    // Resample from 24kHz to native rate using linear interpolation
-    const nativeSR = audioContext.sampleRate;
-    const ratio = 24000 / nativeSR;
-    const outLen = Math.ceil(float24k.length / ratio);
-    const buffer = audioContext.createBuffer(1, outLen, nativeSR);
-    const outData = buffer.getChannelData(0);
-    for (let i = 0; i < outLen; i++) {
-      const srcPos = i * ratio;
-      const idx = Math.floor(srcPos);
-      const frac = srcPos - idx;
-      const s0 = float24k[idx] || 0;
-      const s1 = float24k[Math.min(idx + 1, float24k.length - 1)] || 0;
-      outData[i] = s0 + frac * (s1 - s0);
-    }
-
-    const source = audioContext.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioContext.destination);
-
-    const now = audioContext.currentTime;
-    const startTime = Math.max(now, nextPlaybackTime);
-    source.start(startTime);
-    nextPlaybackTime = startTime + buffer.duration;
-
-    // Track for barge-in cancellation
-    activeSources.push(source);
-    source.onended = () => {
-      activeSources = activeSources.filter(s => s !== source);
-    };
-  }
-
-  function flushPlayback() {
-    // Stop all currently playing/scheduled audio buffers (barge-in)
-    for (const src of activeSources) {
-      try { src.stop(); } catch (_) {}
-    }
-    activeSources = [];
-    nextPlaybackTime = 0;
-  }
-
-  // --- Voice Live event handler ---
-  function handleVoiceLiveEvent(event) {
-    switch (event.type) {
-      case 'session.updated':
-        console.log('[voice] Session configured');
-        break;
-
-      case 'input_audio_buffer.speech_started':
-        orbEl.className = 'orb listening';
-        setStatus('Listening...', 'active');
-        // Barge-in: cancel agent response and flush audio
-        flushPlayback();
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'response.cancel' }));
-        }
-        break;
-
-      case 'input_audio_buffer.speech_stopped':
-        orbEl.className = 'orb';
-        setStatus('Processing...', '');
-        break;
-
-      case 'conversation.item.input_audio_transcription.completed':
-        if (event.transcript) {
-          addTranscript('user', event.transcript);
-        }
-        break;
-
-      case 'response.created':
-        activeResponseText = '';
-        orbEl.className = 'orb speaking';
-        setStatus('Morgan is speaking...', 'active');
-        break;
-
-      case 'response.audio.delta':
-        if (event.delta) queueAudio(event.delta);
-        break;
-
-      case 'response.audio_transcript.delta':
-        if (event.delta) activeResponseText += event.delta;
-        break;
-
-      case 'response.audio_transcript.done':
-        if (event.transcript) {
-          addTranscript('assistant', event.transcript);
-        } else if (activeResponseText) {
-          addTranscript('assistant', activeResponseText);
-        }
-        activeResponseText = '';
-        break;
-
-      case 'response.text.done':
-        if (event.text) addTranscript('assistant', event.text);
-        break;
-
-      case 'response.done':
-        orbEl.className = 'orb';
-        setStatus('Connected — Morgan is listening', 'active');
-        break;
-
-      case 'error':
-        const msg = event.error?.message || 'Unknown error';
-        if (!msg.includes('no active response')) {
-          console.error('[voice] Error:', msg);
-          setStatus('Error: ' + msg, 'error');
-        }
-        break;
-    }
-  }
-</script>
+    setupAppUi();
+    setupStarfieldInteractions();
+    startStarfield();
+    loadAvatarConfig();
+    checkGate();
+    setInterval(checkGate, 30000);
+  </script>
 </body>
 </html>

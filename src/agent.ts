@@ -5,13 +5,14 @@
 import { configDotenv } from 'dotenv';
 configDotenv();
 
-import { TurnState, AgentApplication, TurnContext, MemoryStorage } from '@microsoft/agents-hosting';
+import { TurnState, AgentApplication, TurnContext } from '@microsoft/agents-hosting';
 import { ActivityTypes } from '@microsoft/agents-activity';
 import { AzureOpenAI } from 'openai';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat';
+import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat';
 import { DefaultAzureCredential, getBearerTokenProvider } from '@azure/identity';
 import { MORGAN_SYSTEM_PROMPT } from './persona';
-import { getAllTools, executeTool, executeAutonomousBriefing } from './tools/index';
+import { getAllTools, executeTool, executeAutonomousBriefing, executeEndOfDayReport } from './tools/index';
+import { getLiveMcpToolDefinitions } from './tools/mcpToolSetup';
 import {
   captureConversationReference,
   detectMonitorCommand,
@@ -25,6 +26,9 @@ import {
   disableVoice,
   isVoiceEnabled,
 } from './voice/voiceGate';
+import { recordAuditEvent } from './observability/agentAudit';
+import { recordAgentEvent } from './observability/agentEvents';
+import { createAgentStorage } from './storage/agentStorage';
 
 // State interfaces
 interface ConversationData {
@@ -53,16 +57,81 @@ const openai = new AzureOpenAI({
   deployment: process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5',
 });
 
+function parseAgenticScopes(): string[] {
+  const raw =
+    process.env.connections__service_connection__settings__scopes ||
+    process.env.agentic_scopes ||
+    'https://graph.microsoft.com/.default';
+  return raw.split(',').map((scope) => scope.trim()).filter(Boolean);
+}
+
 export const agentApplication = new AgentApplication<AppTurnState>({
-  storage: new MemoryStorage(),
+  storage: createAgentStorage(),
+  authorization: {
+    AgenticAuthConnection: {
+      type: 'agentic',
+      scopes: parseAgenticScopes(),
+      altBlueprintConnectionName: process.env.agentic_altBlueprintConnectionName || 'service_connection',
+    },
+  },
 });
+
+function toolName(tool: ChatCompletionTool): string {
+  return tool.type === 'function' ? tool.function.name : '';
+}
+
+const MICROSOFT_365_WRAPPER_TOOLS = new Set([
+  'getMcpTools',
+  'findUser',
+  'lookupPerson',
+  'sendTeamsMessage',
+  'sendEmail',
+  'createWordDocument',
+  'createPlannerTask',
+  'updatePlannerTask',
+  'scheduleCalendarEvent',
+  'listUpcomingMeetings',
+  'collectMeetingContext',
+  'readSharePointData',
+  'readSharePointList',
+]);
+
+function classifyTool(name: string, liveMcpToolNames: Set<string>): string {
+  if (liveMcpToolNames.has(name)) return 'Agent 365 MCP';
+  if (MICROSOFT_365_WRAPPER_TOOLS.has(name)) return 'Graph / Microsoft 365 wrapper';
+  return 'Morgan native';
+}
 
 agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, state: AppTurnState) => {
   const userMessage = context.activity.text?.trim() || '';
   const userName = context.activity.from?.name || 'there';
+  const correlationId = context.activity.id || context.activity.conversation?.id || `teams-${Date.now()}`;
 
   // Always capture the conversation reference for proactive messaging
   captureConversationReference(context);
+  recordAuditEvent({
+    kind: 'agent365.teams.message.received',
+    label: 'Teams message received through Agent 365 SDK channel',
+    correlationId,
+    actor: userName,
+    data: {
+      channelId: context.activity.channelId,
+      conversationId: context.activity.conversation?.id,
+      textLength: userMessage.length,
+    },
+  });
+  recordAgentEvent({
+    kind: 'agent.message',
+    label: `${userName}: ${userMessage.slice(0, 90)}`,
+    correlationId,
+    data: {
+      channelId: context.activity.channelId,
+      conversationId: context.activity.conversation?.id,
+      textLength: userMessage.length,
+      promptPreview: userMessage.slice(0, 700),
+      reasoningSummary: 'Morgan received a user prompt and is selecting whether to answer directly, discover tools, or enter the finance tool loop.',
+    },
+  });
 
   if (!userMessage) {
     try {
@@ -135,22 +204,67 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
       }),
     ];
 
+    const staticTools = getAllTools();
+    let liveMcpTools: ChatCompletionTool[] = [];
+    try {
+      liveMcpTools = await getLiveMcpToolDefinitions(context);
+    } catch (err) {
+      recordAgentEvent({
+        kind: 'mcp.discover',
+        label: 'Live Agent 365 MCP tool discovery failed',
+        status: 'error',
+        correlationId,
+        data: { error: err instanceof Error ? err.message : String(err) },
+      });
+    }
+    const liveMcpToolNames = new Set(liveMcpTools.map(toolName));
+    const mergedTools = [
+      ...liveMcpTools,
+      ...staticTools.filter((tool) => !liveMcpToolNames.has(toolName(tool))),
+    ].slice(0, 128);
+
+    recordAgentEvent({
+      kind: 'mcp.discover',
+      label: `Morgan turn loaded ${liveMcpTools.length} live MCP tool(s)`,
+      status: liveMcpTools.length > 0 ? 'ok' : 'partial',
+      correlationId,
+      data: { liveMcpTools: liveMcpTools.length, staticTools: staticTools.length, totalTools: mergedTools.length },
+    });
+
     // Agentic loop — GPT-4o reasons + calls tools until it produces a final response
     let reply = 'Sorry, I could not generate a response.';
     const maxIterations = 10;
     for (let i = 0; i < maxIterations; i++) {
+      const iterationStarted = Date.now();
       const response = await openai.chat.completions.create({
         model: process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5',
         messages,
-        tools: getAllTools(),
+        tools: mergedTools,
         tool_choice: 'auto',
         max_completion_tokens: 4000,
       });
 
       const choice = response.choices[0];
       messages.push(choice.message as ChatCompletionMessageParam);
+      const toolCalls = choice.message.tool_calls || [];
+      recordAgentEvent({
+        kind: 'llm.turn',
+        label: `Morgan reasoning turn ${i + 1}: ${toolCalls.length} tool call(s)`,
+        status: 'ok',
+        durationMs: Date.now() - iterationStarted,
+        correlationId,
+        data: {
+          finishReason: choice.finish_reason,
+          toolCalls: toolCalls.map((toolCall) => toolCall.type === 'function' ? toolCall.function.name : toolCall.type),
+          promptTokens: response.usage?.prompt_tokens,
+          completionTokens: response.usage?.completion_tokens,
+          reasoningSummary: toolCalls.length
+            ? `Morgan decided this turn needs ${toolCalls.length} tool call(s): ${toolCalls.map((toolCall) => toolCall.type === 'function' ? toolCall.function.name : toolCall.type).join(', ')}.`
+            : `Morgan decided it had enough context to respond with finish reason ${choice.finish_reason || 'unknown'}.`,
+        },
+      });
 
-      if (choice.finish_reason === 'stop' || !choice.message.tool_calls?.length) {
+      if (choice.finish_reason === 'stop' || !toolCalls.length) {
         const content = choice.message.content?.trim();
         if (content) {
           reply = content;
@@ -167,12 +281,41 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
 
       // Execute all tool calls in parallel
       const toolResults = await Promise.all(
-        choice.message.tool_calls.map(async (toolCall) => {
+        toolCalls.map(async (toolCall) => {
           if (toolCall.type !== 'function') {
             return { role: 'tool' as const, tool_call_id: toolCall.id, content: '{}' };
           }
-          const params = JSON.parse(toolCall.function.arguments || '{}');
-          const result = await executeTool(toolCall.function.name, params, context);
+          const calledToolName = toolCall.function.name;
+          const params = JSON.parse(toolCall.function.arguments || '{}') as Record<string, unknown>;
+          const toolStarted = Date.now();
+          const source = classifyTool(calledToolName, liveMcpToolNames);
+          recordAgentEvent({
+            kind: 'tool.call',
+            label: `${source}: ${calledToolName}`,
+            status: 'started',
+            correlationId,
+            data: {
+              source,
+              tool: calledToolName,
+              parameterKeys: Object.keys(params || {}),
+              liveMcp: liveMcpToolNames.has(calledToolName),
+            },
+          });
+          const result = await executeTool(calledToolName, params, context);
+          const isError = result.includes('"error"');
+          recordAgentEvent({
+            kind: 'tool.result',
+            label: `${calledToolName} ${isError ? 'failed' : 'completed'}`,
+            status: isError ? 'error' : 'ok',
+            durationMs: Date.now() - toolStarted,
+            correlationId,
+            data: {
+              source,
+              tool: calledToolName,
+              liveMcp: liveMcpToolNames.has(calledToolName),
+              resultBytes: Buffer.byteLength(result, 'utf8'),
+            },
+          });
           return {
             role: 'tool' as const,
             tool_call_id: toolCall.id,
@@ -184,6 +327,24 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
     }
 
     state.conversation.history.push({ role: 'assistant', content: reply });
+    recordAuditEvent({
+      kind: 'agent365.teams.response.sent',
+      label: 'Teams response sent through Agent 365 SDK channel',
+      correlationId,
+      actor: 'Morgan',
+      data: { responseLength: reply.length },
+    });
+    recordAgentEvent({
+      kind: 'agent.reply',
+      label: `Morgan replied with ${reply.length} character(s)`,
+      status: 'ok',
+      correlationId,
+      data: {
+        responseLength: reply.length,
+        responsePreview: reply.slice(0, 700),
+        reasoningSummary: 'Morgan completed the turn and produced a user-facing response from the available context, tool results, and conversation history.',
+      },
+    });
     try {
       await context.sendActivity(reply);
     } catch (sendErr: unknown) {
@@ -210,6 +371,8 @@ agentApplication.onActivity(ActivityTypes.InstallationUpdate, async (context: Tu
         `- 📋 Financial briefings & executive summaries\n` +
         `- 📁 Document creation & distribution\n` +
         `- 📬 Teams & email communication\n` +
+        `- 🧭 **Mission Control** — view my job description, autonomous instructions, daily task log, and end-of-day breakdown\n` +
+        `- 📞 **Teams voice escalation** — when configured, I can ring you via Microsoft Teams for urgent finance issues\n` +
         `- 📈 **Real-time P&L monitoring** — say **"start monitoring"** and I'll send you live updates every 25 minutes\n\n` +
         `Every Monday morning I'll automatically post the Finance Briefing to this channel.\n\n` +
         `How can I help you today?`
@@ -222,4 +385,8 @@ agentApplication.onActivity(ActivityTypes.InstallationUpdate, async (context: Tu
 
 export async function runAutonomousBriefing(): Promise<void> {
   await executeAutonomousBriefing(openai);
+}
+
+export async function runEndOfDayReport(): Promise<void> {
+  await executeEndOfDayReport();
 }

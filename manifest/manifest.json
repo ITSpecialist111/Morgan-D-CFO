@@ -7,7 +7,7 @@
   },
   "description": {
     "short": "Autonomous AI finance analyst powered by GPT-5 for analysis and reports.",
-    "full": "Morgan is a Synthetic Worker - an autonomous digital finance employee powered by GPT-5 (Azure OpenAI). Morgan analyses budget vs actuals, identifies spending anomalies, generates board-ready reports, and posts weekly P&L briefings to your Finance Teams channel. Built on Microsoft Agent 365 with Work IQ MCP tools including Mail, Teams, SharePoint, Word, and Calendar. Morgan can work proactively without being asked and is designed to integrate with other AI agents."
+    "full": "Morgan is a Synthetic Worker - an autonomous digital finance employee powered by GPT-5 (Azure OpenAI). Morgan analyses budget vs actuals, identifies spending anomalies, generates board-ready reports, and posts weekly P&L briefings to your Finance Teams channel. Built on Microsoft Agent 365 with WorkIQ MCP tools including Mail, Teams, SharePoint, Word, and Calendar, plus a working Microsoft IQ showcase that combines Foundry IQ for model, knowledge, trace, and evaluation intelligence with Fabric IQ for financial figures and cross-functional business insights. Morgan can work proactively from 09:00 to 17:00, seven days a week, without being asked and is designed to integrate with other AI agents."
   },
   "icons": {
     "outline": "outline.png",

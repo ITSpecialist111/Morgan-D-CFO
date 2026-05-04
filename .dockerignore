@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.env
+.env.*
+*.log
+coverage
+azure-function-trigger/node_modules
+azure-function-trigger/dist
