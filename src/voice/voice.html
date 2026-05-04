@@ -733,7 +733,10 @@
     let micStream = null;
     let audioContext = null;
     let processor = null;
+    let micCaptureStarting = false;
     let micSource = null;
+    let micSilentGain = null;
+    let micWorkletUrl = null;
     let playbackContext = null;
     let nextPlaybackTime = 0;
     let activeSources = [];
@@ -754,6 +757,7 @@
     let starfieldLastPointer = null;
     let starfieldPointer = { x: 0.5, y: 0.5, active: false };
     let avatarCompositeFrame = 0;
+    let avatarCompositeLastDraw = 0;
     let activeTab = 'chat';
     let activePresence = 'idle';
     let lastVoiceError = '';
@@ -786,6 +790,8 @@
     ];
 
     const voiceLoginUrl = '/auth/login?returnTo=/voice';
+  const AVATAR_COMPOSITE_MAX_EDGE = 720;
+  const AVATAR_COMPOSITE_FRAME_INTERVAL_MS = 50;
 
     function loadAccessibilityPrefs() {
       try {
@@ -1329,7 +1335,7 @@
       if (!avatarCompositeCanvas || !avatarCompositeContext) return false;
       const rect = avatarCompositeCanvas.getBoundingClientRect();
       const longestEdge = Math.max(rect.width, rect.height);
-      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 1280 / Math.max(1, longestEdge)));
+      const ratio = Math.max(0.2, Math.min(window.devicePixelRatio || 1, AVATAR_COMPOSITE_MAX_EDGE / Math.max(1, longestEdge)));
       const width = Math.max(1, Math.floor(rect.width * ratio));
       const height = Math.max(1, Math.floor(rect.height * ratio));
       if (avatarCompositeCanvas.width !== width || avatarCompositeCanvas.height !== height) {
@@ -1370,8 +1376,11 @@
         return;
       }
       if (avatarCompositeFrame) return;
-      const draw = () => {
-        drawAvatarComposite();
+      const draw = (timestamp) => {
+        if (!avatarCompositeLastDraw || timestamp - avatarCompositeLastDraw >= AVATAR_COMPOSITE_FRAME_INTERVAL_MS) {
+          drawAvatarComposite();
+          avatarCompositeLastDraw = timestamp;
+        }
         avatarCompositeFrame = requestAnimationFrame(draw);
       };
       avatarCompositeFrame = requestAnimationFrame(draw);
@@ -1380,6 +1389,7 @@
     function stopAvatarComposite() {
       if (avatarCompositeFrame) cancelAnimationFrame(avatarCompositeFrame);
       avatarCompositeFrame = 0;
+      avatarCompositeLastDraw = 0;
       avatarCompositeCanvas.classList.remove('active');
       avatarFrame.classList.remove('raw-video');
       avatarCompositeContext?.clearRect(0, 0, avatarCompositeCanvas.width, avatarCompositeCanvas.height);
@@ -1608,22 +1618,70 @@
       });
     }
 
-    function startMicCapture() {
-      if (!audioContext || !micStream || !ws) return;
+    function createMicWorkletUrl() {
+      if (micWorkletUrl) return micWorkletUrl;
+      const workletSource = `
+        class MorganMicProcessor extends AudioWorkletProcessor {
+          constructor() {
+            super();
+            this.buffer = new Float32Array(4096);
+            this.offset = 0;
+          }
+          process(inputs) {
+            const channel = inputs[0] && inputs[0][0];
+            if (!channel) return true;
+            for (let index = 0; index < channel.length; index += 1) {
+              this.buffer[this.offset] = channel[index];
+              this.offset += 1;
+              if (this.offset >= this.buffer.length) {
+                const packet = this.buffer;
+                this.port.postMessage(packet, [packet.buffer]);
+                this.buffer = new Float32Array(4096);
+                this.offset = 0;
+              }
+            }
+            return true;
+          }
+        }
+        registerProcessor('morgan-mic-processor', MorganMicProcessor);
+      `;
+      micWorkletUrl = URL.createObjectURL(new Blob([workletSource], { type: 'application/javascript' }));
+      return micWorkletUrl;
+    }
+
+    async function startMicCapture() {
+      if (!audioContext || !micStream || !ws || processor || micCaptureStarting) return;
+      if (!audioContext.audioWorklet || typeof AudioWorkletNode === 'undefined') {
+        setStatus('AudioWorklet microphone capture unavailable');
+        return;
+      }
+      micCaptureStarting = true;
       const nativeRate = audioContext.sampleRate;
-      micSource = audioContext.createMediaStreamSource(micStream);
-      processor = audioContext.createScriptProcessor(4096, 1, 1);
-      const silentGain = audioContext.createGain();
-      silentGain.gain.value = 0;
-      silentGain.connect(audioContext.destination);
-      processor.onaudioprocess = (event) => {
-        if (!ws || ws.readyState !== WebSocket.OPEN || isMuted) return;
-        const input = event.inputBuffer.getChannelData(0);
-        const pcm16 = resampleToPcm16(input, nativeRate, 24000);
-        ws.send(pcm16.buffer);
-      };
-      micSource.connect(processor);
-      processor.connect(silentGain);
+      try {
+        await audioContext.audioWorklet.addModule(createMicWorkletUrl());
+        micSource = audioContext.createMediaStreamSource(micStream);
+        processor = new AudioWorkletNode(audioContext, 'morgan-mic-processor', {
+          numberOfInputs: 1,
+          numberOfOutputs: 1,
+          outputChannelCount: [1],
+        });
+        micSilentGain = audioContext.createGain();
+        micSilentGain.gain.value = 0;
+        micSilentGain.connect(audioContext.destination);
+        processor.port.onmessage = (event) => {
+          if (!ws || ws.readyState !== WebSocket.OPEN || isMuted) return;
+          const input = event.data instanceof Float32Array ? event.data : new Float32Array(event.data);
+          const pcm16 = resampleToPcm16(input, nativeRate, 24000);
+          if (pcm16.byteLength) ws.send(pcm16.buffer);
+        };
+        micSource.connect(processor);
+        processor.connect(micSilentGain);
+      } catch (error) {
+        console.warn('[voice] AudioWorklet microphone capture failed:', error);
+        setStatus('Microphone capture unavailable');
+      } finally {
+        micCaptureStarting = false;
+      }
     }
 
     function resampleToPcm16(float32, sourceRate, targetRate) {
@@ -1736,7 +1794,7 @@
           if (event.session?.avatar && !pc) {
             void startAvatarWebRtc(event.session.avatar.ice_servers);
           }
-          if (!processor && micStream && audioContext) startMicCapture();
+          if (!processor && micStream && audioContext) void startMicCapture();
           break;
         case 'session.avatar.connecting':
           if (event.server_sdp && pc) {
@@ -1821,11 +1879,17 @@
       avatarHasRemoteAudio = false;
       greetingSent = false;
       avatarStartRequested = false;
+      micCaptureStarting = false;
       stopAvatarComposite();
       idlePanel.style.display = '';
       avatarStandby.hidden = false;
-      if (processor) { try { processor.disconnect(); } catch {} processor = null; }
+      if (processor) {
+        try { processor.port.onmessage = null; } catch {}
+        try { processor.disconnect(); } catch {}
+        processor = null;
+      }
       if (micSource) { try { micSource.disconnect(); } catch {} micSource = null; }
+      if (micSilentGain) { try { micSilentGain.disconnect(); } catch {} micSilentGain = null; }
       if (audioContext) { audioContext.close().catch(() => {}); audioContext = null; }
       if (playbackContext) { playbackContext.close().catch(() => {}); playbackContext = null; }
       if (micStream) { micStream.getTracks().forEach((track) => track.stop()); micStream = null; }

@@ -157,7 +157,7 @@ export function attachVoiceWebSocket(server: Server): void {
               style: process.env.AVATAR_STYLE || 'business',
               customized: false,
               video: {
-                bitrate: Number(process.env.AVATAR_VIDEO_BITRATE || 2_000_000),
+                bitrate: Number(process.env.AVATAR_VIDEO_BITRATE || 1_200_000),
                 codec: process.env.AVATAR_VIDEO_CODEC || 'h264',
                 background: process.env.AVATAR_BACKGROUND_URL
                   ? { image_url: process.env.AVATAR_BACKGROUND_URL }
