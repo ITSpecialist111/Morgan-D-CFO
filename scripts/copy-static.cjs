@@ -16,3 +16,25 @@ for (const [sourceRel, targetRel] of files) {
   fs.copyFileSync(source, target);
   console.log(`[build] copied ${sourceRel} -> ${targetRel}`);
 }
+
+const assetDirs = [
+  ['docs/avatar-backgrounds', 'dist/voice/assets', /\.(jpe?g|png|webp|gif|svg)$/i],
+];
+
+for (const [sourceDirRel, targetDirRel, filter] of assetDirs) {
+  const sourceDir = path.join(projectRoot, sourceDirRel);
+  const targetDir = path.join(projectRoot, targetDirRel);
+  if (!fs.existsSync(sourceDir)) {
+    console.log(`[build] asset dir missing, skipping ${sourceDirRel}`);
+    continue;
+  }
+  fs.mkdirSync(targetDir, { recursive: true });
+  let copied = 0;
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    if (filter && !filter.test(entry.name)) continue;
+    fs.copyFileSync(path.join(sourceDir, entry.name), path.join(targetDir, entry.name));
+    copied += 1;
+  }
+  console.log(`[build] copied ${copied} asset(s) from ${sourceDirRel} -> ${targetDirRel}`);
+}

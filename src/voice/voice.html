@@ -93,7 +93,10 @@
       inset: 0;
       display: grid;
       place-items: center;
-      background: #000;
+      background-color: #FFF;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
       isolation: isolate;
     }
     .avatar-frame::before {
@@ -102,9 +105,7 @@
       inset: 0;
       z-index: 0;
       pointer-events: none;
-      background:
-        radial-gradient(circle at 50% 38%, rgba(53, 194, 180, 0.07), transparent 34%),
-        #000;
+      background: radial-gradient(circle at 50% 38%, rgba(53, 194, 180, 0.07), transparent 34%);
     }
     .starfield {
       position: absolute;
@@ -767,8 +768,13 @@
       style: 'business',
       voice: 'en-US-Ava:DragonHDLatestNeural',
       backgroundColor: '#FFFFFF',
+      backgroundImage: '',
       videoFit: 'cover',
     };
+    // The avatar may opt into a photo backdrop once a static asset is present at this
+    // URL. We probe it on load and only switch the default if it really exists, so a
+    // deploy without the image keeps the crisp full-HD white-background experience.
+    const DEFAULT_BACKGROUND_IMAGE = '/voice/assets/visitor-center.jpg';
     let accessibilityPrefs = loadAccessibilityPrefs();
 
     const AVATAR_PRESETS = [
@@ -780,14 +786,15 @@
       { character: 'lisa', style: 'business', label: 'Lisa Business' },
     ];
     const BG_PRESETS = [
-      { color: '#FFFFFF', label: 'White' },
-      { color: '#000000', label: 'Black' },
-      { color: '#0d1117', label: 'GitHub Dark' },
-      { color: '#0b0e12', label: 'Blank Dark' },
-      { color: '#0f172a', label: 'Dark Navy' },
-      { color: '#172554', label: 'Brand Blue' },
-      { color: '#1a1a2e', label: 'Deep Purple' },
-      { color: '#111827', label: 'Slate Black' },
+      { color: '#FFFFFF', image: '/voice/assets/visitor-center.jpg', label: 'Microsoft Visitor Center' },
+      { color: '#FFFFFF', image: '', label: 'White' },
+      { color: '#000000', image: '', label: 'Black' },
+      { color: '#0d1117', image: '', label: 'GitHub Dark' },
+      { color: '#0b0e12', image: '', label: 'Blank Dark' },
+      { color: '#0f172a', image: '', label: 'Dark Navy' },
+      { color: '#172554', image: '', label: 'Brand Blue' },
+      { color: '#1a1a2e', image: '', label: 'Deep Purple' },
+      { color: '#111827', image: '', label: 'Slate Black' },
     ];
 
     const voiceLoginUrl = '/auth/login?returnTo=/voice';
@@ -841,7 +848,12 @@
 
     function applyAvatarVisuals() {
       const backgroundColor = avatarConfig.backgroundColor || '#FFFFFF';
-      avatarFrame.style.background = backgroundColor;
+      const backgroundImage = avatarConfig.backgroundImage || '';
+      avatarFrame.style.backgroundColor = backgroundColor;
+      avatarFrame.style.backgroundImage = backgroundImage ? `url("${backgroundImage}")` : 'none';
+      avatarFrame.style.backgroundSize = 'cover';
+      avatarFrame.style.backgroundPosition = 'center';
+      avatarFrame.style.backgroundRepeat = 'no-repeat';
       stageEl.style.background = '#000';
       videoEl.style.objectFit = avatarConfig.videoFit || 'cover';
       videoFitSelect.value = avatarConfig.videoFit || 'cover';
@@ -849,7 +861,20 @@
         button.classList.toggle('active', button.dataset.character === avatarConfig.character && button.dataset.style === avatarConfig.style);
       }
       for (const button of backgroundSwatches.querySelectorAll('button')) {
-        button.classList.toggle('active', button.dataset.color === avatarConfig.backgroundColor);
+        const matchesColor = button.dataset.color === avatarConfig.backgroundColor;
+        const matchesImage = (button.dataset.image || '') === (avatarConfig.backgroundImage || '');
+        button.classList.toggle('active', matchesColor && matchesImage);
+      }
+      // If the compositor is already running we may need to re-evaluate (e.g. user just
+      // switched from a solid white background to a photo-backed white).
+      if (avatarHasVideo) {
+        if (avatarBackgroundNeedsKeying()) {
+          avatarFrame.classList.remove('raw-video');
+          startAvatarComposite();
+        } else {
+          stopAvatarComposite();
+          avatarFrame.classList.add('raw-video');
+        }
       }
     }
 
@@ -876,9 +901,17 @@
         button.title = preset.label;
         button.setAttribute('aria-label', preset.label);
         button.dataset.color = preset.color;
-        button.style.backgroundColor = preset.color;
+        button.dataset.image = preset.image || '';
+        if (preset.image) {
+          button.style.backgroundImage = `url("${preset.image}")`;
+          button.style.backgroundSize = 'cover';
+          button.style.backgroundPosition = 'center';
+        } else {
+          button.style.backgroundColor = preset.color;
+        }
         button.addEventListener('click', () => {
           avatarConfig.backgroundColor = preset.color;
+          avatarConfig.backgroundImage = preset.image || '';
           applyAvatarVisuals();
         });
         backgroundSwatches.appendChild(button);
@@ -1372,6 +1405,10 @@
     }
 
     function avatarBackgroundNeedsKeying() {
+      // When a background photo is shown behind the avatar we always need the
+      // keying compositor so the avatar's solid backdrop is matted out and the
+      // photo shows through.
+      if (avatarConfig.backgroundImage) return true;
       const key = parseHexColor(avatarConfig.backgroundColor);
       if (!key) return false;
       // Skip the keying compositor for light backgrounds (e.g. white). The Voice Live
@@ -1438,6 +1475,7 @@
           style: config.style || avatarConfig.style,
           voice: config.voice || avatarConfig.voice,
           backgroundColor: config.backgroundColor || avatarConfig.backgroundColor || '#FFFFFF',
+          backgroundImage: typeof config.backgroundImage === 'string' ? config.backgroundImage : avatarConfig.backgroundImage,
         };
         applyAvatarVisuals();
         avatarMeta.textContent = `${config.displayName || 'Aria as Morgan'} - ${config.role || 'Digital CFO'} - ${config.voice || 'Voice Live'}`;
@@ -1981,8 +2019,23 @@
     setupStarfieldInteractions();
     startStarfield();
     loadAvatarConfig();
+    detectDefaultBackgroundImage();
     checkGate();
     setInterval(checkGate, 30000);
+
+    function detectDefaultBackgroundImage() {
+      if (!DEFAULT_BACKGROUND_IMAGE) return;
+      const probe = new Image();
+      probe.onload = () => {
+        // Only adopt the photo as default if the user hasn't picked something else.
+        if (!avatarConfig.backgroundImage) {
+          avatarConfig.backgroundImage = DEFAULT_BACKGROUND_IMAGE;
+          applyAvatarVisuals();
+        }
+      };
+      probe.onerror = () => { /* asset not deployed yet, keep solid white */ };
+      probe.src = DEFAULT_BACKGROUND_IMAGE;
+    }
   </script>
 </body>
 </html>

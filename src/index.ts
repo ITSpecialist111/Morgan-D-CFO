@@ -157,6 +157,17 @@ server.get('/avatar', (_req, res: Response) => {
   res.sendFile(path.join(__dirname, 'voice', 'voice.html'));
 });
 
+// Static avatar assets (background photos, etc.) bundled by scripts/copy-static.cjs.
+// fallthrough: false so missing files return a clean 404 instead of dropping into the
+// downstream JWT auth gate (which would otherwise turn /voice/assets/foo.jpg into 401).
+server.use(
+  '/voice/assets',
+  express.static(path.join(__dirname, 'voice', 'assets'), {
+    maxAge: '1h',
+    fallthrough: false,
+  }),
+);
+
 registerAvatarRoutes(server, requireEasyAuth);
 
 server.get('/api/voice', requireEasyAuth, (_req, res: Response) => {
