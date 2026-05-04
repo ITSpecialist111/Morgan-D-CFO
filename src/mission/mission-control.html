@@ -1242,7 +1242,11 @@
         mindmapCtx.fill();
         mindmapCtx.globalAlpha = 1;
 
-        if (hub || hovered || selected || camera.zoom > 1.45 || (active && pos.size > 4.5)) {
+        if (hovered || selected
+          || node.id === 'morgan-core'
+          || (hub && camera.zoom > 0.95)
+          || camera.zoom > 1.55
+          || (active && pos.size > 4.5 && camera.zoom > 1.25)) {
           mindmapCtx.font = hub ? '600 12px Segoe UI, sans-serif' : '11px Segoe UI, sans-serif';
           mindmapCtx.fillStyle = hovered || selected ? '#ffffff' : '#cbd5e1';
           mindmapCtx.textAlign = 'center';
