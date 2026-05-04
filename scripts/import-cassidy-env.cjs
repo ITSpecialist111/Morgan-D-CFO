@@ -73,7 +73,7 @@ const directKeys = [
 
 const derived = {
   AGENT_NAME: 'Morgan',
-  AGENT_ROLE: "CFO's Digital Finance Analyst",
+  AGENT_ROLE: 'Digital CFO',
   USE_AGENTIC_AUTH: 'true',
   CFO_EMAIL: cassidy.MANAGER_EMAIL,
   FINANCE_TEAMS_CHANNEL_ID: cassidy.OPS_TEAMS_CHANNEL_ID,

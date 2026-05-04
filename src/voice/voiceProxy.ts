@@ -154,7 +154,7 @@ export function attachVoiceWebSocket(server: Server): void {
             },
             avatar: {
               character: process.env.AVATAR_CHARACTER || 'meg',
-              style: process.env.AVATAR_STYLE || 'casual',
+              style: process.env.AVATAR_STYLE || 'business',
               customized: false,
               video: {
                 bitrate: Number(process.env.AVATAR_VIDEO_BITRATE || 2_000_000),

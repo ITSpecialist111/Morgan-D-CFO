@@ -760,7 +760,7 @@
     let activityItems = [];
     let avatarConfig = {
       character: 'meg',
-      style: 'casual',
+      style: 'business',
       voice: 'en-US-Ava:DragonHDLatestNeural',
       backgroundColor: '#000000',
       videoFit: 'cover',
@@ -768,9 +768,9 @@
     let accessibilityPrefs = loadAccessibilityPrefs();
 
     const AVATAR_PRESETS = [
-      { character: 'meg', style: 'casual', label: 'Meg Casual' },
       { character: 'meg', style: 'business', label: 'Meg Business' },
       { character: 'meg', style: 'formal', label: 'Meg Formal' },
+      { character: 'meg', style: 'casual', label: 'Meg Casual' },
       { character: 'max', style: 'business', label: 'Max Business' },
       { character: 'max', style: 'casual', label: 'Max Casual' },
       { character: 'lisa', style: 'business', label: 'Lisa Business' },
@@ -1203,6 +1203,17 @@
       };
     }
 
+    function colorDistance(first, second) {
+      if (!first || !second) return Number.POSITIVE_INFINITY;
+      return Math.hypot(first.red - second.red, first.green - second.green, first.blue - second.blue);
+    }
+
+    function selectAvatarKeyColor(configuredKey, detectedKey) {
+      if (!configuredKey) return detectedKey;
+      if (!detectedKey) return configuredKey;
+      return colorDistance(configuredKey, detectedKey) > 54 ? detectedKey : configuredKey;
+    }
+
     function averageSample(imageData, canvasWidth, centerX, centerY, radius) {
       const data = imageData.data;
       let red = 0;
@@ -1340,7 +1351,9 @@
         avatarCompositeContext.clearRect(0, 0, canvasWidth, canvasHeight);
         avatarCompositeContext.drawImage(videoEl, drawRect.x, drawRect.y, drawRect.width, drawRect.height);
         const imageData = avatarCompositeContext.getImageData(0, 0, canvasWidth, canvasHeight);
-        const keyColor = parseHexColor(avatarConfig.backgroundColor) || detectAvatarKeyColor(imageData, canvasWidth, drawRect);
+        const configuredKey = parseHexColor(avatarConfig.backgroundColor);
+        const detectedKey = detectAvatarKeyColor(imageData, canvasWidth, drawRect);
+        const keyColor = selectAvatarKeyColor(configuredKey, detectedKey);
         applyAvatarBackgroundKey(imageData, keyColor);
         avatarCompositeContext.putImageData(imageData, 0, 0);
         avatarCompositeCanvas.classList.add('active');

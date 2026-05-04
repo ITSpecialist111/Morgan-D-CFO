@@ -11,7 +11,7 @@ export function registerAvatarRoutes(server: express.Express, authMiddleware?: M
   server.get('/api/avatar/config', ...middleware, (_req, res) => {
     res.status(200).json({
       character: process.env.AVATAR_CHARACTER || 'meg',
-      style: process.env.AVATAR_STYLE || 'casual',
+      style: process.env.AVATAR_STYLE || 'business',
       voice: process.env.VOICE_NAME || process.env.VOICELIVE_VOICE || 'en-US-Ava:DragonHDLatestNeural',
       backgroundImageUrl: process.env.AVATAR_BACKGROUND_URL || undefined,
       backgroundColor: process.env.AVATAR_BACKGROUND_COLOR || '#000000',
