@@ -169,6 +169,11 @@ server.get('/favicon.ico', (_req, res: Response) => {
   res.status(204).end();
 });
 
+server.use(['/api/mission-control', '/api/observability', '/api/audit/events'], (_req, res: Response, next: express.NextFunction) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // Mission Control dashboard and JSON APIs.
 server.get('/mission-control', (_req, res: Response) => {
   res.sendFile(path.join(__dirname, 'mission', 'mission-control.html'));

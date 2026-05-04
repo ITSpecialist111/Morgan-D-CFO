@@ -172,7 +172,7 @@
       }
     }
     async function authedJson(url, options = {}) {
-      const response = await fetch(url, { ...options, credentials: 'include' });
+      const response = await fetch(url, { ...options, credentials: 'include', cache: 'no-store' });
       const text = await response.text();
       let data = null;
       try { data = text ? JSON.parse(text) : null; } catch { data = text; }

@@ -1463,7 +1463,7 @@
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
       let response;
       try {
-        response = await fetch(url, { ...fetchOptions, credentials: 'include', signal: controller.signal });
+        response = await fetch(url, { ...fetchOptions, credentials: 'include', cache: 'no-store', signal: controller.signal });
       } catch (error) {
         if (error?.name === 'AbortError') throw new Error('Request timed out. Check the service status and try again.');
         throw error;

@@ -284,7 +284,11 @@ function deployZip(zipPath) {
     '--type', 'zip',
     '--async', 'false',
   ], { timeoutMs: 900_000 });
-  az(['webapp', 'config', 'set', '--resource-group', resourceGroup, '--name', webAppName, '--startup-file', 'npm start', '--output', 'none'], { timeoutMs: 120_000 });
+  try {
+    az(['webapp', 'config', 'set', '--resource-group', resourceGroup, '--name', webAppName, '--startup-file', 'npm start', '--output', 'none'], { timeoutMs: 120_000 });
+  } catch (error) {
+    console.warn(`[deploy] Startup file update skipped after successful zip deploy: ${error.message}`);
+  }
   az(['webapp', 'restart', '--resource-group', resourceGroup, '--name', webAppName, '--output', 'none'], { timeoutMs: 120_000 });
 }
 

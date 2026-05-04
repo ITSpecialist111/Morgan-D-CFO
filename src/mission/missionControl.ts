@@ -1,4 +1,6 @@
 import type { ChatCompletionTool } from 'openai/resources/chat';
+import fs from 'fs';
+import path from 'path';
 import {
   analyzeBudgetVsActuals,
   calculateTrend,
@@ -778,8 +780,62 @@ const OPERATING_CADENCE = [
   { time: 'Month start', activity: 'Monthly Planning', output: 'Refresh strategic finance objectives and tactical CFO milestones.' },
 ];
 
-const taskRecords: MissionTaskRecord[] = [];
+const taskRecords: MissionTaskRecord[] = loadTaskRecords();
 const artifactEvaluations: ArtifactEvaluationResult[] = [];
+
+function missionStateFilePath(): string {
+  if (process.env.MORGAN_MISSION_STATE_FILE) return path.resolve(process.env.MORGAN_MISSION_STATE_FILE);
+  const home = process.env.HOME || process.env.USERPROFILE;
+  const stateRoot = home ? path.join(home, 'data') : path.join(process.cwd(), '.morgan-state');
+  return path.join(stateRoot, 'mission-control-records.json');
+}
+
+function isMissionTaskRecord(value: unknown): value is MissionTaskRecord {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Partial<MissionTaskRecord>;
+  return Boolean(record.id && record.taskId && record.title && record.status && record.summary && record.startedAt);
+}
+
+function loadTaskRecords(): MissionTaskRecord[] {
+  try {
+    const filePath = missionStateFilePath();
+    if (!fs.existsSync(filePath)) return [];
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
+    return Array.isArray(parsed) ? parsed.filter(isMissionTaskRecord).slice(-500) : [];
+  } catch (error) {
+    console.warn('[mission-control] Failed to load persistent task records:', error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
+function mergeTaskRecords(records: MissionTaskRecord[]): void {
+  const existingIds = new Set(taskRecords.map((record) => record.id));
+  for (const record of records) {
+    if (!existingIds.has(record.id)) {
+      taskRecords.push(record);
+      existingIds.add(record.id);
+    }
+  }
+  taskRecords.sort((left, right) => new Date(left.startedAt).getTime() - new Date(right.startedAt).getTime());
+  if (taskRecords.length > 500) taskRecords.splice(0, taskRecords.length - 500);
+}
+
+function syncTaskRecordsFromDisk(): void {
+  mergeTaskRecords(loadTaskRecords());
+}
+
+function persistTaskRecords(): void {
+  try {
+    if (taskRecords.length > 500) taskRecords.splice(0, taskRecords.length - 500);
+    const filePath = missionStateFilePath();
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    const tempPath = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tempPath, JSON.stringify(taskRecords, null, 2), 'utf8');
+    fs.renameSync(tempPath, filePath);
+  } catch (error) {
+    console.warn('[mission-control] Failed to persist task records:', error instanceof Error ? error.message : String(error));
+  }
+}
 
 function todayKey(date = new Date()): string {
   return date.toISOString().slice(0, 10);
@@ -813,6 +869,7 @@ function createRecord(input: {
   evidence?: string[];
   source: MissionTaskRecord['source'];
 }): MissionTaskRecord {
+  syncTaskRecordsFromDisk();
   const definition = taskDefinition(input.taskId);
   const now = new Date().toISOString();
   const record: MissionTaskRecord = {
@@ -827,6 +884,7 @@ function createRecord(input: {
     source: input.source,
   };
   taskRecords.push(record);
+  persistTaskRecords();
   recordAuditEvent({
     kind: 'mission.task.recorded',
     label: `Mission task recorded: ${record.title}`,
@@ -945,7 +1003,17 @@ export function recordMissionTaskCompletion(input: {
 }
 
 export function getTodaysTaskRecords(date = todayKey()): MissionTaskRecord[] {
+  syncTaskRecordsFromDisk();
   return taskRecords.filter((record) => record.startedAt.startsWith(date));
+}
+
+export function getRecentMissionTaskRecords(days = 7): MissionTaskRecord[] {
+  syncTaskRecordsFromDisk();
+  const since = Date.now() - Math.max(1, days) * 24 * 60 * 60_000;
+  return taskRecords.filter((record) => {
+    const startedAt = new Date(record.startedAt).getTime();
+    return Number.isFinite(startedAt) && startedAt >= since;
+  });
 }
 
 export function getCognitiveToolchain(): CognitiveToolDefinition[] {

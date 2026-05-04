@@ -1,10 +1,13 @@
 import { DefaultAzureCredential } from '@azure/identity';
 import { getRecentAgentEvents, type AgentEvent } from '../observability/agentEvents';
+import { getRecentMissionTaskRecords } from './missionControl';
 
 const credential = new DefaultAzureCredential();
 
 const DEFAULT_SUBSCRIPTION_ID = '260948a4-1d5e-42c8-b095-33a6641ad189';
 const DEFAULT_RESOURCE_GROUP = 'rg-morgan-finance-agent';
+const DEFAULT_AZURE_COST_CACHE_SECONDS = 15 * 60;
+const DEFAULT_AZURE_COST_STALE_SECONDS = 60 * 60;
 
 type CostSource = 'actual' | 'estimated' | 'mixed';
 
@@ -65,6 +68,9 @@ interface CostRateConfig {
   defaultTeamsCallMinutes: number;
 }
 
+let cachedAzureCostSnapshot: AzureCostSnapshot | null = null;
+let cachedAzureCostSnapshotAt = 0;
+
 export interface MorganCostDashboard {
   generatedAt: string;
   currency: string;
@@ -113,6 +119,14 @@ function parseNumberEnv(name: string, fallback: number): number {
   if (!raw) return fallback;
   const value = Number(raw);
   return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function azureCostCacheMs(): number {
+  return parseNumberEnv('MORGAN_COST_AZURE_CACHE_SECONDS', DEFAULT_AZURE_COST_CACHE_SECONDS) * 1000;
+}
+
+function azureCostStaleMs(): number {
+  return parseNumberEnv('MORGAN_COST_AZURE_STALE_SECONDS', DEFAULT_AZURE_COST_STALE_SECONDS) * 1000;
 }
 
 function getRates(): CostRateConfig {
@@ -178,6 +192,11 @@ async function queryAzureCosts(days = 7): Promise<AzureCostSnapshot> {
   const subId = subscriptionId();
   const rg = resourceGroupName();
   const scope = `/subscriptions/${subId}/resourceGroups/${rg}`;
+  const now = Date.now();
+  if (cachedAzureCostSnapshot?.available && cachedAzureCostSnapshot.scope === scope && now - cachedAzureCostSnapshotAt < azureCostCacheMs()) {
+    return cachedAzureCostSnapshot;
+  }
+
   try {
     const token = await credential.getToken('https://management.azure.com/.default');
     if (!token?.token) throw new Error('No Azure management token returned.');
@@ -239,7 +258,7 @@ async function queryAzureCosts(days = 7): Promise<AzureCostSnapshot> {
       currency: currencyIndex === undefined ? 'USD' : String(row[currencyIndex] || 'USD'),
     })).filter((row) => Number.isFinite(row.cost));
     const total = costRows.reduce((sum, row) => sum + row.cost, 0);
-    return {
+    const snapshot = {
       available: true,
       scope,
       currency: costRows.find((row) => row.currency)?.currency || 'USD',
@@ -247,7 +266,13 @@ async function queryAzureCosts(days = 7): Promise<AzureCostSnapshot> {
       rows: costRows,
       generatedAt: new Date().toISOString(),
     };
+    cachedAzureCostSnapshot = snapshot;
+    cachedAzureCostSnapshotAt = now;
+    return snapshot;
   } catch (error) {
+    if (cachedAzureCostSnapshot?.available && cachedAzureCostSnapshot.scope === scope && Date.now() - cachedAzureCostSnapshotAt < azureCostStaleMs()) {
+      return cachedAzureCostSnapshot;
+    }
     return {
       available: false,
       scope,
@@ -402,6 +427,10 @@ export async function getMorganCostDashboard(): Promise<MorganCostDashboard> {
   const weeklyEvents = events.filter((event) => isInWindow(event, Date.now() - 7 * 24 * 60 * 60_000));
   const dailyActivity = countActivity(dailyEvents);
   const weeklyActivity = countActivity(weeklyEvents);
+  const dailyMissionRecords = getRecentMissionTaskRecords(1);
+  const weeklyMissionRecords = getRecentMissionTaskRecords(7);
+  dailyActivity.completedTasks = Math.max(dailyActivity.completedTasks, dailyMissionRecords.filter((record) => record.status === 'completed').length);
+  weeklyActivity.completedTasks = Math.max(weeklyActivity.completedTasks, weeklyMissionRecords.filter((record) => record.status === 'completed').length);
   const dailyEstimates = estimateCosts(dailyActivity, rates);
   const weeklyEstimates = estimateCosts({ ...weeklyActivity, completedTasks: weeklyActivity.completedTasks }, { ...rates, computeDailyFallback: rates.computeDailyFallback * 7, storageObservabilityDailyFallback: rates.storageObservabilityDailyFallback * 7, agent365Daily: rates.agent365Daily * 7 });
   const azure = await queryAzureCosts(7);
