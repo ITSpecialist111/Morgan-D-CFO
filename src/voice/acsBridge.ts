@@ -1,7 +1,5 @@
 import {
   CallAutomationClient,
-  createOutboundAudioData,
-  createOutboundStopAudioData,
   type CallInvite,
   type CreateCallOptions,
   type MediaStreamingOptions,
@@ -18,8 +16,7 @@ import { recordAgentEvent } from '../observability/agentEvents';
 const ACS_CONNECTION_STRING = process.env.ACS_CONNECTION_STRING || '';
 const PUBLIC_HOSTNAME = process.env.PUBLIC_HOSTNAME || process.env.WEBSITE_HOSTNAME || '';
 const REALTIME_API_VERSION = process.env.AZURE_OPENAI_REALTIME_API_VERSION || '2025-04-01-preview';
-const VOICE_LIVE_API_VERSION = process.env.VOICELIVE_API_VERSION || '2025-10-01';
-const VOICE_DEPLOYMENT = process.env.VOICELIVE_MODEL || process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5';
+const VOICE_DEPLOYMENT = process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT || process.env.AZURE_OPENAI_DEPLOYMENT || process.env.VOICELIVE_MODEL || 'gpt-4o';
 const FEDERATION_RESOURCE_ID = process.env.ACS_TEAMS_FEDERATION_RESOURCE_ID || '';
 
 const credential = new DefaultAzureCredential();
@@ -98,22 +95,15 @@ function openAiCognitiveEndpoint(): string {
   return (process.env.AZURE_OPENAI_ENDPOINT || process.env.VOICELIVE_ENDPOINT || process.env.AZURE_AI_SERVICES_ENDPOINT || '').replace(/\/$/, '');
 }
 
-function voiceLiveEndpoint(): string {
-  return (process.env.VOICELIVE_ENDPOINT || '').replace(/\/$/, '');
-}
-
 function buildRealtimeSocketUrl(): { url: string; provider: 'voice-live' | 'azure-openai-realtime' } {
-  const voiceEndpoint = voiceLiveEndpoint();
-  if (voiceEndpoint) {
-    const url = new URL(voiceEndpoint);
-    return {
-      provider: 'voice-live',
-      url: `wss://${url.host}/voice-live/realtime?api-version=${encodeURIComponent(VOICE_LIVE_API_VERSION)}&model=${encodeURIComponent(VOICE_DEPLOYMENT)}`,
-    };
-  }
-
+  // For the ACS Teams call bridge we always use the Azure OpenAI realtime
+  // websocket path — that's the protocol Cassidy proved works end-to-end with
+  // ACS bidirectional Pcm24KMono media streaming. The Voice Live endpoint
+  // (used elsewhere for the in-browser avatar) speaks a different session
+  // schema (azure-standard voice / azure_semantic_vad) that does not pair
+  // with ACS media-streaming envelopes, which is why callers heard nothing.
   const openAiEndpoint = openAiCognitiveEndpoint();
-  if (!openAiEndpoint) throw new Error('VOICELIVE_ENDPOINT or AZURE_OPENAI_ENDPOINT is required for ACS realtime calling.');
+  if (!openAiEndpoint) throw new Error('AZURE_OPENAI_ENDPOINT (or VOICELIVE_ENDPOINT) is required for ACS realtime calling.');
   const url = new URL(openAiEndpoint);
   return {
     provider: 'azure-openai-realtime',
@@ -126,11 +116,20 @@ function latestActiveCall(): ActiveCallState | undefined {
 }
 
 function sendAcsOutboundAudio(ws: WebSocket, base64Audio: string): void {
-  if (ws.readyState === WebSocket.OPEN) ws.send(createOutboundAudioData(base64Audio));
+  // Mirror Cassidy's working envelope: a JSON string with kind='AudioData'
+  // and the base64 PCM in audioData.data. The ACS bidirectional media
+  // streaming socket expects this literal envelope; the SDK's
+  // createOutboundAudioData helper produced a different shape that ACS was
+  // dropping silently, which is why Morgan was inaudible on Teams calls.
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ kind: 'AudioData', audioData: { data: base64Audio } }));
+  }
 }
 
 function sendAcsStopAudio(ws: WebSocket): void {
-  if (ws.readyState === WebSocket.OPEN) ws.send(createOutboundStopAudioData());
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ kind: 'StopAudio', stopAudio: {} }));
+  }
 }
 
 export function getTeamsFederationCallingStatus(): TeamsFederationCallingStatus {
@@ -402,40 +401,18 @@ async function handleAcsMediaSocket(acsWs: WebSocket): Promise<void> {
     const state = resolveCallState();
     const requestedVoice = state?.voice || process.env.ACS_REALTIME_VOICE;
     const instructions = `${MORGAN_SYSTEM_PROMPT}\n\n${state?.instructions || 'You are on a Microsoft Teams voice call. Speak clearly, be concise, and focus on finance risks, completed work, or the requested CFO action.'}`;
-    const isVoiceLive = Boolean(voiceLiveEndpoint());
-    const voiceLiveName = process.env.VOICE_NAME || process.env.VOICELIVE_VOICE || (requestedVoice && /:/i.test(requestedVoice) ? requestedVoice : undefined) || 'en-US-Ava:DragonHDLatestNeural';
+    // ACS Teams bridge always uses the Azure OpenAI realtime session schema
+    // (pcm16 in/out + server_vad) — same as Cassidy. The Voice Live azure-
+    // standard schema is used in the browser/avatar path only.
     const realtimeVoice = requestedVoice || 'verse';
-    const session = isVoiceLive
-      ? {
-        modalities: ['text', 'audio'],
-        instructions,
-        voice: {
-          name: voiceLiveName,
-          type: 'azure-standard',
-          temperature: 0.8,
-        },
-        input_audio_sampling_rate: 24000,
-        input_audio_transcription: {
-          model: 'azure-speech',
-          language: 'en',
-        },
-        turn_detection: {
-          type: 'azure_semantic_vad',
-          silence_duration_ms: 500,
-          interrupt_response: true,
-          auto_truncate: true,
-        },
-        input_audio_noise_reduction: { type: 'azure_deep_noise_suppression' },
-        input_audio_echo_cancellation: { type: 'server_echo_cancellation' },
-      }
-      : {
-        modalities: ['audio', 'text'],
-        input_audio_format: 'pcm16',
-        output_audio_format: 'pcm16',
-        voice: realtimeVoice,
-        instructions,
-        turn_detection: { type: 'server_vad' },
-      };
+    const session = {
+      modalities: ['audio', 'text'],
+      input_audio_format: 'pcm16',
+      output_audio_format: 'pcm16',
+      voice: realtimeVoice,
+      instructions,
+      turn_detection: { type: 'server_vad' },
+    };
 
     realtimeWs.send(JSON.stringify({ type: 'session.update', session }));
     sessionConfigured = true;
@@ -445,7 +422,7 @@ async function handleAcsMediaSocket(acsWs: WebSocket): Promise<void> {
       kind: 'teams.call.media.started',
       label: 'Teams call media bridge connected to Morgan realtime voice',
       correlationId: callConnectionId || mediaSubscriptionId,
-      data: { callConnectionId, mediaSubscriptionId, voice: isVoiceLive ? voiceLiveName : realtimeVoice, provider: isVoiceLive ? 'voice-live' : 'azure-openai-realtime' },
+      data: { callConnectionId, mediaSubscriptionId, voice: realtimeVoice, provider: 'azure-openai-realtime' },
     });
     recordAgentEvent({
       kind: 'teams.call',
@@ -456,8 +433,8 @@ async function handleAcsMediaSocket(acsWs: WebSocket): Promise<void> {
         callConnectionId,
         mediaSubscriptionId,
         source: 'ACS Teams federation',
-        voice: isVoiceLive ? voiceLiveName : realtimeVoice,
-        provider: isVoiceLive ? 'voice-live' : 'azure-openai-realtime',
+        voice: realtimeVoice,
+        provider: 'azure-openai-realtime',
         reasoningSummary: 'Morgan is connected to the Teams call media stream and can now listen, reason over the spoken request, and send audio back.',
       },
     });
