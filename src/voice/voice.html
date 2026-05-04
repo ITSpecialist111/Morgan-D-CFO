@@ -756,6 +756,7 @@
     let avatarCompositeFrame = 0;
     let activeTab = 'chat';
     let activePresence = 'idle';
+    let lastVoiceError = '';
     let activityItems = [];
     let avatarConfig = {
       character: 'meg',
@@ -1382,6 +1383,7 @@
       if (!(await requireSignedIn())) return;
       if (!(await checkGate())) return;
       await loadAvatarConfig();
+      lastVoiceError = '';
       btnConnect.disabled = true;
       setStatus('Requesting microphone');
 
@@ -1411,8 +1413,16 @@
           try { msg = JSON.parse(event.data); } catch { return; }
           handleVoiceEvent(msg);
         };
-        ws.onclose = () => { cleanup(); setStatus('Disconnected'); };
-        ws.onerror = () => { cleanup(); setStatus('Connection error'); };
+        ws.onclose = (event) => {
+          const reason = lastVoiceError || event.reason || 'Disconnected';
+          cleanup();
+          setStatus(reason);
+        };
+        ws.onerror = () => {
+          lastVoiceError = lastVoiceError || 'Connection error';
+          cleanup();
+          setStatus(lastVoiceError);
+        };
       } catch (error) {
         btnConnect.disabled = false;
         setStatus(error.message || 'Connection failed');
@@ -1715,7 +1725,8 @@
         case 'error':
           if (!String(event.error?.message || '').includes('no active response')) {
             console.error('[voice] error', event.error);
-            setStatus(event.error?.message || 'Voice error');
+            lastVoiceError = event.error?.message || 'Voice error';
+            setStatus(lastVoiceError);
           }
           break;
       }

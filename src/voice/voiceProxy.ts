@@ -13,6 +13,7 @@ import { recordAgentEvent } from '../observability/agentEvents';
 
 const VOICELIVE_ENDPOINT = process.env.VOICELIVE_ENDPOINT || '';
 const VOICELIVE_MODEL = process.env.VOICELIVE_MODEL || 'gpt-5';
+let activeVoiceClient: WebSocket | null = null;
 
 // Azure Voice Live WebSocket URL format
 function buildVoiceLiveUrl(): string {
@@ -85,6 +86,22 @@ export function attachVoiceWebSocket(server: Server): void {
   wss.on('connection', async (clientWs) => {
     console.log('[voice] Browser client connected');
     const sessionCorrelationId = `voice-${Date.now()}`;
+
+    if (
+      activeVoiceClient &&
+      (activeVoiceClient.readyState === WebSocket.CONNECTING || activeVoiceClient.readyState === WebSocket.OPEN)
+    ) {
+      console.log('[voice] Closing previous browser client before starting a new avatar session');
+      sendBrowserEvent(activeVoiceClient, {
+        type: 'error',
+        error: {
+          message: 'A newer Morgan avatar session was started. This tab was disconnected to keep avatar capacity available.',
+        },
+      });
+      activeVoiceClient.close(1000, 'New Morgan avatar session started');
+    }
+    activeVoiceClient = clientWs;
+
     recordAgentEvent({
       kind: 'voice.session',
       label: 'Morgan avatar voice session opened',
@@ -320,8 +337,17 @@ export function attachVoiceWebSocket(server: Server): void {
       });
 
       serviceWs.on('close', (code, reason) => {
-        console.log(`[voice] Voice Live disconnected: ${code} ${reason}`);
+        const reasonText = reason.toString();
+        console.log(`[voice] Voice Live disconnected: ${code} ${reasonText}`);
         if (clientWs.readyState === WebSocket.OPEN) {
+          if (code !== 1000 || reasonText) {
+            sendBrowserEvent(clientWs, {
+              type: 'error',
+              error: {
+                message: reasonText || `Voice Live session ended with code ${code}`,
+              },
+            });
+          }
           clientWs.close(1000, 'Voice Live session ended');
         }
       });
@@ -329,6 +355,10 @@ export function attachVoiceWebSocket(server: Server): void {
       serviceWs.on('error', (err) => {
         console.error('[voice] Voice Live WebSocket error:', err.message);
         if (clientWs.readyState === WebSocket.OPEN) {
+          sendBrowserEvent(clientWs, {
+            type: 'error',
+            error: { message: err.message || 'Voice Live error' },
+          });
           clientWs.close(1011, 'Voice Live error');
         }
       });
@@ -360,6 +390,9 @@ export function attachVoiceWebSocket(server: Server): void {
 
     clientWs.on('close', () => {
       console.log('[voice] Browser client disconnected');
+      if (activeVoiceClient === clientWs) {
+        activeVoiceClient = null;
+      }
       recordAgentEvent({
         kind: 'voice.session',
         label: 'Morgan avatar voice session closed',
