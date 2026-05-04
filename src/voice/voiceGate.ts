@@ -1,8 +1,8 @@
 // Voice gate — controls whether the voice web page is active.
 // Toggled via Teams chat commands ("enable voice" / "disable voice").
-// Default: disabled — voice must be explicitly enabled before each demo.
+// Default: enabled — set VOICE_ENABLED_DEFAULT=false to require an explicit Teams toggle before demos.
 
-let _enabled = process.env.VOICE_ENABLED_DEFAULT === 'true';
+let _enabled = process.env.VOICE_ENABLED_DEFAULT !== 'false';
 
 export function isVoiceEnabled(): boolean {
   return _enabled;
