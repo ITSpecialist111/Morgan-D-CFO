@@ -74,3 +74,119 @@ Today, Morgan is the Digital CFO. Tomorrow, the same CorpGen pattern can create 
 That is the opportunity: not just copilots that help people work faster, but governed digital workers that perform real enterprise roles on top of the Microsoft platform.
 
 Morgan is the Digital CFO. CorpGen is the operating model. Microsoft is the enterprise platform that makes it credible.
+
+## Dragon's Den Walkthrough — Live Demo Script
+
+This is the order I will run on stage tomorrow. Every step below is real — no slides, no mock screens, no green-screen "imagine if" moments. Each beat is a working capability the judges can poke at.
+
+### Beat 1 — "Morgan is in Microsoft Teams, not in a chatbot window"
+
+1. Open Microsoft Teams on the laptop.
+2. Open the chat with **Morgan - Digital CFO**.
+3. Type: `hi morgan`.
+4. The judges immediately see the **typing indicator** — Morgan is "typing…" in Teams just like Cassidy and any human teammate. (This is the typing-indicator keepalive that wraps the agentic loop and cancels on `finally`.)
+5. Morgan replies in-character.
+
+> **Line:** "Morgan does not live in a side panel. She lives in the same Teams chat your finance team already uses, with the same presence, typing, and read-receipt behaviour as a human colleague."
+
+### Beat 2 — "She actually knows the numbers"
+
+1. In the same Teams chat, type: `Morgan, what's the latest P&L?`
+2. Morgan calls `getLatestPnL` and replies with a real Contoso income statement: Revenue, COGS, Gross Profit and Gross Margin %, OPEX broken down by R&D / Sales / Marketing, EBITDA, ~24% tax, Net Income, plus 2-3 lines of executive commentary.
+
+> **Line:** "Most AI demos in finance summarise documents. Morgan returns a board-ready P&L on demand because she has actual finance tools, not just retrieval."
+
+### Beat 3 — "She is not a chatbot. She is an autonomous digital worker."
+
+Now zoom out from Teams and frame the bigger story before the next beat lands.
+
+1. Morgan runs on a **9-to-5, seven-days-a-week** operating model.
+2. She has a job description, an autonomous Kanban, and a **persona with 27 enforced behaviour rules** (everything from "always confirm tool execution" to the new rule 27 — "if you commit to calling someone back, schedule the actual call").
+3. She has tools across three layers:
+   - **Morgan-native** finance, reporting and IQ tools (P&L, cost monitor, scheduler, IQ briefing).
+   - **Microsoft 365 Graph wrapper** tools (`getMorganIdentity`, `findUser`, `sendTeamsMessage`, `sendEmail`, `createPlannerTask`, `scheduleCalendarEvent`, `readSharePointList`, etc.).
+   - **Agent 365 MCP** tools, plugged in dynamically.
+4. Every action is audit-logged with a correlation ID. Every cost is tracked in the Cost of Morgan dashboard.
+
+> **Line:** "What you are looking at is not a chatbot in finance clothing. It is a governed digital employee running on the Microsoft cloud."
+
+### Beat 4 — "Morgan can ring me — on demand"
+
+1. In the Teams chat, type: `Morgan, ring me with the priority points`.
+2. Morgan calls `initiateTeamsCallToCfo` over the ACS-to-Teams federation bridge.
+3. Within seconds, the laptop's Teams client rings — **Morgan is calling**.
+4. Answer the call. Morgan greets, gives the headline finance update, walks the priority points and any discrepancies, and asks for the human-in-the-loop decision.
+
+> **Line:** "Morgan is the first agent in our stack that can place an outbound Teams call into a federated Microsoft tenant. Same governance path, same call recording, same compliance, same Teams presence."
+
+### Beat 5 — "And she will ring me back, by herself, when she is done"
+
+This is the new beat that turns the demo from "impressive" into "this is genuinely autonomous".
+
+1. Before ending the call, ask Morgan: `Once you've worked through this, give me 5 minutes then ring me back with the answer.`
+2. Morgan replies in chat (and on the call): "I will call you back in 5 minutes once this is sorted." Behind the scenes she calls `scheduleAutonomousCallback({ delaySeconds: 300, reason: ... })`. The audit log records `teams.call.callback.scheduled`.
+3. Carry on with the next beats of the demo.
+4. **Five minutes later, Morgan rings the laptop again — unprompted.** Same federation bridge, same governed path. The audit log records `teams.call.callback.fired`.
+
+> **Line:** "She is not waiting for me to come back to her. She is operating on her own clock. That is the difference between an assistant and a digital worker."
+
+> **Honest framing:** Today the trigger is a deterministic timer that Morgan schedules herself. The same hook accepts a future presence-watcher signal — when the user goes from "Away" back to "Available", we just call `scheduleAutonomousCallback` with `delaySeconds = 0`. Same code path, no rewrite.
+
+### Beat 6 — "Morgan's brain — the Beta Starfield"
+
+1. Open `https://morganfinanceagent-webapp.azurewebsites.net/voice` on the second screen.
+2. The judges see the **always-on starfield** behind Morgan's avatar: ~190 particles, parallax following the cursor, teal/blue glow, speed shifting with Morgan's state (idle / live / speaking / using a tool).
+3. Pan, zoom, double-click to reset. The starfield reacts.
+
+> **Line:** "This is the visual metaphor for what is happening underneath: a constant flow of signals — Graph events, Fabric metrics, Foundry inferences, MCP tool calls — being prioritised, routed, and acted on by Morgan in real time. Like J.A.R.V.I.S. in Iron Man, the surface is calm; the system underneath is dense."
+
+### Beat 7 — "Mission Control — the digital worker's cockpit"
+
+1. Open `https://morganfinanceagent-webapp.azurewebsites.net/mission-control`.
+2. Walk the **Kanban**: today's completed work, in-progress, blocked, escalated.
+3. Show the **CorpGen autonomous loop** — how Morgan plans her own day, picks her own work, and knows when to escalate.
+4. Show the **Cost of Morgan** view — daily/weekly cost, value generated, cost categories (compute, model, voice, telemetry).
+5. Show the **Agent Mind / audit feed** — every tool call, every reason, every correlation ID.
+
+> **Line:** "If you hire a human CFO, you expect a calendar, a task list, a P&L, a costs view, and an audit trail. Morgan has all five — visible to leadership, in real time."
+
+### Beat 8 — "Morgan plugs into the whole Microsoft stack"
+
+In the Teams chat, type: `Morgan, give me a Microsoft IQ briefing.`
+
+Morgan calls `synthesizeMicrosoftIQBriefing`, which **cross-pollinates three IQ surfaces**:
+
+- **WorkIQ** — work-graph and Agent 365 signals (who is doing what, where the bottlenecks are, where Morgan's actions land in the org).
+- **FabricIQ** — financial and operational data, OneLake-backed metrics, anomaly detection signals.
+- **FoundryIQ** — model intelligence, agent orchestration, evaluation signals.
+
+The reply weaves all three into a single CFO-ready brief.
+
+> **Line:** "Morgan does not just sit on Azure. She turns Agent 365, Foundry, Fabric, Graph, Teams, and ACS into one coherent operating environment for an autonomous worker. That is the Microsoft stack story."
+
+### Beat 9 — "And she has a face"
+
+1. On the `/voice` page, start the avatar session.
+2. Morgan appears as the **Aria-as-Morgan** photo-real avatar against the Microsoft Visitor Center backdrop, starfield brain glowing behind her.
+3. Speak to her. She speaks back, in real time, with the same persona, the same tools, the same audit trail.
+
+> **Line:** "This is the same Morgan as in Teams. Same brain, same memory, same tools, same governance. Just a different surface."
+
+### Beat 10 — "Wow" Conversational Questions for the Judges
+
+Hand the laptop to the judges and invite them to ask Morgan anything. These are pre-tested prompts that hit the strongest capabilities and never fall flat:
+
+1. "Morgan, what's your email address?" — proves she has a real Entra identity (`getMorganIdentity`).
+2. "Morgan, show me your WorkIQ MCP coverage." — proves dynamic Agent 365 / MCP tool surface (`getMcpTools` + `getWorkIQStatus`).
+3. "Morgan, what's the latest P&L?" — proves real finance tooling (`getLatestPnL`).
+4. "Morgan, run an autonomous CFO workday and post the briefing in this chat." — proves the CorpGen autonomous loop end-to-end.
+5. "Morgan, ring me back in 2 minutes with the most important number on the board." — proves `scheduleAutonomousCallback` live.
+6. "Morgan, give me a Microsoft IQ briefing across WorkIQ, FabricIQ and FoundryIQ." — proves cross-stack synthesis.
+7. "Morgan, what would you escalate right now and to whom?" — proves judgement and human-in-the-loop.
+8. "Morgan, generate the end-of-day report." — proves proof-of-work and audit trail.
+9. "Morgan, prove your enterprise readiness." — Morgan responds with identity, governance, audit, cost transparency, and Teams federation evidence.
+10. "Morgan, what should the CFO do differently next quarter based on the P&L trend?" — proves she can move from data to recommendation.
+
+### Closing line on stage
+
+> "You did not just see an AI demo. You saw a digital employee with a job, a Teams identity, a phone, a brain, a cost line, and an audit trail. That is the next workforce layer of the Microsoft cloud — and Morgan is the proof it works."
