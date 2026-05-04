@@ -6,7 +6,7 @@ import { configDotenv } from 'dotenv';
 configDotenv();
 
 import { TurnState, AgentApplication, TurnContext } from '@microsoft/agents-hosting';
-import { ActivityTypes } from '@microsoft/agents-activity';
+import { ActivityTypes, Activity } from '@microsoft/agents-activity';
 import { AzureOpenAI } from 'openai';
 import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat';
 import { DefaultAzureCredential, getBearerTokenProvider } from '@azure/identity';
@@ -194,6 +194,14 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
   state.conversation.history.push({ role: 'user', content: userMessage });
   const recentHistory = state.conversation.history.slice(-20);
 
+  // Send a typing indicator immediately, then keep it alive every 4s so Teams
+  // continues to show "Morgan is typing…" during long GPT-5 reasoning turns
+  // (Teams clears typing after ~10–15s without a refresh). Mirrors Cassidy.
+  try { await context.sendActivity(new Activity(ActivityTypes.Typing)); } catch { /* ignore */ }
+  const typingInterval = setInterval(async () => {
+    try { await context.sendActivity(new Activity(ActivityTypes.Typing)); } catch { /* ignore */ }
+  }, 4000);
+
   try {
     // Build messages array for the agentic loop
     const messages: ChatCompletionMessageParam[] = [
@@ -359,6 +367,8 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
     } catch (sendErr: unknown) {
       console.error('sendActivity error in catch block:', sendErr);
     }
+  } finally {
+    clearInterval(typingInterval);
   }
 });
 
