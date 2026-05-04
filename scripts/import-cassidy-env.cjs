@@ -66,9 +66,19 @@ const directKeys = [
   'AZURE_OPENAI_ENDPOINT',
   'AZURE_OPENAI_DEPLOYMENT',
   'MCP_PLATFORM_ENDPOINT',
+  'MCP_PLATFORM_AUTHENTICATION_SCOPE',
+  'MCP_TOOL_TIMEOUT_MS',
+  'GRAPH_TIMEOUT_MS',
+  'GRAPH_CACHE_TTL_MS',
+  'PLANNER_GROUP_ID',
+  'PLANNER_PLAN_ID',
   'SCHEDULED_SECRET',
   'AZURE_STORAGE_ACCOUNT',
   'agentic_connectionName',
+  'agentic_altBlueprintConnectionName',
+  'agentic_scopes',
+  'connections__service_connection__settings__tenantId',
+  'connections__service_connection__settings__scopes',
 ];
 
 const derived = {

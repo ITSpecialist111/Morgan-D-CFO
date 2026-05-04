@@ -47,6 +47,12 @@ import {
 } from './mcpToolSetup';
 
 import {
+  getMorganIdentity,
+  getWorkIQStatus,
+  IDENTITY_TOOL_DEFINITIONS,
+} from './identityTools';
+
+import {
   getEndOfDayReport,
   getAutonomousKanbanBoard,
   getCognitiveToolchain,
@@ -194,6 +200,7 @@ const TOOL_SOURCE_SETS = {
   report: definitionNames(REPORT_TOOL_DEFINITIONS),
   iq: definitionNames(IQ_TOOL_DEFINITIONS),
   mcpStatic: definitionNames(MCP_TOOL_DEFINITIONS),
+  identity: definitionNames(IDENTITY_TOOL_DEFINITIONS),
   mission: definitionNames(MISSION_TOOL_DEFINITIONS),
   subAgent: definitionNames(SUB_AGENT_TOOL_DEFINITIONS),
   teamsCall: definitionNames(CALL_TOOL_DEFINITIONS),
@@ -205,6 +212,7 @@ function toolSource(name: string): string {
   if (TOOL_SOURCE_SETS.report.has(name)) return 'morgan-report';
   if (TOOL_SOURCE_SETS.iq.has(name)) return 'microsoft-iq';
   if (TOOL_SOURCE_SETS.mcpStatic.has(name)) return 'agent365-mcp-static';
+  if (TOOL_SOURCE_SETS.identity.has(name)) return 'agent365-identity';
   if (TOOL_SOURCE_SETS.mission.has(name)) return 'mission-control';
   if (TOOL_SOURCE_SETS.subAgent.has(name)) return 'sub-agent-orchestration';
   if (TOOL_SOURCE_SETS.teamsCall.has(name)) return 'teams-federation-calling';
@@ -223,6 +231,7 @@ export function getAllTools(): ChatCompletionTool[] {
     ...REPORT_TOOL_DEFINITIONS,
     ...IQ_TOOL_DEFINITIONS,
     ...MCP_TOOL_DEFINITIONS,
+    ...IDENTITY_TOOL_DEFINITIONS,
     ...MISSION_TOOL_DEFINITIONS,
     ...SUB_AGENT_TOOL_DEFINITIONS,
     ...CALL_TOOL_DEFINITIONS,
@@ -335,6 +344,14 @@ export async function executeTool(name: string, params: Record<string, unknown>,
         break;
       case 'lookupPerson':
         result = await lookupPerson(params as Parameters<typeof lookupPerson>[0]);
+        break;
+
+      // Morgan Microsoft 365 identity / WorkIQ coverage
+      case 'getMorganIdentity':
+        result = getMorganIdentity();
+        break;
+      case 'getWorkIQStatus':
+        result = await getWorkIQStatus(params, context);
         break;
 
       // Mission Control / autonomy tools

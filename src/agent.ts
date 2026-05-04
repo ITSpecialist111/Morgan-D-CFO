@@ -82,6 +82,8 @@ function toolName(tool: ChatCompletionTool): string {
 
 const MICROSOFT_365_WRAPPER_TOOLS = new Set([
   'getMcpTools',
+  'getMorganIdentity',
+  'getWorkIQStatus',
   'findUser',
   'lookupPerson',
   'sendTeamsMessage',
