@@ -95,6 +95,10 @@ function openAiCognitiveEndpoint(): string {
   return (process.env.AZURE_OPENAI_ENDPOINT || process.env.VOICELIVE_ENDPOINT || process.env.AZURE_AI_SERVICES_ENDPOINT || '').replace(/\/$/, '');
 }
 
+function openAiRealtimeEndpoint(): string {
+  return (process.env.AZURE_OPENAI_REALTIME_ENDPOINT || openAiCognitiveEndpoint()).replace(/\/$/, '');
+}
+
 function buildRealtimeSocketUrl(): { url: string; provider: 'voice-live' | 'azure-openai-realtime' } {
   // For the ACS Teams call bridge we always use the Azure OpenAI realtime
   // websocket path — that's the protocol Cassidy proved works end-to-end with
@@ -102,9 +106,9 @@ function buildRealtimeSocketUrl(): { url: string; provider: 'voice-live' | 'azur
   // (used elsewhere for the in-browser avatar) speaks a different session
   // schema (azure-standard voice / azure_semantic_vad) that does not pair
   // with ACS media-streaming envelopes, which is why callers heard nothing.
-  const openAiEndpoint = openAiCognitiveEndpoint();
-  if (!openAiEndpoint) throw new Error('AZURE_OPENAI_ENDPOINT (or VOICELIVE_ENDPOINT) is required for ACS realtime calling.');
-  const url = new URL(openAiEndpoint);
+  const realtimeEndpoint = openAiRealtimeEndpoint();
+  if (!realtimeEndpoint) throw new Error('AZURE_OPENAI_REALTIME_ENDPOINT, AZURE_OPENAI_ENDPOINT, or VOICELIVE_ENDPOINT is required for ACS realtime calling.');
+  const url = new URL(realtimeEndpoint);
   return {
     provider: 'azure-openai-realtime',
     url: `wss://${url.host}/openai/realtime?deployment=${encodeURIComponent(VOICE_DEPLOYMENT)}&api-version=${encodeURIComponent(REALTIME_API_VERSION)}`,
@@ -134,7 +138,7 @@ function sendAcsStopAudio(ws: WebSocket): void {
 
 export function getTeamsFederationCallingStatus(): TeamsFederationCallingStatus {
   const publicHostConfigured = Boolean(process.env.BASE_URL || PUBLIC_HOSTNAME);
-  const realtimeConfigured = Boolean(openAiCognitiveEndpoint() && VOICE_DEPLOYMENT);
+  const realtimeConfigured = Boolean(openAiRealtimeEndpoint() && VOICE_DEPLOYMENT);
   const configured = Boolean(ACS_CONNECTION_STRING && publicHostConfigured && realtimeConfigured);
   return {
     configured,
@@ -449,6 +453,32 @@ async function handleAcsMediaSocket(acsWs: WebSocket): Promise<void> {
       console.log(`[ACS] Connected to ${realtime.provider} realtime audio service`);
       realtimeOpen = true;
       configureFallbackTimer = setTimeout(configureRealtimeSession, 700);
+    });
+
+    realtimeWs.on('unexpected-response', (_request, response) => {
+      let body = '';
+      response.on('data', (chunk) => {
+        body += chunk.toString();
+        if (body.length > 1600) body = body.slice(0, 1600);
+      });
+      response.on('end', () => {
+        const detail = {
+          statusCode: response.statusCode,
+          statusMessage: response.statusMessage,
+          deployment: VOICE_DEPLOYMENT,
+          endpointHost: new URL(realtime.url).host,
+          body: body.slice(0, 1200),
+        };
+        console.error('[ACS] Realtime WebSocket unexpected response', detail);
+        recordAuditEvent({
+          kind: 'teams.call.media.failed',
+          label: 'Morgan realtime voice WebSocket was rejected during Teams call media bridge',
+          severity: 'error',
+          correlationId: callConnectionId || mediaSubscriptionId,
+          data: detail,
+        });
+        try { acsWs.close(); } catch { /* ignore */ }
+      });
     });
 
     realtimeWs.on('message', (data) => {
