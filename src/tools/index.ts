@@ -82,6 +82,12 @@ import {
   initiateOutboundTeamsCall,
   isAcsConfigured,
 } from '../voice/acsBridge';
+import {
+  scheduleAutonomousCallback,
+  listScheduledCallbacks,
+  cancelAutonomousCallback,
+  AUTONOMOUS_CALLBACK_TOOL_DEFINITIONS,
+} from '../scheduler/autonomousCallback';
 import { recordAuditEvent } from '../observability/agentAudit';
 
 // ---------------------------------------------------------------------------
@@ -205,6 +211,7 @@ const TOOL_SOURCE_SETS = {
   mission: definitionNames(MISSION_TOOL_DEFINITIONS),
   subAgent: definitionNames(SUB_AGENT_TOOL_DEFINITIONS),
   teamsCall: definitionNames(CALL_TOOL_DEFINITIONS),
+  autonomousCallback: definitionNames(AUTONOMOUS_CALLBACK_TOOL_DEFINITIONS),
   utility: definitionNames(UTILITY_TOOL_DEFINITIONS),
 };
 
@@ -217,6 +224,7 @@ function toolSource(name: string): string {
   if (TOOL_SOURCE_SETS.mission.has(name)) return 'mission-control';
   if (TOOL_SOURCE_SETS.subAgent.has(name)) return 'sub-agent-orchestration';
   if (TOOL_SOURCE_SETS.teamsCall.has(name)) return 'teams-federation-calling';
+  if (TOOL_SOURCE_SETS.autonomousCallback.has(name)) return 'autonomous-callback';
   if (TOOL_SOURCE_SETS.utility.has(name)) return 'utility';
   if (hasMcpToolServer(name)) return 'agent365-mcp-discovered';
   return 'unknown';
@@ -236,6 +244,7 @@ export function getAllTools(): ChatCompletionTool[] {
     ...MISSION_TOOL_DEFINITIONS,
     ...SUB_AGENT_TOOL_DEFINITIONS,
     ...CALL_TOOL_DEFINITIONS,
+    ...AUTONOMOUS_CALLBACK_TOOL_DEFINITIONS,
     ...UTILITY_TOOL_DEFINITIONS,
   ];
 }
@@ -453,6 +462,17 @@ export async function executeTool(name: string, params: Record<string, unknown>,
         result = { success: true, reason: typed.reason, federationMode: 'acs_to_teams', videoPresence: getTeamsFederationCallingStatus().videoPresence, ...call };
         break;
       }
+
+      // Autonomous callbacks (Morgan promising "I'll ring you back")
+      case 'scheduleAutonomousCallback':
+        result = scheduleAutonomousCallback(params as unknown as Parameters<typeof scheduleAutonomousCallback>[0]);
+        break;
+      case 'listScheduledCallbacks':
+        result = listScheduledCallbacks();
+        break;
+      case 'cancelAutonomousCallback':
+        result = cancelAutonomousCallback(params as unknown as Parameters<typeof cancelAutonomousCallback>[0]);
+        break;
 
       // Utility tools
       case 'get_current_date':
