@@ -7,6 +7,7 @@ import {
   detectAnomalies,
   calculateTrend,
   generateFinancialInsights,
+  getLatestPnL,
   FINANCIAL_TOOL_DEFINITIONS,
 } from './financialTools';
 
@@ -275,6 +276,9 @@ export async function executeTool(name: string, params: Record<string, unknown>,
         break;
       case 'generateFinancialInsights':
         result = generateFinancialInsights(params as Parameters<typeof generateFinancialInsights>[0]);
+        break;
+      case 'getLatestPnL':
+        result = getLatestPnL(params as Parameters<typeof getLatestPnL>[0]);
         break;
 
       // Report tools

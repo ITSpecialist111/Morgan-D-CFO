@@ -278,6 +278,121 @@ export function generateFinancialInsights(params: {
 }
 
 // ---------------------------------------------------------------------------
+// 6. getLatestPnL  (Profit & Loss statement)
+// ---------------------------------------------------------------------------
+
+export interface PnLLineItem {
+  label: string;
+  amount: number;
+  pctOfRevenue: number;
+}
+
+export interface PnLStatement {
+  company: string;
+  period: string;
+  asOf: string;
+  currency: 'USD';
+  lines: PnLLineItem[];
+  totals: {
+    revenue: number;
+    grossProfit: number;
+    grossMarginPct: number;
+    operatingExpense: number;
+    ebitda: number;
+    ebitdaMarginPct: number;
+    estimatedTax: number;
+    netIncome: number;
+    netMarginPct: number;
+  };
+  commentary: string[];
+}
+
+function defaultLatestPeriod(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Build a profit-and-loss statement (Revenue → COGS → OPEX/R&D/Sales/Marketing
+ * → EBITDA → Tax → Net Income) from the same mock data backing the budget tools.
+ * Use this when the user asks for "the latest P&L", "profit and loss",
+ * "income statement", or "how is the bottom line tracking".
+ */
+export function getLatestPnL(params: { period?: string } = {}): PnLStatement {
+  const period = params.period && params.period.trim() ? params.period.trim() : defaultLatestPeriod();
+  const rows = buildCategoryRows(period);
+  const get = (cat: string): number => rows.find((r) => r.category === cat)?.actual ?? 0;
+
+  const revenue = get('Revenue');
+  const cogs = get('COGS');
+  const opex = get('OPEX');
+  const rnd = get('R&D');
+  const sales = get('Sales');
+  const marketing = get('Marketing');
+
+  const grossProfit = revenue - cogs;
+  const operatingExpense = opex + rnd + sales + marketing;
+  const ebitda = grossProfit - operatingExpense;
+  const estimatedTax = Math.round(Math.max(ebitda, 0) * 0.24); // ~24% effective
+  const netIncome = ebitda - estimatedTax;
+
+  const pct = (n: number): number =>
+    revenue === 0 ? 0 : parseFloat(((n / revenue) * 100).toFixed(2));
+
+  const lines: PnLLineItem[] = [
+    { label: 'Revenue',                amount: revenue,           pctOfRevenue: 100 },
+    { label: 'Cost of Goods Sold',     amount: -cogs,             pctOfRevenue: pct(-cogs) },
+    { label: 'Gross Profit',           amount: grossProfit,       pctOfRevenue: pct(grossProfit) },
+    { label: 'Operating Expense',      amount: -opex,             pctOfRevenue: pct(-opex) },
+    { label: 'Research & Development', amount: -rnd,              pctOfRevenue: pct(-rnd) },
+    { label: 'Sales',                  amount: -sales,            pctOfRevenue: pct(-sales) },
+    { label: 'Marketing',              amount: -marketing,        pctOfRevenue: pct(-marketing) },
+    { label: 'EBITDA',                 amount: ebitda,            pctOfRevenue: pct(ebitda) },
+    { label: 'Estimated Tax (~24%)',   amount: -estimatedTax,     pctOfRevenue: pct(-estimatedTax) },
+    { label: 'Net Income',             amount: netIncome,         pctOfRevenue: pct(netIncome) },
+  ];
+
+  const commentary: string[] = [];
+  if (grossProfit / revenue < 0.55) {
+    commentary.push('Gross margin is compressing below 55% — worth reviewing COGS drivers.');
+  } else {
+    commentary.push(`Gross margin is healthy at ${pct(grossProfit).toFixed(1)}% of revenue.`);
+  }
+  if (ebitda <= 0) {
+    commentary.push('EBITDA is negative for the period — prioritise cost actions before close.');
+  } else if (ebitda / revenue < 0.1) {
+    commentary.push('EBITDA margin is below 10% — monitor OPEX, R&D, Sales and Marketing pacing.');
+  } else {
+    commentary.push(`EBITDA margin of ${pct(ebitda).toFixed(1)}% is on plan.`);
+  }
+  if (netIncome < 0) {
+    commentary.push('Bottom line is in the red — escalate for human-in-the-loop review.');
+  } else {
+    commentary.push(`Net income for ${period} is ${netIncome.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}.`);
+  }
+
+  return {
+    company: 'Contoso Financial',
+    period,
+    asOf: new Date().toISOString(),
+    currency: 'USD',
+    lines,
+    totals: {
+      revenue,
+      grossProfit,
+      grossMarginPct: pct(grossProfit),
+      operatingExpense,
+      ebitda,
+      ebitdaMarginPct: pct(ebitda),
+      estimatedTax,
+      netIncome,
+      netMarginPct: pct(netIncome),
+    },
+    commentary,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // OpenAI Tool Definitions
 // ---------------------------------------------------------------------------
 
@@ -383,6 +498,24 @@ export const FINANCIAL_TOOL_DEFINITIONS: ChatCompletionTool[] = [
           },
         },
         required: ['data_summary'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'getLatestPnL',
+      description:
+        'Return the latest Profit & Loss (income statement) for Contoso Financial: Revenue, COGS, Gross Profit, OPEX/R&D/Sales/Marketing, EBITDA, estimated tax, and Net Income, with margins as a percentage of revenue and short commentary. Call this whenever the user asks for "P&L", "profit and loss", "income statement", "bottom line", or "how is the business tracking financially". If no period is supplied, default to the current month.',
+      parameters: {
+        type: 'object',
+        properties: {
+          period: {
+            type: 'string',
+            description: 'Optional financial period (e.g. "2026-05", "2026-Q2", "May 2026"). Defaults to the current month.',
+          },
+        },
+        required: [],
       },
     },
   },
