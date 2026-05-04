@@ -696,10 +696,10 @@
         lastUpdatedAt: null,
       },
       camera: {
-        zoom: 1,
+        zoom: 0.91,
         panX: 0,
         panY: 0,
-        targetZoom: 1,
+        targetZoom: 0.91,
         targetPanX: 0,
         targetPanY: 0,
         dragging: false,
@@ -786,7 +786,7 @@
 
     function resetMindmapCamera() {
       const camera = mindmapGraph.camera;
-      camera.targetZoom = 1;
+      camera.targetZoom = 0.91;
       camera.targetPanX = 0;
       camera.targetPanY = 0;
       camera.cinematicBoost = Math.min(1, camera.cinematicBoost + 0.32);
