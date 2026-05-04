@@ -1192,6 +1192,17 @@
       };
     }
 
+    function parseHexColor(color) {
+      const match = /^#?([0-9a-f]{6})$/i.exec(String(color || '').trim());
+      if (!match) return null;
+      const value = parseInt(match[1], 16);
+      return {
+        red: (value >> 16) & 255,
+        green: (value >> 8) & 255,
+        blue: value & 255,
+      };
+    }
+
     function averageSample(imageData, canvasWidth, centerX, centerY, radius) {
       const data = imageData.data;
       let red = 0;
@@ -1235,28 +1246,70 @@
       return null;
     }
 
+    function avatarKeyDistance(data, pixelOffset, keyColor, isLightKey, softDistance) {
+      const red = data[pixelOffset];
+      const green = data[pixelOffset + 1];
+      const blue = data[pixelOffset + 2];
+      const pixelBrightness = (red + green + blue) / 3;
+      const channelSpread = Math.max(red, green, blue) - Math.min(red, green, blue);
+      const distance = Math.hypot(red - keyColor.red, green - keyColor.green, blue - keyColor.blue);
+      if (distance >= softDistance) return -1;
+      const lightCandidate = isLightKey && pixelBrightness > 218 && channelSpread < 42;
+      const darkCandidate = !isLightKey && pixelBrightness < 70 && channelSpread < 40;
+      return lightCandidate || darkCandidate ? distance : -1;
+    }
+
     function applyAvatarBackgroundKey(imageData, keyColor) {
       if (!keyColor) return;
       const brightness = (keyColor.red + keyColor.green + keyColor.blue) / 3;
       const isLightKey = brightness > 170;
-      const hardDistance = isLightKey ? 34 : 16;
-      const softDistance = isLightKey ? 92 : 48;
+      const hardDistance = isLightKey ? 26 : 14;
+      const softDistance = isLightKey ? 76 : 46;
       const data = imageData.data;
-      for (let pixelIndex = 0; pixelIndex < data.length; pixelIndex += 4) {
-        const red = data[pixelIndex];
-        const green = data[pixelIndex + 1];
-        const blue = data[pixelIndex + 2];
-        const pixelBrightness = (red + green + blue) / 3;
-        const channelSpread = Math.max(red, green, blue) - Math.min(red, green, blue);
-        const lightCandidate = isLightKey && pixelBrightness > 198 && channelSpread < 54;
-        const darkCandidate = !isLightKey && pixelBrightness < 62 && channelSpread < 44;
-        if (!lightCandidate && !darkCandidate) continue;
-        const distance = Math.hypot(red - keyColor.red, green - keyColor.green, blue - keyColor.blue);
+      const width = imageData.width;
+      const height = imageData.height;
+      const pixelCount = width * height;
+      const connected = new Uint8Array(pixelCount);
+      const queue = new Uint32Array(pixelCount);
+      let head = 0;
+      let tail = 0;
+      const enqueue = (x, y) => {
+        if (x < 0 || y < 0 || x >= width || y >= height) return;
+        const pixelNumber = y * width + x;
+        if (connected[pixelNumber]) return;
+        const pixelOffset = pixelNumber * 4;
+        if (avatarKeyDistance(data, pixelOffset, keyColor, isLightKey, softDistance) < 0) return;
+        connected[pixelNumber] = 1;
+        queue[tail] = pixelNumber;
+        tail += 1;
+      };
+      for (let x = 0; x < width; x += 1) {
+        enqueue(x, 0);
+        enqueue(x, height - 1);
+      }
+      for (let y = 1; y < height - 1; y += 1) {
+        enqueue(0, y);
+        enqueue(width - 1, y);
+      }
+      while (head < tail) {
+        const pixelNumber = queue[head];
+        head += 1;
+        const x = pixelNumber % width;
+        const y = Math.floor(pixelNumber / width);
+        enqueue(x - 1, y);
+        enqueue(x + 1, y);
+        enqueue(x, y - 1);
+        enqueue(x, y + 1);
+      }
+      for (let queueIndex = 0; queueIndex < tail; queueIndex += 1) {
+        const pixelOffset = queue[queueIndex] * 4;
+        const distance = avatarKeyDistance(data, pixelOffset, keyColor, isLightKey, softDistance);
+        if (distance < 0) continue;
         if (distance <= hardDistance) {
-          data[pixelIndex + 3] = 0;
+          data[pixelOffset + 3] = 0;
         } else if (distance < softDistance) {
           const alphaScale = (distance - hardDistance) / (softDistance - hardDistance);
-          data[pixelIndex + 3] = Math.round(data[pixelIndex + 3] * alphaScale);
+          data[pixelOffset + 3] = Math.round(data[pixelOffset + 3] * alphaScale);
         }
       }
     }
@@ -1287,7 +1340,7 @@
         avatarCompositeContext.clearRect(0, 0, canvasWidth, canvasHeight);
         avatarCompositeContext.drawImage(videoEl, drawRect.x, drawRect.y, drawRect.width, drawRect.height);
         const imageData = avatarCompositeContext.getImageData(0, 0, canvasWidth, canvasHeight);
-        const keyColor = detectAvatarKeyColor(imageData, canvasWidth, drawRect);
+        const keyColor = parseHexColor(avatarConfig.backgroundColor) || detectAvatarKeyColor(imageData, canvasWidth, drawRect);
         applyAvatarBackgroundKey(imageData, keyColor);
         avatarCompositeContext.putImageData(imageData, 0, 0);
         avatarCompositeCanvas.classList.add('active');

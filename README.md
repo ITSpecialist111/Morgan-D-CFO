@@ -23,6 +23,75 @@ For the fuller operating model, see [docs/corpgen-operating-model.md](docs/corpg
 | Day-End Reflection | Produces completed-work breakdown, blocked work, lessons, IQ findings, and next-day priorities | End-of-Day Breakdown, adaptive memory, audit events |
 | Monthly Planning | Refreshes strategic, tactical, and operational CFO objectives | CorpGen paper matrix and operating plan |
 
+## Morgan CorpGen Diagrams
+
+The CorpGen paper describes autonomous digital employees with persistent identity, multi-horizon planning, isolated sub-agents, tiered memory, cognitive tools, experiential learning, communication, and evaluation. The diagrams below are Morgan-specific versions of those ideas rather than copies of the paper figures.
+
+### Morgan Digital CFO Workday
+
+```mermaid
+flowchart LR
+   A[Day Init<br/>Load CFO priorities, open blockers,<br/>finance context, WorkIQ, Foundry IQ, Fabric IQ] --> B[Execution Cycle<br/>Run finance checks, call tools,<br/>delegate sub-agent work, record evidence]
+   B --> C[Stakeholder Update<br/>Prepare Teams, email, document,<br/>avatar, or call-ready CFO briefing]
+   C --> D[Proof Review<br/>Score evidence, actionability,<br/>governance, and artifact readiness]
+   D --> E[Day-End Reflection<br/>Completed work, blocked items,<br/>lessons, cost, and next priorities]
+   E --> F[Memory and Learning<br/>Preserve task records, audit events,<br/>patterns, and reusable context]
+   F --> A
+```
+
+### CorpGen Architecture as Morgan Implements It
+
+```mermaid
+flowchart TB
+   ID[Persistent Identity<br/>Morgan, Digital CFO<br/>09:00-17:00, seven days a week] --> PLAN[Hierarchical Planning<br/>Strategic CFO objectives<br/>Tactical daily plan<br/>Operational next task]
+   PLAN --> LOOP[Autonomous Execution Loop<br/>Select runnable work<br/>Call tools<br/>Record proof]
+
+   LOOP --> TOOLS[Cognitive and Finance Tools<br/>Budget vs actuals<br/>KPIs, anomalies, trends<br/>Artifact judge]
+   LOOP --> IQ[Microsoft IQ Layer<br/>WorkIQ<br/>Foundry IQ<br/>Fabric IQ]
+   LOOP --> SUB[Specialist Sub-Agents<br/>Cassidy planner<br/>Avatar presence<br/>AI Kanban]
+   LOOP --> MEM[Tiered Memory<br/>Working context<br/>Task records<br/>Audit events<br/>Experiential playbook]
+
+   TOOLS --> PROOF[Mission Control Proof Surface]
+   IQ --> PROOF
+   SUB --> PROOF
+   MEM --> PROOF
+
+   PROOF --> HUMAN[Human Channels<br/>Teams, email, documents,<br/>avatar, Teams federation call]
+   PROOF --> GOV[Enterprise Controls<br/>EasyAuth, App Insights,<br/>Purview posture, cost dashboard]
+```
+
+### Microsoft Platform Story
+
+```mermaid
+flowchart LR
+   USER[CFO and Finance Operators] --> SURFACES[Mission Control<br/>Avatar<br/>Teams]
+   SURFACES --> MORGAN[Morgan Agent Core<br/>CorpGen planner<br/>tool loop<br/>memory<br/>proof review]
+
+   MORGAN --> M365[Microsoft 365 and Agent 365<br/>Graph, Teams, Mail,<br/>Planner, SharePoint, MCP tools]
+   MORGAN --> FOUNDRY[Foundry<br/>Hosted agent protocol<br/>model reasoning<br/>knowledge, trace, eval]
+   MORGAN --> FABRIC[Fabric and Power BI<br/>semantic finance figures<br/>cross-functional metrics]
+   MORGAN --> AZURE[Azure<br/>App Service, managed identity,<br/>Speech avatar, Voice Live,<br/>ACS calls, observability]
+
+   M365 --> EVIDENCE[Auditable CFO Evidence]
+   FOUNDRY --> EVIDENCE
+   FABRIC --> EVIDENCE
+   AZURE --> EVIDENCE
+   EVIDENCE --> SURFACES
+```
+
+## Showcase Screenshot Walkthrough
+
+Use the screenshots from the current Morgan showcase as a guided customer story:
+
+| Screenshot | What it shows | Why it matters |
+|---|---|---|
+| Mission Control and Beta Starfield | The top of Mission Control with Morgan's Digital CFO identity, 09:00-17:00 work window, live Beta Starfield graph, daily counters, and job description. | Proves Morgan is not a hidden chat agent; the worker contract, operating graph, current work, and customer-visible mandate are inspectable. |
+| Agent Mind and Microsoft IQ | Agent Mind telemetry beside the Microsoft IQ command layer, including WorkIQ, Foundry IQ, Fabric IQ, CFO metrics, and autonomous actions. | Shows how Morgan can explain which business signals, model/eval signals, and cross-functional data informed the CFO briefing. |
+| Instructions and Enterprise Capabilities | The instructions Morgan follows plus CorpGen-mapped capabilities such as planning, memory, sub-agents, Microsoft 365 tools, Foundry IQ, Fabric IQ, avatar, and Teams calling. | Makes the autonomous behavior legible to enterprise reviewers before they trust the agent with finance work. |
+| Enterprise Readiness and Cognitive Toolchain | Readiness checks for Agent 365, MCP, App Insights, Foundry IQ, Fabric IQ, Purview, avatar, and the live cognitive tools Morgan can call. | Separates working demo capabilities from tenant-specific production hardening and shows the controls expected for real enterprise pilots. |
+| Operating Cadence and Autonomous Kanban | Morgan's daily rhythm plus the D-CFO board with queue, in-cycle, waiting/escalate, proof/review, and done-today lanes. | Demonstrates CorpGen's core idea: a digital employee keeps a workday, selects next runnable tasks, escalates blockers, and records proof of completion. |
+| Aria as Morgan Avatar | The HD avatar surface with Aria as Morgan, quick CFO prompts, chat/activity tabs, starfield background, and Mission Control link. | Gives the Digital CFO a human-facing presence for spoken briefings while still keeping the underlying work visible and governed. |
+
 ## Current Live Showcase
 
 - **Production app**: `https://morganfinanceagent-webapp.azurewebsites.net`
@@ -234,6 +303,7 @@ Morgan has a browser-based avatar interface powered by Azure Voice Live API and 
 - **Blank Avatar Background** — Voice Live avatar video defaults to a blank black background (`AVATAR_BACKGROUND_COLOR`, default `#000000`) instead of a white backdrop
 - **Interactive Starfield** — Wheel or button zoom, drag pan, reset, cursor-reactive particle links, and state-aware intensity while Morgan listens, thinks, and speaks
 - **Aria-Style Avatar Shell** — Chat and Activity tabs, prompt chips, text composer, avatar/camera presets, background swatches, accessible mode, text-size controls, high contrast, aura states, quick-launch prompts, and a live tool-call overlay
+- **Showcase Session Guard** — Morgan keeps one active avatar session per app instance and disconnects stale duplicate tabs so Speech avatar capacity is not exhausted during demos
 
 **Voice Gate**: Voice is disabled by default. Enable/disable from Teams:
 - `"enable avatar"` or `"enable voice"` — Activates the avatar page
