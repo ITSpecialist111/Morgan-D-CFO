@@ -8,6 +8,8 @@ Morgan is a Digital CFO built around CorpGen, an operating model for autonomous 
 
 The reason this matters for Microsoft is that Morgan is not just an agent demo. Morgan is a Microsoft stack story.
 
+Autonomous agents exist because enterprises do not only need faster answers. They need accountable work to move across systems, calendars, people, controls, and evidence trails. A useful enterprise agent must know its role, decide what work is next, call the right tools, stop when approval is needed, and prove what happened afterward. Morgan is the Digital CFO version of that thesis.
+
 ## Core Pitch
 
 Most enterprise AI demos still look like chat. They answer a question, summarize a document, or retrieve a piece of information. That is useful, but it is not how work actually gets done in a business.
@@ -25,6 +27,35 @@ For Microsoft, the important point is that Morgan brings the Microsoft platform 
 Morgan shows how Agent 365 can become the control plane for digital workers. She uses Microsoft Graph and MCP-style tools to reason across work, people, meetings, documents, and actions. She uses Foundry IQ for model intelligence and agent orchestration. She uses Fabric IQ for financial and operational data. She uses WorkIQ to understand the flow of work across the organization. She uses Teams for escalation and human collaboration. She uses Azure for identity, hosting, observability, scheduling, cost tracking, and enterprise readiness. She exposes all of that through Mission Control, so leaders can see what the agent is doing, why it is doing it, what it costs, and where human approval is needed.
 
 That is the real story: Morgan turns the Microsoft cloud into the operating environment for autonomous enterprise labor.
+
+## Why Autonomous Agents Exist
+
+Autonomous agents exist to close the gap between insight and accountable execution. Most AI experiences stop once they produce a response. Real business work continues after the answer: someone has to check the number, update the owner, open the task, create the artifact, escalate the blocker, record the evidence, and return tomorrow with the next cycle already moving.
+
+Morgan shows why that next step matters. The D-CFO is not designed to replace the CFO's judgement; it is designed to remove the repetitive coordination, monitoring, evidence gathering, briefing preparation, and follow-up work that prevents finance leaders from spending time on judgement. It gives the CFO a governed worker that can operate continuously across Microsoft 365, Fabric, Foundry, Teams, Azure, and finance systems while leaving a visible trail.
+
+| Enterprise gap | Why a chat assistant is not enough | What Morgan proves |
+|---|---|---|
+| Work is continuous | A chat answer waits for the next prompt | Morgan has a 09:00-17:00 operating cadence, scheduled checks, callback scheduling, and a day-end report |
+| Work needs systems | Summaries without tool execution become unsupported narrative | Morgan calls finance tools, WorkIQ, Foundry IQ, Fabric IQ, Graph/MCP wrappers, Teams, email, Word, and Planner-style tools |
+| Work needs accountability | Leaders need to know what was done, blocked, delegated, and approved | Mission Control exposes job contract, D-CFO Kanban, Agent Mind, audit events, artifact scores, and end-of-day evidence |
+| Work needs control | Full autonomy without boundaries is not enterprise-safe | Morgan separates draft, recommend, escalate, and human approval surfaces through instructions, Kanban gates, Teams handoff, EasyAuth, and readiness checks |
+| Work needs economics | A demo that cannot explain cost will not survive procurement | Cost of Morgan shows daily/weekly run-rate, Azure actuals, showback assumptions, and value-to-cost framing |
+
+## D-CFO Benefit With Evidence
+
+The D-CFO benefit is a governed finance operating layer: Morgan watches the work, calls the data, drafts the narrative, escalates the exceptions, records proof, and shows the cost. That is useful because CFO-office work is high-value, recurring, cross-functional, and trust-sensitive. It is also a perfect Microsoft platform story because the value appears only when the stack works together.
+
+| Benefit | Business value | Evidence in the live demo/repo |
+|---|---|---|
+| Faster CFO visibility | Daily finance status moves from manual chase to live operating view | Mission Control, Microsoft IQ briefing, latest P&L tool, end-of-day report |
+| Less finance coordination drag | Blocked items, owner follow-ups, and repeatable checks are visible in one work board | D-CFO Kanban, autonomous workday records, sub-agent handoffs |
+| Earlier risk detection | Variance, anomaly, cash, runway, approval, and work-context signals can be monitored before the CFO asks | Budget-vs-actuals, KPI, anomaly, trend tools, WorkIQ/Fabric IQ signals, proactive P&L monitor |
+| Safer autonomous action | Morgan can act as a worker without silently crossing policy boundaries | Customer-visible instructions, Enterprise Readiness, Teams escalation, Teams Call Control, audit events |
+| Better executive artifacts | Briefings and reports carry evidence and can be scored before review | Artifact Judge, Foundry IQ evaluation posture, proof/review Kanban lane, Word/email/Teams digest workflow |
+| Measurable Microsoft value | The demo pulls through Agent 365, Graph/MCP, Teams, Foundry, Fabric, Azure, App Insights, ACS, Voice Live, and Cost Management | Mission Control, Cost of Morgan, `/responses`, `/api/observability`, `/mission-control/costs`, avatar and Teams federation call surfaces |
+
+The evidence point is simple: Morgan is not a slide about agents. Morgan has a Teams identity, a browser avatar, a Mission Control cockpit, a tool registry, a cost line, an audit trail, an autonomous workday, and a callback/calling path. Those are the ingredients that make a digital worker credible to finance, IT, security, audit, and Microsoft field teams.
 
 ## Why This Matters
 

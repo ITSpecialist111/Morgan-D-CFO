@@ -10,6 +10,34 @@ The repository revolves around CorpGen. Morgan treats the CorpGen paper as the o
 
 The live implementation includes both a working customer showcase and a production-shaped integration path. Deterministic Contoso finance, WorkIQ, Foundry IQ, and Fabric IQ adapters keep the demo fully working without tenant data. The same tool contracts can be swapped to Graph/Agent 365 MCP, Foundry project assets, Fabric/Power BI semantic models, ERP, and treasury systems for enterprise pilots.
 
+## Why Autonomous Agents Exist
+
+Autonomous agents exist because enterprise work is not just answering questions. Work has a role owner, operating cadence, system access, handoffs, evidence, cost, governance, exceptions, and a manager who needs to know what was completed and what is blocked. A chat assistant can help a person think faster, but it does not become accountable for a workstream unless it can choose work, run tools, preserve proof, escalate safely, and report outcomes.
+
+Morgan exists to prove that model in the CFO office. Finance is a strong first domain because it is recurring, high-value, cross-functional, data-heavy, and trust-sensitive. The Digital CFO has to monitor financial signals, produce CFO-ready narratives, coordinate people, stop at human approval gates, and leave an evidence trail that leadership, audit, IT, and finance can inspect.
+
+| Enterprise need | Why a D-CFO agent helps | Evidence in Morgan |
+|---|---|---|
+| Continuous finance rhythm | Morgan runs as an operator with a workday, not a one-off prompt response | 09:00-17:00 operating cadence, `runAutonomousCfoWorkday`, scheduled monitor, day-end report |
+| Trustworthy financial answers | Morgan calls finance and IQ tools before making CFO claims | `getLatestPnL`, budget-vs-actuals, KPI, anomaly, trend, WorkIQ, Foundry IQ, and Fabric IQ tools |
+| Visible autonomy | Leadership can see the work queue, active work, blockers, and completed evidence | Mission Control, Beta Starfield, Agent Mind, D-CFO Kanban, task records |
+| Human-safe execution | Morgan escalates material issues and keeps approval-sensitive actions out of silent automation | Waiting/escalate Kanban lane, Teams Call Control, Teams federation calling, customer-visible instructions |
+| Auditable operations | Every meaningful action can be traced through events, task records, tool results, and reports | Agent Mind, `/api/observability`, `/api/audit/events`, end-of-day breakdown, artifact judge |
+| Cost-aware automation | Morgan shows whether the digital worker is worth running, not just whether it is impressive | Cost of Morgan panel, `/mission-control/costs`, Azure actuals, showback model, value-to-cost ratio |
+| Reusable worker pattern | The D-CFO is the first proof point for a broader governed digital workforce | CorpGen operating model, specialist sub-agent registry, roadmap for CFO, COO, CRO, CHRO, CISO, and industry workers |
+
+## D-CFO Benefit With Evidence
+
+The benefit of Morgan is not that she can chat about finance. The benefit is that she turns CFO-office work into a governed operating loop: plan the day, inspect financial signals, call tools, draft executive output, route human decisions, record evidence, measure cost, and close the loop with a report. That is the difference between AI assistance and autonomous enterprise labor.
+
+| Benefit | What changes for the CFO office | Evidence surface |
+|---|---|---|
+| Faster executive visibility | CFOs get a daily operating view instead of waiting for manual status chasing | Mission Control `Today`, Microsoft IQ briefing, end-of-day report |
+| Less manual coordination | Repeatable checks, owner follow-ups, and blocked items move onto Morgan's work board | D-CFO Kanban, autonomous task records, sub-agent handoffs |
+| Earlier risk detection | Variance, anomaly, cash, runway, and approval signals can be watched continuously | Financial tools, WorkIQ/Fabric IQ signals, proactive P&L monitor |
+| Better governance | Tool calls, prompt previews, safe reasoning summaries, controls, and evidence are inspectable | Agent Mind, Enterprise Readiness, audit events, EasyAuth-protected operator routes |
+| Better output quality | CFO artifacts are scored for purpose, evidence, actionability, governance, and readiness before delivery | Artifact Judge, Foundry IQ evaluation posture, proof/review Kanban lane |
+| Clear Microsoft platform value | Morgan needs the whole Microsoft stack working together, not a single isolated model endpoint | Teams, Graph/MCP, Agent 365, Foundry, Fabric/Power BI, Azure App Service, App Insights, ACS, Voice Live |
 For the fuller operating model, see [docs/corpgen-operating-model.md](docs/corpgen-operating-model.md).
 
 ## CorpGen Operating Loop
