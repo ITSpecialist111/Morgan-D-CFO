@@ -65,6 +65,7 @@ import {
   getEnterpriseReadiness,
   getExperientialLearningPlaybook,
   getMissionControlSnapshot,
+  getCorpGenDigestDeliveryStatus,
   listOpenMissionTasks,
   MISSION_TOOL_DEFINITIONS,
   recordMissionTaskCompletion,
@@ -356,7 +357,7 @@ export async function executeTool(name: string, params: Record<string, unknown>,
         result = await collectMeetingContext(params as Parameters<typeof collectMeetingContext>[0], context);
         break;
       case 'lookupPerson':
-        result = await lookupPerson(params as Parameters<typeof lookupPerson>[0]);
+        result = await lookupPerson(params as Parameters<typeof lookupPerson>[0], context);
         break;
 
       // Morgan Microsoft 365 identity / WorkIQ coverage
@@ -370,6 +371,9 @@ export async function executeTool(name: string, params: Record<string, unknown>,
       // Mission Control / autonomy tools
       case 'getMissionControlSnapshot':
         result = getMissionControlSnapshot();
+        break;
+      case 'getCorpGenDigestDeliveryStatus':
+        result = getCorpGenDigestDeliveryStatus();
         break;
       case 'getPaperAlignment':
         result = getPaperAlignment();

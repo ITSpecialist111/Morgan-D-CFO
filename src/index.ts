@@ -43,7 +43,7 @@ import {
   recordAuditEvent,
 } from './observability/agentAudit';
 import { getAgentEventStats, getRecentAgentEvents, type AgentEventKind } from './observability/agentEvents';
-import { getRequestPrincipal, requireEasyAuth } from './easyAuth';
+import { getRequestPrincipal, requireEasyAuth, type EasyAuthPrincipal } from './easyAuth';
 import { registerMicrosoftWebAuthRoutes } from './microsoftWebAuth';
 import { getSubAgentRegistry } from './orchestrator/subAgents';
 
@@ -81,15 +81,16 @@ function scheduledSecretFromRequest(req: express.Request): string | undefined {
 function runtimeReadiness(): Record<string, unknown> {
   const subAgents = getSubAgentRegistry();
   const agentStorage = getAgentStorageStatus();
+  const hasConfiguredValue = (value: string | undefined): boolean => Boolean(value && !/<[^>]+>/.test(value) && !/your-|example|\.\.\.|optional-/i.test(value));
   return {
-    azureOpenAI: Boolean(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_DEPLOYMENT),
-    voiceLive: Boolean(process.env.VOICELIVE_ENDPOINT || process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT),
-    speechAvatar: Boolean(process.env.SPEECH_REGION && (process.env.SPEECH_RESOURCE_ID || process.env.SPEECH_RESOURCE_KEY)),
+    azureOpenAI: hasConfiguredValue(process.env.AZURE_OPENAI_ENDPOINT) && hasConfiguredValue(process.env.AZURE_OPENAI_DEPLOYMENT),
+    voiceLive: hasConfiguredValue(process.env.VOICELIVE_ENDPOINT) || hasConfiguredValue(process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT),
+    speechAvatar: hasConfiguredValue(process.env.SPEECH_REGION) && (hasConfiguredValue(process.env.SPEECH_RESOURCE_ID) || hasConfiguredValue(process.env.SPEECH_RESOURCE_KEY)),
     scheduledSecret: Boolean(process.env.SCHEDULED_SECRET),
-    mcpPlatform: Boolean(process.env.MCP_PLATFORM_ENDPOINT),
-    foundryProject: Boolean(process.env.FOUNDRY_PROJECT_ENDPOINT),
-    fabricOrPowerBI: Boolean(process.env.FABRIC_WORKSPACE_ID || process.env.FABRIC_SEMANTIC_MODEL_ID || process.env.POWERBI_SEMANTIC_MODEL_ID),
-    applicationInsights: Boolean(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING || process.env.APPLICATIONINSIGHTS_RESOURCE_ID),
+    mcpPlatform: hasConfiguredValue(process.env.MCP_PLATFORM_ENDPOINT),
+    foundryProject: hasConfiguredValue(process.env.FOUNDRY_PROJECT_ENDPOINT),
+    fabricOrPowerBI: hasConfiguredValue(process.env.FABRIC_WORKSPACE_ID) || hasConfiguredValue(process.env.FABRIC_SEMANTIC_MODEL_ID) || hasConfiguredValue(process.env.POWERBI_SEMANTIC_MODEL_ID),
+    applicationInsights: hasConfiguredValue(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) || hasConfiguredValue(process.env.APPLICATIONINSIGHTS_RESOURCE_ID),
     durableMemory: agentStorage.configured,
     agentStorage,
     autonomousScheduler: getAutonomousWorkdaySchedulerStatus(),
@@ -219,18 +220,48 @@ server.get('/api/mission-control/events', requireEasyAuth, (req: express.Request
     timestamp: new Date().toISOString(),
   });
 });
-server.post('/api/mission-control/run-workday', async (req: express.Request, res: Response) => {
+type EasyAuthRequest = express.Request & { easyAuthPrincipal?: EasyAuthPrincipal };
+
+server.post('/api/mission-control/run-workday', (req: express.Request, res: Response) => {
   const secret = scheduledSecretFromRequest(req);
-  if (!verifyScheduledSecret(secret)) {
-    res.status(401).json({ error: 'Unauthorized' });
+  const secretAuthorized = verifyScheduledSecret(secret);
+  const trigger = typeof req.body?.trigger === 'string' ? req.body.trigger : '';
+  const forceDigestDelivery = req.body?.deliverDigest === true
+    || req.body?.forceDigestDelivery === true
+    || /dragon|proof|digest|mission-control-dashboard/i.test(trigger);
+
+  const runWorkdayForCaller = async (
+    source: 'scheduled_job' | 'user_request',
+    triggeredBy: { kind: 'scheduled_secret' | 'mission_control'; oid?: string; email?: string; name?: string },
+  ): Promise<void> => {
+    try {
+      recordAuditEvent({
+        kind: 'mission.workday.triggered',
+        label: triggeredBy.kind === 'mission_control' ? 'CorpGen workday force-started from Mission Control' : 'CorpGen workday started by scheduled secret',
+        actor: triggeredBy.name || triggeredBy.email || triggeredBy.kind,
+        data: { source, triggeredBy, forceDigestDelivery },
+      });
+      const result = await runAutonomousCfoWorkday({ source, forceDigestDelivery });
+      res.status(200).json({ ok: true, result, triggeredBy, timestamp: new Date().toISOString() });
+    } catch (err: unknown) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : String(err), timestamp: new Date().toISOString() });
+    }
+  };
+
+  if (secretAuthorized) {
+    void runWorkdayForCaller('scheduled_job', { kind: 'scheduled_secret' });
     return;
   }
-  try {
-    const result = await runAutonomousCfoWorkday({ source: 'scheduled_job' });
-    res.status(200).json({ ok: true, result, timestamp: new Date().toISOString() });
-  } catch (err: unknown) {
-    res.status(500).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
-  }
+
+  requireEasyAuth(req as EasyAuthRequest, res, () => {
+    const principal = (req as EasyAuthRequest).easyAuthPrincipal;
+    void runWorkdayForCaller('user_request', {
+      kind: 'mission_control',
+      oid: principal?.oid,
+      email: principal?.email,
+      name: principal?.name,
+    });
+  });
 });
 
 server.get('/api/mission-control/teams-call/status', requireEasyAuth, (_req: express.Request, res: Response) => {

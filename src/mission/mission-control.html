@@ -57,6 +57,9 @@
     .metric { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-height: 70px; }
     .metric b { display: block; font-size: 22px; margin-bottom: 4px; }
     .metric span { color: var(--muted); font-size: 12px; }
+    .workday-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .workday-actions button[disabled] { opacity: .55; cursor: not-allowed; }
+    .workday-result { margin-top: 10px; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.45; }
     li { margin: 6px 0; }
     .task-list { display: grid; gap: 10px; }
@@ -186,6 +189,33 @@
     .cost-fill.avatar { background: linear-gradient(90deg, var(--amber), var(--teal)); }
     .cost-fill.ai { background: linear-gradient(90deg, var(--blue), #a78bfa); }
     .cost-link { display: inline-flex; align-items: center; gap: 6px; }
+    .roi-summary { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; }
+    .roi-card { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 11px 12px; min-width: 0; }
+    .roi-card b { display: block; font-size: 18px; margin-bottom: 4px; overflow-wrap: anywhere; }
+    .roi-card span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .roi-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .roi-controls button { padding: 7px 9px; color: var(--muted); }
+    .roi-controls button.active { background: rgba(54, 194, 180, .18); border-color: rgba(54, 194, 180, .65); color: var(--text); }
+    .roi-body { display: grid; grid-template-columns: 1.3fr .7fr; gap: 12px; align-items: stretch; }
+    .roi-graph-shell { border: 1px solid var(--border); border-radius: 8px; background: #10151e; min-height: 430px; overflow: hidden; position: relative; }
+    .roi-graph { width: 100%; height: 430px; display: block; }
+    .roi-grid-line { stroke: rgba(255,255,255,.08); stroke-width: 1; }
+    .roi-axis { stroke: rgba(255,255,255,.22); stroke-width: 1.2; }
+    .roi-axis-label { fill: var(--muted); font: 11px Segoe UI, system-ui, sans-serif; }
+    .roi-link { stroke: rgba(154,164,178,.22); stroke-width: 1.2; stroke-dasharray: 4 5; }
+    .roi-node { cursor: pointer; transition: opacity .15s ease; }
+    .roi-node circle { stroke: rgba(255,255,255,.75); stroke-width: 1.4; filter: drop-shadow(0 0 9px rgba(54,194,180,.28)); }
+    .roi-node text { fill: #f3f5f7; font: 600 11px Segoe UI, system-ui, sans-serif; paint-order: stroke; stroke: rgba(8,11,16,.82); stroke-width: 3px; stroke-linejoin: round; }
+    .roi-node.dim { opacity: .22; }
+    .roi-node.active circle { stroke: #fff; stroke-width: 2.4; filter: drop-shadow(0 0 16px rgba(54,194,180,.65)); }
+    .roi-detail { display: grid; gap: 10px; }
+    .roi-detail .compact-item { border-left: 3px solid var(--teal); border-radius: 0 8px 8px 0; }
+    .roi-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .roi-mini { border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); border-radius: 8px; padding: 8px; }
+    .roi-mini b { display: block; color: var(--text); font-size: 14px; }
+    .roi-mini span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+    .roi-research { display: grid; grid-template-columns: repeat(5, minmax(160px, 1fr)); gap: 10px; margin-top: 12px; }
+    .roi-research .compact-item { min-height: 118px; }
     .alignment-list { display: grid; gap: 8px; }
     .alignment { border-left: 3px solid var(--teal); padding: 10px 12px; background: #141922; border-radius: 0 8px 8px 0; display: grid; gap: 6px; }
     .alignment.production-hardening { border-left-color: var(--amber); }
@@ -398,6 +428,9 @@
       .call-grid { grid-template-columns: 1fr; }
       .kanban-summary { grid-template-columns: 1fr; }
       .cost-summary, .cost-body, .cost-bar-row { grid-template-columns: 1fr; }
+      .roi-summary, .roi-body, .roi-detail-grid, .roi-research { grid-template-columns: 1fr; }
+      .roi-graph-shell { min-height: 360px; }
+      .roi-graph { height: 360px; }
       .mindmap-shell { min-height: 520px; }
       .mindmap-legend { display: none; }
       .mindmap-controls { position: static; padding: 10px 10px 0; justify-content: flex-start; max-width: none; }
@@ -429,6 +462,8 @@
       <a href="#betaStarfield">Beta Starfield</a>
       <a href="#agentMind">Agent Mind</a>
       <a href="#costOfMorgan">Cost</a>
+      <a href="#cfoImpactGraph">CFO ROI</a>
+      <a href="#corpgenDigestDelivery">Digest</a>
       <a href="#microsoftIQ">Microsoft IQ</a>
       <a href="#teamsCallControl">Teams Call</a>
       <a href="#autonomousKanban">D-CFO Kanban</a>
@@ -446,7 +481,15 @@
           <div class="metric"><b id="progress">0</b><span>in progress</span></div>
           <div class="metric"><b id="blocked">0</b><span>blocked</span></div>
         </div>
+        <div class="workday-actions">
+          <button class="primary" id="startCorpGenDay" type="button">Start CorpGen Day</button>
+        </div>
+        <div class="call-result workday-result" id="corpgenDayResult">Ready to force-start Morgan's autonomous CFO workday.</div>
       </div>
+    </section>
+    <section id="corpgenDigestDelivery">
+      <div class="section-head"><h2>CorpGen Digest Delivery</h2><span class="status-dot partial" id="corpgenDigestBadge">waiting</span></div>
+      <div class="body"><div class="compact-list" id="corpgenDigestStatus"></div></div>
     </section>
     <section>
       <div class="section-head"><h2>Job Description</h2><span class="pill">customer visible</span></div>
@@ -470,6 +513,26 @@
           <div class="cost-bars" id="costCategoryBars"></div>
           <div class="compact-list" id="costValueSummary"></div>
         </div>
+      </div>
+    </section>
+    <section class="wide" id="cfoImpactGraph">
+      <div class="section-head"><h2>CFO ROI Work Graph</h2><span class="status-dot live" id="roiBadge">research model</span></div>
+      <div class="body">
+        <div class="roi-summary">
+          <div class="roi-card"><b id="roiAnnualValue">$0</b><span>risk-adjusted annual value</span></div>
+          <div class="roi-card"><b id="roiHoursSaved">0h</b><span>monthly finance hours saved</span></div>
+          <div class="roi-card"><b id="roiFastestValue">0w</b><span>fastest time to value</span></div>
+          <div class="roi-card"><b id="roiPayback">0w</b><span>average payback</span></div>
+          <div class="roi-card"><b id="roiWorkstreams">0</b><span>CFO workstreams</span></div>
+        </div>
+        <div class="roi-controls" id="roiControls" aria-label="CFO ROI workstream filters"></div>
+        <div class="roi-body">
+          <div class="roi-graph-shell">
+            <svg class="roi-graph" id="roiGraph" viewBox="0 0 860 430" role="img" aria-label="Morgan CFO ROI work graph"></svg>
+          </div>
+          <div class="roi-detail" id="roiDetail"></div>
+        </div>
+        <div class="roi-research" id="roiResearchBasis"></div>
       </div>
     </section>
     <section class="wide mindmap-section" id="betaStarfield">
@@ -1502,6 +1565,24 @@
       'voice.session': 'Voice',
       'teams.call': 'Teams Call'
     };
+    const roiState = { filter: 'all', selectedId: null, data: null };
+    const roiPillarLabels = {
+      all: 'All',
+      controller: 'Controller',
+      fpa: 'FP&A',
+      treasury: 'Treasury',
+      risk: 'Risk',
+      strategy: 'Strategy',
+      transformation: 'Transformation'
+    };
+    const roiPillarColors = {
+      controller: '#36c2b4',
+      fpa: '#5b8def',
+      treasury: '#f0b429',
+      risk: '#e05858',
+      strategy: '#a78bfa',
+      transformation: '#81c784'
+    };
 
     function safeJson(value) {
       try { return JSON.stringify(value || {}, null, 2); } catch { return '{}'; }
@@ -1599,6 +1680,123 @@
     function displayCostMoney(value, currency = 'USD') {
       const amount = Number(value || 0);
       return new Intl.NumberFormat([], { style: 'currency', currency, maximumFractionDigits: amount >= 100 ? 0 : 2 }).format(amount);
+    }
+
+    function displayCompactMoney(value) {
+      return new Intl.NumberFormat([], { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(Number(value || 0));
+    }
+
+    function wrapSvgLabel(value, max = 18) {
+      const words = String(value || '').split(/\s+/).filter(Boolean);
+      const lines = [];
+      let current = '';
+      words.forEach((word) => {
+        const next = current ? `${current} ${word}` : word;
+        if (next.length > max && current) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = next;
+        }
+      });
+      if (current) lines.push(current);
+      return lines.slice(0, 2);
+    }
+
+    function renderRoiDetail(workstream, assumptions) {
+      const detail = document.getElementById('roiDetail');
+      if (!workstream) {
+        detail.innerHTML = '<div class="compact-item"><p><b>No CFO workstream selected.</b></p></div>';
+        return;
+      }
+      detail.innerHTML = `
+        <div class="compact-item">
+          <span class="status-dot live">${escapeHtml(roiPillarLabels[workstream.pillar] || workstream.pillar)}</span>
+          <p><b>${escapeHtml(workstream.title)}</b></p>
+          <p>${escapeHtml(workstream.cfoTeam)}</p>
+        </div>
+        <div class="roi-detail-grid">
+          <div class="roi-mini"><b>${displayCompactMoney(workstream.riskAdjustedAnnualValueUsd)}</b><span>risk-adjusted value</span></div>
+          <div class="roi-mini"><b>${workstream.monthlyHoursSaved}h</b><span>monthly hours saved</span></div>
+          <div class="roi-mini"><b>${workstream.timeToValueWeeks}w</b><span>time to value</span></div>
+          <div class="roi-mini"><b>${workstream.paybackWeeks}w</b><span>payback</span></div>
+          <div class="roi-mini"><b>${workstream.effortScore}/5</b><span>effort</span></div>
+          <div class="roi-mini"><b>${workstream.roiScore}/5</b><span>ROI score</span></div>
+        </div>
+        <div class="compact-item"><p><b>Current CFO-team work</b></p><p>${escapeHtml(workstream.currentWork)}</p></div>
+        <div class="compact-item"><p><b>What Morgan does</b></p><p>${escapeHtml(workstream.morganWork)}</p></div>
+        <div class="compact-item"><p><b>Proof signals</b></p><p>${(workstream.proofSignals || []).map(escapeHtml).join('<br>')}</p></div>
+        <div class="compact-item"><p><b>Dependencies</b></p><p>${(workstream.dependencies || []).map(escapeHtml).join(', ')}</p><p><b>Model:</b> ${escapeHtml(assumptions?.valueModel || '')}</p></div>`;
+    }
+
+    function renderCfoImpactRoadmap(roadmap) {
+      roiState.data = roadmap || null;
+      const workstreams = roadmap?.workstreams || [];
+      const summary = roadmap?.summary || {};
+      const assumptions = roadmap?.assumptions || {};
+      document.getElementById('roiAnnualValue').textContent = displayCompactMoney(summary.riskAdjustedAnnualValueUsd);
+      document.getElementById('roiHoursSaved').textContent = `${summary.monthlyHoursSaved || 0}h`;
+      document.getElementById('roiFastestValue').textContent = `${summary.fastestTimeToValueWeeks || 0}w`;
+      document.getElementById('roiPayback').textContent = `${summary.averagePaybackWeeks || 0}w`;
+      document.getElementById('roiWorkstreams').textContent = String(summary.workstreamCount || workstreams.length || 0);
+      const badge = document.getElementById('roiBadge');
+      badge.className = workstreams.length ? 'status-dot live' : 'status-dot partial';
+      badge.textContent = workstreams.length ? 'research model' : 'loading';
+
+      const controls = document.getElementById('roiControls');
+      const pillars = ['all', ...Array.from(new Set(workstreams.map((item) => item.pillar)))];
+      controls.innerHTML = pillars.map((pillar) => `<button type="button" data-pillar="${escapeHtml(pillar)}" class="${roiState.filter === pillar ? 'active' : ''}">${escapeHtml(roiPillarLabels[pillar] || pillar)}</button>`).join('');
+
+      const graph = document.getElementById('roiGraph');
+      const width = 860;
+      const height = 430;
+      const margin = { left: 68, right: 34, top: 28, bottom: 58 };
+      const plotWidth = width - margin.left - margin.right;
+      const plotHeight = height - margin.top - margin.bottom;
+      const maxWeeks = Math.max(12, ...workstreams.map((item) => item.timeToValueWeeks || 0)) + 1;
+      const maxValue = Math.max(100000, ...workstreams.map((item) => item.riskAdjustedAnnualValueUsd || 0)) * 1.18;
+      const x = (weeks) => margin.left + (Number(weeks || 0) / maxWeeks) * plotWidth;
+      const y = (value) => margin.top + plotHeight - (Number(value || 0) / maxValue) * plotHeight;
+      const active = workstreams.filter((item) => roiState.filter === 'all' || item.pillar === roiState.filter);
+      if (!roiState.selectedId || !workstreams.some((item) => item.id === roiState.selectedId)) roiState.selectedId = workstreams[0]?.id || null;
+      const selected = workstreams.find((item) => item.id === roiState.selectedId) || active[0] || workstreams[0];
+
+      const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+        const gy = margin.top + plotHeight - ratio * plotHeight;
+        const label = displayCompactMoney(maxValue * ratio);
+        return `<line class="roi-grid-line" x1="${margin.left}" y1="${gy}" x2="${width - margin.right}" y2="${gy}"></line><text class="roi-axis-label" x="${margin.left - 10}" y="${gy + 4}" text-anchor="end">${label}</text>`;
+      }).join('');
+      const xTicks = [0, 4, 8, 12].filter((tick) => tick <= maxWeeks).map((tick) => {
+        const gx = x(tick);
+        return `<line class="roi-grid-line" x1="${gx}" y1="${margin.top}" x2="${gx}" y2="${margin.top + plotHeight}"></line><text class="roi-axis-label" x="${gx}" y="${height - 25}" text-anchor="middle">${tick}w</text>`;
+      }).join('');
+      const ordered = ['board-exec-narrative', 'fpa-forecasting', 'decision-support', 'cash-treasury', 'close-reporting', 'risk-compliance', 'transformation-roi']
+        .map((id) => workstreams.find((item) => item.id === id))
+        .filter(Boolean);
+      const links = ordered.slice(1).map((item, index) => {
+        const previous = ordered[index];
+        return `<line class="roi-link" x1="${x(previous.timeToValueWeeks)}" y1="${y(previous.riskAdjustedAnnualValueUsd)}" x2="${x(item.timeToValueWeeks)}" y2="${y(item.riskAdjustedAnnualValueUsd)}"></line>`;
+      }).join('');
+      const nodes = workstreams.map((item) => {
+        const dim = roiState.filter !== 'all' && item.pillar !== roiState.filter;
+        const activeClass = item.id === selected?.id ? ' active' : '';
+        const radius = 9 + item.roiScore * 2.3;
+        const color = roiPillarColors[item.pillar] || '#36c2b4';
+        const labelLines = wrapSvgLabel(item.title, 19);
+        const labels = labelLines.map((line, index) => `<tspan x="${x(item.timeToValueWeeks)}" dy="${index ? 13 : 0}">${escapeHtml(line)}</tspan>`).join('');
+        return `<g class="roi-node${dim ? ' dim' : ''}${activeClass}" data-id="${escapeHtml(item.id)}" transform="translate(0 0)"><circle cx="${x(item.timeToValueWeeks)}" cy="${y(item.riskAdjustedAnnualValueUsd)}" r="${radius}" fill="${color}"></circle><text x="${x(item.timeToValueWeeks)}" y="${y(item.riskAdjustedAnnualValueUsd) + radius + 15}" text-anchor="middle">${labels}</text></g>`;
+      }).join('');
+      graph.innerHTML = `${grid}${xTicks}<line class="roi-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + plotHeight}"></line><line class="roi-axis" x1="${margin.left}" y1="${margin.top + plotHeight}" x2="${width - margin.right}" y2="${margin.top + plotHeight}"></line><text class="roi-axis-label" x="${margin.left}" y="17">Annual value</text><text class="roi-axis-label" x="${width - margin.right}" y="${height - 8}" text-anchor="end">Weeks to first value</text>${links}${nodes}`;
+
+      graph.querySelectorAll('.roi-node').forEach((node) => {
+        node.addEventListener('click', () => {
+          roiState.selectedId = node.getAttribute('data-id');
+          renderCfoImpactRoadmap(roiState.data);
+        });
+      });
+      renderRoiDetail(selected, assumptions);
+
+      document.getElementById('roiResearchBasis').innerHTML = (roadmap?.researchBasis || []).map((item) => `<div class="compact-item"><span class="status-dot configured">${escapeHtml(item.source)}</span><p><b>${escapeHtml(item.finding)}</b></p><p>${escapeHtml(item.morganImplication)}</p></div>`).join('');
     }
 
     function renderMorganCosts(cost) {
@@ -1804,6 +2002,77 @@
     }
 
     const teamsCallState = { status: null, loading: false };
+    const corpgenDayState = { loading: false };
+
+    function setCorpgenDayResult(message, kind = '') {
+      const result = document.getElementById('corpgenDayResult');
+      result.textContent = message;
+      result.className = `call-result workday-result ${kind}`.trim();
+    }
+
+    function summarizeCorpgenDay(data) {
+      const result = data?.result || {};
+      const records = Array.isArray(result.records) ? result.records : [];
+      const handoffs = Array.isArray(result.subAgentHandoffs) ? result.subAgentHandoffs : [];
+      const blocked = records.filter((record) => ['blocked', 'failed'].includes(record.status)).length;
+      const headline = result.headline || `Morgan completed the CorpGen day for ${result.period || 'the current period'}.`;
+      const digest = result.digestDelivery || {};
+      const digestSummary = digest.summary ? ` Digest: ${digest.summary}` : '';
+      return `${headline} Records: ${records.length}. Sub-agent handoffs: ${handoffs.length}. Blocked/failed: ${blocked}.${digestSummary} Mission Control has been refreshed.`;
+    }
+
+    function digestClass(status, enabled) {
+      if (!enabled || status === 'skipped') return 'partial';
+      if (status === 'failed') return 'blocked';
+      return 'configured';
+    }
+
+    function renderCorpgenDigestDelivery(status) {
+      const digest = status || {};
+      const documentStatus = digest.document || {};
+      const emailStatus = digest.email || {};
+      const teamsStatus = digest.teams || {};
+      const failed = [documentStatus, emailStatus, teamsStatus].some((item) => item.enabled && item.status === 'failed');
+      const sent = [documentStatus.status === 'created', emailStatus.status === 'sent', teamsStatus.status === 'sent'].filter(Boolean).length;
+      const badge = document.getElementById('corpgenDigestBadge');
+      badge.className = `status-dot ${failed ? 'blocked' : sent ? 'configured' : 'partial'}`;
+      badge.textContent = failed ? 'needs attention' : sent ? 'delivered' : 'waiting';
+      const docRef = documentStatus.documentUrl
+        ? `<a class="cost-link" href="${escapeHtml(documentStatus.documentUrl)}" target="_blank" rel="noreferrer">Open Word digest</a>`
+        : documentStatus.localPath
+          ? `Local Word-compatible digest: ${escapeHtml(documentStatus.localPath)}`
+          : escapeHtml(documentStatus.error || 'No digest document yet.');
+      document.getElementById('corpgenDigestStatus').innerHTML = `
+        <div class="compact-item"><p><b>${escapeHtml(digest.summary || 'No digest delivery has run yet.')}</b></p><p>Run: ${escapeHtml(digest.runId || 'not-run-yet')} ${digest.period ? `· Period: ${escapeHtml(digest.period)}` : ''}</p></div>
+        <div class="compact-item"><span class="status-dot ${digestClass(documentStatus.status, documentStatus.enabled)}">${escapeHtml(documentStatus.status || 'skipped')}</span><p><b>Word digest</b></p><p>${docRef}</p><p>Source: ${escapeHtml(documentStatus.source || 'not available')}</p></div>
+        <div class="compact-item"><span class="status-dot ${digestClass(emailStatus.status, emailStatus.enabled)}">${escapeHtml(emailStatus.status || 'skipped')}</span><p><b>Email to Mod Administrator</b></p><p>${escapeHtml(emailStatus.target || emailStatus.error || 'Waiting for a CorpGen run.')}</p><p>Source: ${escapeHtml(emailStatus.source || 'not available')}</p></div>
+        <div class="compact-item"><span class="status-dot ${digestClass(teamsStatus.status, teamsStatus.enabled)}">${escapeHtml(teamsStatus.status || 'skipped')}</span><p><b>Teams summary</b></p><p>${escapeHtml(teamsStatus.target || teamsStatus.error || 'Configure CORPGEN_TEAMS_CHANNEL_ID or CORPGEN_TEAMS_WEBHOOK_URL for live Teams delivery.')}</p><p>Source: ${escapeHtml(teamsStatus.source || 'not available')}</p></div>`;
+    }
+
+    async function startCorpGenDay() {
+      if (corpgenDayState.loading) return;
+      if (!(await requireSignedIn())) return;
+      const button = document.getElementById('startCorpGenDay');
+      corpgenDayState.loading = true;
+      button.disabled = true;
+      setCorpgenDayResult('Starting Morgan\'s CorpGen CFO day now. This can take up to two minutes while tools, sub-agents, memory, and artifact scoring run.', '');
+      try {
+        const data = await authedJson('/api/mission-control/run-workday', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          timeoutMs: 120000,
+          body: JSON.stringify({ trigger: 'mission-control-dashboard' }),
+        });
+        setCorpgenDayResult(summarizeCorpgenDay(data), 'ready');
+        await refresh();
+        await loadReport().catch(() => {});
+      } catch (error) {
+        setCorpgenDayResult(error.message || 'CorpGen day start failed.', 'error');
+      } finally {
+        corpgenDayState.loading = false;
+        button.disabled = false;
+      }
+    }
 
     function setTeamsCallResult(message, kind = '') {
       const result = document.getElementById('teamsCallResult');
@@ -1935,6 +2204,8 @@
       const readiness = document.getElementById('readiness');
       readiness.innerHTML = (data.enterpriseReadiness || []).map((item) => `<div class="compact-item"><span class="status-dot ${item.status}">${item.status}</span><p><b>${item.area}</b></p><p>${item.signal}</p><p><b>Control:</b> ${item.control}</p></div>`).join('');
       renderMicrosoftIQ(data.microsoftIQ);
+      renderCfoImpactRoadmap(data.cfoImpactRoadmap);
+      renderCorpgenDigestDelivery(data.corpgenDigestDelivery);
       await loadMorganCosts().catch((error) => {
         const badge = document.getElementById('costBadge');
         badge.className = 'status-dot partial';
@@ -1976,6 +2247,15 @@
       const data = await authedJson('/api/mission-control/end-of-day');
       document.getElementById('report').textContent = data.summaryMarkdown;
     }
+    document.getElementById('roiControls').addEventListener('click', (event) => {
+      const button = event.target instanceof HTMLElement ? event.target.closest('button[data-pillar]') : null;
+      if (!button) return;
+      roiState.filter = button.getAttribute('data-pillar') || 'all';
+      const activeWorkstream = (roiState.data?.workstreams || []).find((item) => roiState.filter === 'all' || item.pillar === roiState.filter);
+      roiState.selectedId = activeWorkstream?.id || roiState.selectedId;
+      renderCfoImpactRoadmap(roiState.data);
+    });
+    document.getElementById('startCorpGenDay').addEventListener('click', startCorpGenDay);
     document.getElementById('teamsCallDial').addEventListener('click', triggerTeamsCall);
     document.getElementById('teamsCallRefresh').addEventListener('click', () => loadTeamsCallStatus().catch((error) => setTeamsCallResult(error.message || 'Teams call status unavailable.', 'error')));
     document.getElementById('agentMindFilters').addEventListener('click', (event) => {

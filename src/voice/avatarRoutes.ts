@@ -17,7 +17,7 @@ export function registerAvatarRoutes(server: express.Express, authMiddleware?: M
       backgroundColor: process.env.AVATAR_BACKGROUND_COLOR || '#FFFFFF',
       agentName: process.env.AGENT_NAME || 'Morgan',
       role: process.env.AGENT_ROLE || 'Digital CFO',
-      displayName: process.env.AVATAR_DISPLAY_NAME || 'Aria as Morgan',
+      displayName: process.env.AVATAR_DISPLAY_NAME || 'Morgan',
     });
   });
 

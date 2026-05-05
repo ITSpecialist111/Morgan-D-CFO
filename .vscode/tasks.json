@@ -66,7 +66,14 @@
 		{
 			"label": "deploy updated Morgan avatar UI",
 			"type": "shell",
-			"command": "$ErrorActionPreference = \"Stop\"; npm run build; $stamp = Get-Date -Format \"yyyyMMddHHmmss\"; $deployDir = \".deploy\"; $stage = Join-Path $deployDir \"runtime-live-$stamp\"; $zip = Join-Path $deployDir \"morgan-d-cfo-live-$stamp.zip\"; Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Path $stage -Force | Out-Null; foreach ($item in @(\"package.json\", \"package-lock.json\", \"dist\", \"manifest\", \"ToolingManifest.json\")) { Copy-Item -LiteralPath $item -Destination (Join-Path $stage $item) -Recurse -Force }; New-Item -ItemType Directory -Path (Join-Path $stage \"scripts\") -Force | Out-Null; Copy-Item -LiteralPath \"scripts/start-production.cjs\" -Destination (Join-Path $stage \"scripts/start-production.cjs\") -Force; if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }; $items = Get-ChildItem -LiteralPath $stage -Force; Compress-Archive -LiteralPath $items.FullName -DestinationPath $zip -Force; $zipFull = (Resolve-Path $zip).Path; Write-Output \"ZIP=$zipFull\"; az account set --subscription \"260948a4-1d5e-42c8-b095-33a6641ad189\"; Write-Output \"AZ_ACCOUNT_SET_OK\"; az webapp deploy --resource-group \"rg-morgan-finance-agent\" --name \"morganfinanceagent-webapp\" --src-path $zipFull --type zip --async false --output json; Write-Output \"DEPLOY_OK\"; az webapp config set --resource-group \"rg-morgan-finance-agent\" --name \"morganfinanceagent-webapp\" --startup-file \"npm start\" --output none; Write-Output \"STARTUP_OK\"; az webapp config appsettings set --resource-group \"rg-morgan-finance-agent\" --name \"morganfinanceagent-webapp\" --settings \"AVATAR_BACKGROUND_COLOR=#FFFFFF\" \"AVATAR_STYLE=business\" \"VOICE_ENABLED_DEFAULT=true\" \"WEBSITE_NODE_DEFAULT_VERSION=~20\" \"SCM_DO_BUILD_DURING_DEPLOYMENT=false\" \"ENABLE_ORYX_BUILD=false\" \"NODE_ENV=production\" \"AUTONOMOUS_WORKDAY_ENABLED=true\" \"AUTONOMOUS_WORKDAY_TIME_ZONE=Australia/Sydney\" \"AUTONOMOUS_WORKDAY_START_HOUR=9\" \"AUTONOMOUS_WORKDAY_END_HOUR=17\" \"AUTONOMOUS_WORKDAY_INTERVAL_MINUTES=25\" --output none; Write-Output \"SETTINGS_OK\"; az webapp restart --resource-group \"rg-morgan-finance-agent\" --name \"morganfinanceagent-webapp\" --output none; Write-Output \"RESTART_OK\"",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"scripts/deploy-avatar-ui.ps1"
+			],
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"

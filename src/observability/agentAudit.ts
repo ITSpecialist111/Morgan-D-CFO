@@ -29,6 +29,11 @@ function safeString(value: unknown): string {
   try { return JSON.stringify(value).slice(0, 2048); } catch { return String(value).slice(0, 2048); }
 }
 
+function configuredValue(value: string | undefined): string | null {
+  if (!value || /<[^>]+>/.test(value) || /your-|example|\.\.\.|optional-/i.test(value)) return null;
+  return value;
+}
+
 function propertiesFor(event: MorganAuditEvent): Record<string, string> {
   const data = event.data || {};
   return {
@@ -46,7 +51,7 @@ function propertiesFor(event: MorganAuditEvent): Record<string, string> {
 }
 
 export async function initObservability(): Promise<void> {
-  const connectionString = process.env.APPLICATIONINSIGHTS_CONNECTION_STRING;
+  const connectionString = configuredValue(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING || undefined);
   if (!connectionString) {
     recordAuditEvent({
       kind: 'observability.startup',
@@ -124,9 +129,9 @@ export function getRecentAuditEvents(limit = 100): MorganAuditEvent[] {
 export function getObservabilityStatus(): Record<string, unknown> {
   return {
     agent: process.env.AGENT_NAME || 'Morgan',
-    applicationInsightsConfigured: appInsightsConfigured || Boolean(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING),
-    applicationInsightsResourceId: process.env.APPLICATIONINSIGHTS_RESOURCE_ID || null,
-    logAnalyticsWorkspaceId: process.env.LOG_ANALYTICS_WORKSPACE_ID || null,
+    applicationInsightsConfigured: appInsightsConfigured || Boolean(configuredValue(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING || undefined)),
+    applicationInsightsResourceId: configuredValue(process.env.APPLICATIONINSIGHTS_RESOURCE_ID || undefined),
+    logAnalyticsWorkspaceId: configuredValue(process.env.LOG_ANALYTICS_WORKSPACE_ID || undefined),
     purviewAuditEnabled: process.env.PURVIEW_AUDIT_ENABLED === 'true',
     purviewAuditWorkspaceId: process.env.PURVIEW_AUDIT_WORKSPACE_ID || null,
     auditEventCount: auditEvents.length,

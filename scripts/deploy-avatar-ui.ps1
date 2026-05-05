@@ -47,6 +47,7 @@ az webapp config appsettings set `
   --name $webAppName `
   --settings `
     'AVATAR_BACKGROUND_COLOR=#FFFFFF' `
+    'AVATAR_DISPLAY_NAME=Morgan' `
     'AVATAR_STYLE=business' `
     'VOICE_ENABLED_DEFAULT=true' `
     'WEBSITE_NODE_DEFAULT_VERSION=~20' `

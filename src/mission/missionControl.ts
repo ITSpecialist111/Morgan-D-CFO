@@ -8,6 +8,7 @@ import {
   getFinancialKPIs,
 } from '../tools/financialTools';
 import { synthesizeMicrosoftIQBriefing, type MicrosoftIQBriefing } from '../tools/iqTools';
+import { createWordDocument, findUser, sendEmail, sendTeamsMessage } from '../tools/mcpToolSetup';
 import { getObservabilityStatus, getRecentAuditEvents, recordAuditEvent } from '../observability/agentAudit';
 import { recordAgentEvent } from '../observability/agentEvents';
 import { callSubAgent, getSubAgentRegistry } from '../orchestrator/subAgents';
@@ -216,6 +217,82 @@ export interface SubAgentHandoffResult {
   evidence: string[];
 }
 
+export interface CorpGenDigestDocumentStatus {
+  enabled: boolean;
+  status: 'created' | 'skipped' | 'failed';
+  title?: string;
+  documentUrl?: string;
+  localPath?: string;
+  source?: string;
+  error?: string;
+}
+
+export interface CorpGenDigestChannelStatus {
+  enabled: boolean;
+  status: 'sent' | 'skipped' | 'failed';
+  target?: string;
+  messageId?: string;
+  source?: string;
+  error?: string;
+}
+
+export interface CorpGenDigestDeliveryStatus {
+  runId: string;
+  generatedAt: string;
+  enabled: boolean;
+  period?: string;
+  headline?: string;
+  summary: string;
+  document: CorpGenDigestDocumentStatus;
+  email: CorpGenDigestChannelStatus;
+  teams: CorpGenDigestChannelStatus;
+  evidence: string[];
+}
+
+export interface CfoImpactWorkstream {
+  id: string;
+  title: string;
+  pillar: 'controller' | 'fpa' | 'treasury' | 'risk' | 'strategy' | 'transformation';
+  cfoTeam: string;
+  currentWork: string;
+  morganWork: string;
+  baselineHoursMonthly: number;
+  automationPotentialPct: number;
+  monthlyHoursSaved: number;
+  timeToValueWeeks: number;
+  implementationEffortWeeks: number;
+  effortScore: 1 | 2 | 3 | 4 | 5;
+  valueScore: 1 | 2 | 3 | 4 | 5;
+  roiScore: 1 | 2 | 3 | 4 | 5;
+  confidencePct: number;
+  annualizedValueUsd: number;
+  riskAdjustedAnnualValueUsd: number;
+  paybackWeeks: number;
+  morganCapabilities: string[];
+  proofSignals: string[];
+  dependencies: string[];
+}
+
+export interface CfoImpactRoadmap {
+  generatedAt: string;
+  assumptions: {
+    loadedHourlyRateUsd: number;
+    implementationTeamWeeklyCostUsd: number;
+    valueRealizationDiscount: string;
+    valueModel: string;
+  };
+  summary: {
+    workstreamCount: number;
+    monthlyHoursSaved: number;
+    annualizedValueUsd: number;
+    riskAdjustedAnnualValueUsd: number;
+    fastestTimeToValueWeeks: number;
+    averagePaybackWeeks: number;
+  };
+  researchBasis: Array<{ source: string; finding: string; morganImplication: string }>;
+  workstreams: CfoImpactWorkstream[];
+}
+
 export interface MissionControlSnapshot {
   agent: {
     name: string;
@@ -237,6 +314,8 @@ export interface MissionControlSnapshot {
   experientialLearning: ExperientialLearningItem[];
   operatingPlan: CfoOperatingPlan;
   autonomousKanban: AutonomousKanbanBoard;
+  cfoImpactRoadmap: CfoImpactRoadmap;
+  corpgenDigestDelivery: CorpGenDigestDeliveryStatus;
   recentArtifactEvaluations: ArtifactEvaluationResult[];
   keyTasks: MissionTaskDefinition[];
   today: {
@@ -273,6 +352,7 @@ const MORGAN_JOB_DESCRIPTION: MissionInstructionSet = {
     'Prefer completing the smallest useful outcome over asking for clarification when the intent is clear.',
     'Escalate exceptions, failed tool calls, and material anomalies with enough context for a human decision.',
     'Record meaningful work as it happens so the CFO can review what Morgan completed at day end.',
+    'Close each on-demand CorpGen run with a manager digest, Microsoft 365 delivery status, and visible evidence of Word, email, and Teams handoff.',
   ],
   customerVisibleInstructions: [
     'Monitor financial health every working day.',
@@ -293,6 +373,7 @@ const MORGAN_JOB_DESCRIPTION: MissionInstructionSet = {
   ],
   successMeasures: [
     'Daily CFO summary delivered with completed tasks, blocked work, and tomorrow priorities.',
+    'CorpGen runs end with a digest document, Mod Administrator email, Teams summary, and delivery status in Mission Control.',
     'Variance, anomaly, and KPI checks run on schedule.',
     'Material risks surfaced before the CFO asks for them.',
     'Reports and documents created with links or fallback content visible to the requester.',
@@ -414,6 +495,221 @@ const COGNITIVE_TOOLS: CognitiveToolDefinition[] = [
     status: 'live',
   },
 ];
+
+function numberFromEnv(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function impactWorkstream(input: Omit<CfoImpactWorkstream, 'monthlyHoursSaved' | 'annualizedValueUsd' | 'riskAdjustedAnnualValueUsd' | 'paybackWeeks'>, assumptions: CfoImpactRoadmap['assumptions']): CfoImpactWorkstream {
+  const monthlyHoursSaved = Math.round(input.baselineHoursMonthly * (input.automationPotentialPct / 100));
+  const annualizedValueUsd = Math.round(monthlyHoursSaved * 12 * assumptions.loadedHourlyRateUsd);
+  const riskAdjustedAnnualValueUsd = Math.round(annualizedValueUsd * (input.confidencePct / 100));
+  const implementationCost = input.implementationEffortWeeks * assumptions.implementationTeamWeeklyCostUsd;
+  const weeklyValue = riskAdjustedAnnualValueUsd / 52;
+  const paybackWeeks = weeklyValue > 0 ? Math.ceil(input.timeToValueWeeks + implementationCost / weeklyValue) : 0;
+  return {
+    ...input,
+    monthlyHoursSaved,
+    annualizedValueUsd,
+    riskAdjustedAnnualValueUsd,
+    paybackWeeks,
+  };
+}
+
+export function getCfoImpactRoadmap(): CfoImpactRoadmap {
+  const assumptions: CfoImpactRoadmap['assumptions'] = {
+    loadedHourlyRateUsd: numberFromEnv('MORGAN_ROI_LOADED_HOURLY_RATE_USD', 125),
+    implementationTeamWeeklyCostUsd: numberFromEnv('MORGAN_ROI_IMPLEMENTATION_WEEKLY_COST_USD', 9000),
+    valueRealizationDiscount: 'Risk-adjusted by confidence percentage per workstream; excludes upside from avoided incidents or faster executive decisions.',
+    valueModel: 'Monthly baseline hours x Morgan automation potential x loaded finance hourly rate, annualized and confidence-adjusted.',
+  };
+
+  const workstreams = [
+    impactWorkstream({
+      id: 'close-reporting',
+      title: 'Close and financial reporting',
+      pillar: 'controller',
+      cfoTeam: 'Controller, accounting, tax, payroll, AP/AR',
+      currentWork: 'Prepare financial statements, verify accuracy, reconcile exceptions, coordinate close evidence, and support compliance reporting.',
+      morganWork: 'Build the close watchlist, gather evidence, draft variance commentary, flag missing approvals, and prepare the CFO-ready close narrative.',
+      baselineHoursMonthly: 170,
+      automationPotentialPct: 35,
+      timeToValueWeeks: 6,
+      implementationEffortWeeks: 8,
+      effortScore: 4,
+      valueScore: 5,
+      roiScore: 4,
+      confidencePct: 78,
+      morganCapabilities: ['Mission task ledger', 'Artifact judge', 'Fabric IQ financials', 'WorkIQ approvals'],
+      proofSignals: ['Source-linked close narrative', 'blocked approval list', 'artifact score before release'],
+      dependencies: ['durable-ledger', 'fabric-model', 'approval-policy'],
+    }, assumptions),
+    impactWorkstream({
+      id: 'fpa-forecasting',
+      title: 'FP&A forecasting and variance analysis',
+      pillar: 'fpa',
+      cfoTeam: 'FP&A, business partners, department heads',
+      currentWork: 'Analyze budget versus actuals, forecast revenue and expense movement, explain drivers, and advise business leaders.',
+      morganWork: 'Refresh governed figures, identify variance drivers, combine WorkIQ context, and publish a ranked action brief for the CFO team.',
+      baselineHoursMonthly: 190,
+      automationPotentialPct: 40,
+      timeToValueWeeks: 4,
+      implementationEffortWeeks: 6,
+      effortScore: 3,
+      valueScore: 5,
+      roiScore: 5,
+      confidencePct: 82,
+      morganCapabilities: ['Budget vs actuals', 'anomaly detection', 'Microsoft IQ briefing', 'D-CFO Kanban'],
+      proofSignals: ['variance driver list', 'forecast risk tags', 'recommended owner actions'],
+      dependencies: ['fabric-model', 'workiq-graph'],
+    }, assumptions),
+    impactWorkstream({
+      id: 'cash-treasury',
+      title: 'Cash, liquidity, and treasury risk',
+      pillar: 'treasury',
+      cfoTeam: 'Treasury, AP, AR, finance operations',
+      currentWork: 'Monitor cash runway, liquidity, debt, customer collections, vendor obligations, and short-term funding needs.',
+      morganWork: 'Watch liquidity signals, surface covenant or runway risk, draft collections/vendor actions, and escalate cash decisions through Teams.',
+      baselineHoursMonthly: 95,
+      automationPotentialPct: 32,
+      timeToValueWeeks: 5,
+      implementationEffortWeeks: 5,
+      effortScore: 3,
+      valueScore: 4,
+      roiScore: 4,
+      confidencePct: 76,
+      morganCapabilities: ['Cash runway KPI', 'Teams call control', 'scheduled CFO workday', 'risk escalation'],
+      proofSignals: ['cash-risk watchlist', 'runway threshold evidence', 'human approval trail'],
+      dependencies: ['treasury-feed', 'approval-policy'],
+    }, assumptions),
+    impactWorkstream({
+      id: 'board-exec-narrative',
+      title: 'Board and executive narrative',
+      pillar: 'strategy',
+      cfoTeam: 'CFO, investor relations, strategy, CEO office',
+      currentWork: 'Turn financial results into board-ready insight, investment trade-offs, strategic recommendations, and executive updates.',
+      morganWork: 'Assemble board-pack evidence, generate the executive narrative, score the artifact, and route review items before release.',
+      baselineHoursMonthly: 130,
+      automationPotentialPct: 45,
+      timeToValueWeeks: 3,
+      implementationEffortWeeks: 4,
+      effortScore: 2,
+      valueScore: 5,
+      roiScore: 5,
+      confidencePct: 74,
+      morganCapabilities: ['Artifact factory', 'Foundry IQ evaluation', 'Mission Control proof', 'Microsoft IQ synthesis'],
+      proofSignals: ['board narrative score', 'evidence completeness', 'review status'],
+      dependencies: ['artifact-templates', 'review-policy'],
+    }, assumptions),
+    impactWorkstream({
+      id: 'risk-compliance',
+      title: 'Risk, controls, and compliance evidence',
+      pillar: 'risk',
+      cfoTeam: 'Finance controls, internal audit, risk, compliance',
+      currentWork: 'Maintain accurate reporting, preserve evidence, support audits, and ensure finance actions follow policy.',
+      morganWork: 'Join Morgan audit events with Purview/App Insights, preserve evidence, detect missing controls, and block unapproved actions.',
+      baselineHoursMonthly: 135,
+      automationPotentialPct: 30,
+      timeToValueWeeks: 8,
+      implementationEffortWeeks: 8,
+      effortScore: 4,
+      valueScore: 5,
+      roiScore: 4,
+      confidencePct: 70,
+      morganCapabilities: ['Observability', 'enterprise readiness', 'approval policy', 'audit events'],
+      proofSignals: ['control status', 'audit correlation ID', 'policy decision log'],
+      dependencies: ['app-insights', 'purview-export', 'durable-ledger'],
+    }, assumptions),
+    impactWorkstream({
+      id: 'decision-support',
+      title: 'Cross-functional decision support',
+      pillar: 'strategy',
+      cfoTeam: 'CFO business partners, sales, operations, HR, product leaders',
+      currentWork: 'Respond to ad hoc business questions, explain finance trade-offs, support investment decisions, and coach non-finance leaders.',
+      morganWork: 'Answer repeatable finance questions from governed data, explain trade-offs, and reduce low-value interruptions to FP&A and the CFO.',
+      baselineHoursMonthly: 220,
+      automationPotentialPct: 35,
+      timeToValueWeeks: 4,
+      implementationEffortWeeks: 5,
+      effortScore: 3,
+      valueScore: 4,
+      roiScore: 5,
+      confidencePct: 72,
+      morganCapabilities: ['Teams chat', 'responses endpoint', 'WorkIQ context', 'financial KPI tools'],
+      proofSignals: ['answered question trace', 'tool evidence', 'owner follow-up'],
+      dependencies: ['workiq-graph', 'semantic-guardrails'],
+    }, assumptions),
+    impactWorkstream({
+      id: 'transformation-roi',
+      title: 'Transformation ROI and cost productivity',
+      pillar: 'transformation',
+      cfoTeam: 'CFO transformation office, PMO, procurement, CIO partners',
+      currentWork: 'Measure transformation initiatives, set baselines, track margin/cash-flow impact, and prioritize cost productivity work.',
+      morganWork: 'Maintain the benefits ledger, compare promised versus realized value, detect stalled initiatives, and prepare ROI governance updates.',
+      baselineHoursMonthly: 120,
+      automationPotentialPct: 38,
+      timeToValueWeeks: 9,
+      implementationEffortWeeks: 7,
+      effortScore: 4,
+      valueScore: 5,
+      roiScore: 4,
+      confidencePct: 68,
+      morganCapabilities: ['ROI instrumentation', 'D-CFO Kanban', 'cost dashboard', 'Foundry eval trends'],
+      proofSignals: ['benefits baseline', 'realized value tracker', 'initiative blocker list'],
+      dependencies: ['benefits-ledger', 'kanban-integration'],
+    }, assumptions),
+  ];
+
+  const totals = workstreams.reduce((acc, item) => {
+    acc.monthlyHoursSaved += item.monthlyHoursSaved;
+    acc.annualizedValueUsd += item.annualizedValueUsd;
+    acc.riskAdjustedAnnualValueUsd += item.riskAdjustedAnnualValueUsd;
+    acc.paybackWeeks += item.paybackWeeks;
+    return acc;
+  }, { monthlyHoursSaved: 0, annualizedValueUsd: 0, riskAdjustedAnnualValueUsd: 0, paybackWeeks: 0 });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    assumptions,
+    summary: {
+      workstreamCount: workstreams.length,
+      monthlyHoursSaved: totals.monthlyHoursSaved,
+      annualizedValueUsd: totals.annualizedValueUsd,
+      riskAdjustedAnnualValueUsd: totals.riskAdjustedAnnualValueUsd,
+      fastestTimeToValueWeeks: Math.min(...workstreams.map((item) => item.timeToValueWeeks)),
+      averagePaybackWeeks: Math.round(totals.paybackWeeks / Math.max(1, workstreams.length)),
+    },
+    researchBasis: [
+      {
+        source: 'Investopedia CFO role overview',
+        finding: 'CFOs own cash flow, financial planning, taxation, analysis of strengths and weaknesses, and corrective action.',
+        morganImplication: 'Morgan must start with cash, planning, variance, and risk signals before drafting CFO advice.',
+      },
+      {
+        source: 'U.S. Bureau of Labor Statistics - Financial Managers',
+        finding: 'Financial managers create financial reports, direct investment activities, and develop long-term financial goals; median pay is $161,700/year.',
+        morganImplication: 'ROI can be modeled from finance-manager labor avoided plus faster investment and reporting cycles.',
+      },
+      {
+        source: 'Oracle NetSuite CFO role and team model',
+        finding: 'CFO teams commonly include controller, treasury, and strategy/forecasting; responsibilities include liquidity, ROI, forecasting, and reporting.',
+        morganImplication: 'Morgan should map workstreams to controller, FP&A, treasury, risk, and strategic advisory lanes.',
+      },
+      {
+        source: 'McKinsey - The new CFO mandate',
+        finding: 'CFO responsibilities have expanded to more than six functions, including board engagement, digitization, risk, and transformation leadership.',
+        morganImplication: 'Morgan should reduce traditional work while giving the CFO a measurable transformation and decision-support operating layer.',
+      },
+      {
+        source: 'McKinsey finance digitization survey',
+        finding: 'Finance organizations that digitized more than a quarter of work reported materially higher ROI than peers with less digitization.',
+        morganImplication: 'The first target is not full autonomy; it is crossing the threshold where repeatable finance workflows become digitized, measured, and governed.',
+      },
+    ],
+    workstreams,
+  };
+}
 
 const ENTERPRISE_CAPABILITIES: EnterpriseCapability[] = [
   {
@@ -750,11 +1046,11 @@ const KEY_TASKS: MissionTaskDefinition[] = [
   {
     id: 'working-day-audit',
     title: 'Working day audit',
-    description: 'Record completed autonomous work and send a day-end breakdown to the CFO.',
+    description: 'Record completed autonomous work, generate the CorpGen digest, and send manager handoffs through Microsoft 365.',
     cadence: 'daily',
     priority: 1,
-    expectedOutputs: ['Completed task list', 'Blocked items', 'Tomorrow priorities'],
-    tools: ['recordMissionTaskCompletion', 'getEndOfDayReport', 'sendTeamsMessage', 'sendEmail'],
+    expectedOutputs: ['Completed task list', 'Blocked items', 'Word digest', 'Mod Administrator email', 'Teams summary', 'Tomorrow priorities'],
+    tools: ['recordMissionTaskCompletion', 'getEndOfDayReport', 'createWordDocument', 'sendTeamsMessage', 'sendEmail'],
     subAgents: ['Cassidy', 'AI_Kanban summary-agent'],
     autonomousTrigger: 'End of working day or explicit CFO request.',
   },
@@ -782,6 +1078,489 @@ const OPERATING_CADENCE = [
 
 const taskRecords: MissionTaskRecord[] = loadTaskRecords();
 const artifactEvaluations: ArtifactEvaluationResult[] = [];
+const DEFAULT_CORPGEN_DIGEST_STATUS: CorpGenDigestDeliveryStatus = {
+  runId: 'not-run-yet',
+  generatedAt: new Date(0).toISOString(),
+  enabled: false,
+  summary: 'No CorpGen digest has been generated in this process yet.',
+  document: { enabled: false, status: 'skipped', error: 'No CorpGen run completed yet.' },
+  email: { enabled: false, status: 'skipped', error: 'No CorpGen run completed yet.' },
+  teams: { enabled: false, status: 'skipped', error: 'No CorpGen run completed yet.' },
+  evidence: [],
+};
+let lastCorpGenDigestDelivery: CorpGenDigestDeliveryStatus = DEFAULT_CORPGEN_DIGEST_STATUS;
+
+function configuredValue(value: string | undefined): string | undefined {
+  if (!value || /<[^>]+>/.test(value) || /your-|example|\.\.\.|optional-/i.test(value)) return undefined;
+  return value.trim() || undefined;
+}
+
+function firstConfiguredValue(...values: Array<string | undefined>): string | undefined {
+  return values.map(configuredValue).find(Boolean);
+}
+
+function boolFromEnv(name: string, fallback: boolean): boolean {
+  const value = process.env[name];
+  if (value === undefined) return fallback;
+  return !['0', 'false', 'no', 'off'].includes(value.trim().toLowerCase());
+}
+
+function missionControlUrl(): string {
+  const explicit = configuredValue(process.env.CORPGEN_MISSION_CONTROL_URL);
+  if (explicit) return explicit;
+  const base = firstConfiguredValue(process.env.BASE_URL, process.env.PUBLIC_HOSTNAME, process.env.WEBSITE_HOSTNAME);
+  if (!base) return '/mission-control';
+  const normalized = base.startsWith('http') ? base : `https://${base}`;
+  return `${normalized.replace(/\/$/, '')}/mission-control`;
+}
+
+function markdownBulletList(items: string[], emptyText: string): string[] {
+  return items.length ? items.map((item) => `- ${item}`) : [`- ${emptyText}`];
+}
+
+function escapeHtml(value: string | undefined): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function statusCounts(records: MissionTaskRecord[]): Record<MissionTaskStatus, number> {
+  return records.reduce<Record<MissionTaskStatus, number>>((counts, record) => {
+    counts[record.status] += 1;
+    return counts;
+  }, { pending: 0, in_progress: 0, blocked: 0, completed: 0, failed: 0 });
+}
+
+function htmlList(items: string[], emptyText: string): string {
+  const rows = items.length ? items : [emptyText];
+  return `<ul>${rows.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+}
+
+function htmlRecordTable(records: MissionTaskRecord[], emptyText: string): string {
+  if (!records.length) return `<p class="muted">${escapeHtml(emptyText)}</p>`;
+  return `<table role="presentation" cellspacing="0" cellpadding="0">
+    <thead><tr><th>Workstream</th><th>Status</th><th>Summary</th><th>Evidence</th></tr></thead>
+    <tbody>${records.map((record) => `<tr>
+      <td><strong>${escapeHtml(record.title)}</strong><br><span>${escapeHtml(record.taskId)}</span></td>
+      <td><span class="status ${escapeHtml(record.status)}">${escapeHtml(record.status.replace(/_/g, ' '))}</span></td>
+      <td>${escapeHtml(record.summary)}</td>
+      <td>${htmlList(record.evidence.slice(0, 4), 'No evidence captured.')}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function artifactImprovementLines(artifact: ArtifactEvaluationResult): string[] {
+  return artifact.checks
+    .filter((check) => !check.pass)
+    .map((check) => `${check.label}: ${check.rationale}`);
+}
+
+function buildCorpGenDigestContent(input: {
+  runId: string;
+  period: string;
+  headline: string;
+  records: MissionTaskRecord[];
+  subAgentHandoffs: SubAgentHandoffResult[];
+  artifact: ArtifactEvaluationResult;
+}): string {
+  const completed = input.records.filter((record) => record.status === 'completed');
+  const blockedOrFailed = input.records.filter((record) => record.status === 'blocked' || record.status === 'failed');
+  const counts = statusCounts(input.records);
+  const handoffLines = input.subAgentHandoffs.map((handoff) => `${handoff.agentName}: ${handoff.status} - ${handoff.summary}`);
+  const actionLines = blockedOrFailed.length
+    ? blockedOrFailed.map((record) => `${record.title}: ${record.summary}`)
+    : ['No blocked or failed autonomous checks in this run.'];
+
+  return [
+    `# Morgan CorpGen CFO Day Digest - ${input.period}`,
+    '',
+    `**Run ID:** ${input.runId}`,
+    `**Generated:** ${new Date().toISOString()}`,
+    `**Mission Control:** ${missionControlUrl()}`,
+    '',
+    '## Executive Summary',
+    '',
+    input.headline,
+    '',
+    `Morgan completed ${completed.length} of ${input.records.length} recorded autonomous CFO checks. ${blockedOrFailed.length} item(s) are blocked or failed.`,
+    '',
+    '## Control Totals',
+    '',
+    `- Completed: ${counts.completed}`,
+    `- In progress: ${counts.in_progress}`,
+    `- Pending: ${counts.pending}`,
+    `- Blocked: ${counts.blocked}`,
+    `- Failed: ${counts.failed}`,
+    '',
+    '## Completed CFO Work',
+    '',
+    ...markdownBulletList(completed.map((record) => `${record.title}: ${record.summary}`), 'No completed work recorded.'),
+    '',
+    '## Blocked, Failed, Or Needing Human Review',
+    '',
+    ...markdownBulletList(actionLines, 'No blocked or failed work recorded.'),
+    '',
+    '## Sub-Agent Handoffs',
+    '',
+    ...markdownBulletList(handoffLines, 'No sub-agent handoffs recorded.'),
+    '',
+    '## Artifact Quality',
+    '',
+    `- Verdict: ${input.artifact.verdict}`,
+    `- Score: ${input.artifact.score}/100`,
+    `- Rationale: ${input.artifact.rationale}`,
+    ...artifactImprovementLines(input.artifact).map((item) => `- Improvement: ${item}`),
+    '',
+    '## Evidence Trail',
+    '',
+    ...markdownBulletList(input.records.flatMap((record) => record.evidence.map((item) => `${record.title}: ${item}`)).slice(0, 30), 'No evidence captured.'),
+    '',
+    '## Recommended Next Actions',
+    '',
+    ...markdownBulletList(actionLines.slice(0, 5), 'Review Mission Control and continue the next scheduled CFO work cycle.'),
+  ].join('\n');
+}
+
+function buildCorpGenDigestEmailHtml(input: {
+  runId: string;
+  period: string;
+  headline: string;
+  records: MissionTaskRecord[];
+  subAgentHandoffs: SubAgentHandoffResult[];
+  artifact: ArtifactEvaluationResult;
+  documentUrl?: string;
+  localPath?: string;
+}): string {
+  const completed = input.records.filter((record) => record.status === 'completed');
+  const blockedOrFailed = input.records.filter((record) => record.status === 'blocked' || record.status === 'failed');
+  const counts = statusCounts(input.records);
+  const missionUrl = missionControlUrl();
+  const generatedAt = new Date().toISOString();
+  const documentLine = input.documentUrl
+    ? `<a href="${escapeHtml(input.documentUrl)}">Open Word digest</a>`
+    : input.localPath
+      ? escapeHtml(`Word-compatible digest created locally at ${input.localPath}`)
+      : 'Word digest not created.';
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Morgan End-of-Day CFO Report</title>
+  <style>
+    body { margin:0; padding:0; background:#f4f6f8; color:#172033; font-family:Aptos,Segoe UI,Arial,sans-serif; }
+    .shell { max-width:1040px; margin:0 auto; padding:28px 18px; }
+    .card { background:#ffffff; border:1px solid #d8dee8; border-radius:8px; overflow:hidden; box-shadow:0 8px 24px rgba(15,23,42,.08); }
+    .hero { background:#0f172a; color:#ffffff; padding:28px 30px; }
+    .hero h1 { margin:0 0 8px; font-size:25px; line-height:1.2; }
+    .hero p { margin:0; color:#dbeafe; font-size:14px; }
+    .meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+    .pill { border:1px solid rgba(255,255,255,.25); background:rgba(255,255,255,.08); border-radius:999px; padding:6px 10px; font-size:12px; color:#e5eefc; }
+    .section { padding:22px 30px; border-top:1px solid #e5e7eb; }
+    h2 { margin:0 0 12px; color:#0f172a; font-size:18px; }
+    p { margin:0 0 12px; line-height:1.5; }
+    .muted { color:#64748b; }
+    .metrics { display:grid; grid-template-columns:repeat(5,minmax(110px,1fr)); gap:10px; }
+    .metric { border:1px solid #dbe3ef; border-radius:8px; padding:12px; background:#f8fafc; }
+    .metric b { display:block; font-size:22px; color:#0f766e; }
+    .metric span { display:block; color:#64748b; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { text-align:left; color:#475569; background:#f8fafc; border-bottom:1px solid #dbe3ef; padding:10px; }
+    td { vertical-align:top; border-bottom:1px solid #edf2f7; padding:10px; }
+    td span { color:#64748b; font-size:12px; }
+    ul { margin:0; padding-left:18px; }
+    li { margin:4px 0; }
+    .status { display:inline-block; border-radius:999px; padding:4px 8px; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+    .completed { background:#dcfce7; color:#166534; }
+    .blocked, .failed { background:#fee2e2; color:#991b1b; }
+    .pending, .in_progress { background:#fef3c7; color:#92400e; }
+    .callout { border-left:4px solid #0f766e; background:#ecfeff; padding:14px 16px; border-radius:0 8px 8px 0; }
+    .footer { color:#64748b; font-size:12px; padding:18px 30px 26px; border-top:1px solid #e5e7eb; }
+    a { color:#0f766e; }
+    @media (max-width:720px) { .metrics { grid-template-columns:1fr 1fr; } .section,.hero,.footer { padding-left:18px; padding-right:18px; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <div class="hero">
+        <h1>Morgan End-of-Day CFO Report - ${escapeHtml(input.period)}</h1>
+        <p>${escapeHtml(input.headline)}</p>
+        <div class="meta">
+          <span class="pill">Run ${escapeHtml(input.runId)}</span>
+          <span class="pill">Generated ${escapeHtml(generatedAt)}</span>
+          <span class="pill">Artifact ${escapeHtml(input.artifact.verdict)} - ${input.artifact.score}/100</span>
+        </div>
+      </div>
+      <div class="section">
+        <h2>Executive Summary</h2>
+        <div class="callout">
+          <p><strong>Morgan completed ${completed.length} of ${input.records.length} autonomous CFO checks.</strong> ${blockedOrFailed.length} item(s) need human review or follow-up.</p>
+          <p class="muted">This report is generated from Morgan's Mission Control task ledger, sub-agent handoffs, artifact scoring, and Microsoft 365 delivery workflow.</p>
+        </div>
+      </div>
+      <div class="section">
+        <h2>Operating Control Totals</h2>
+        <div class="metrics">
+          <div class="metric"><b>${counts.completed}</b><span>completed</span></div>
+          <div class="metric"><b>${counts.in_progress}</b><span>in progress</span></div>
+          <div class="metric"><b>${counts.pending}</b><span>pending</span></div>
+          <div class="metric"><b>${counts.blocked}</b><span>blocked</span></div>
+          <div class="metric"><b>${counts.failed}</b><span>failed</span></div>
+        </div>
+      </div>
+      <div class="section">
+        <h2>Completed CFO Work</h2>
+        ${htmlRecordTable(completed, 'No completed work recorded in this run.')}
+      </div>
+      <div class="section">
+        <h2>Blocked Or Failed Work</h2>
+        ${htmlRecordTable(blockedOrFailed, 'No blocked or failed autonomous checks in this run.')}
+      </div>
+      <div class="section">
+        <h2>Sub-Agent Handoffs</h2>
+        ${htmlList(input.subAgentHandoffs.map((handoff) => `${handoff.agentName}: ${handoff.status} - ${handoff.summary}`), 'No sub-agent handoffs recorded.')}
+      </div>
+      <div class="section">
+        <h2>Artifact Quality Gate</h2>
+        <p><strong>Verdict:</strong> ${escapeHtml(input.artifact.verdict)}<br><strong>Score:</strong> ${input.artifact.score}/100<br><strong>Rationale:</strong> ${escapeHtml(input.artifact.rationale)}</p>
+        ${htmlList(artifactImprovementLines(input.artifact).map((item) => `Improvement: ${item}`), 'No artifact improvements required.')}
+      </div>
+      <div class="section">
+        <h2>Delivery Evidence</h2>
+        <p><strong>Mission Control:</strong> <a href="${escapeHtml(missionUrl)}">${escapeHtml(missionUrl)}</a></p>
+        <p><strong>Word digest:</strong> ${documentLine}</p>
+      </div>
+      <div class="footer">
+        Morgan Digital CFO | Enterprise demo evidence pack | Sent via WorkIQ Mail or Microsoft Graph sendMail with Sent Items preservation when available.
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function buildTeamsDigestSummary(statusInput: {
+  runId: string;
+  period: string;
+  headline: string;
+  records: MissionTaskRecord[];
+  subAgentHandoffs: SubAgentHandoffResult[];
+  documentUrl?: string;
+  localPath?: string;
+}): string {
+  const completed = statusInput.records.filter((record) => record.status === 'completed').length;
+  const blockedOrFailed = statusInput.records.filter((record) => record.status === 'blocked' || record.status === 'failed').length;
+  const documentLine = statusInput.documentUrl
+    ? `Digest: ${statusInput.documentUrl}`
+    : statusInput.localPath
+      ? `Digest created locally: ${statusInput.localPath}`
+      : 'Digest document was not created.';
+  return [
+    `**Morgan CorpGen CFO day completed - ${statusInput.period}**`,
+    '',
+    statusInput.headline,
+    '',
+    `Run ID: ${statusInput.runId}`,
+    `Completed checks: ${completed}`,
+    `Blocked or failed: ${blockedOrFailed}`,
+    `Sub-agent handoffs: ${statusInput.subAgentHandoffs.length}`,
+    `Mission Control: ${missionControlUrl()}`,
+    documentLine,
+  ].join('\n');
+}
+
+async function resolveDigestRecipient(rawTarget: string | undefined, managerName: string): Promise<{ target?: string; evidence: string[] }> {
+  const evidence: string[] = [];
+  if (rawTarget?.includes('@')) return { target: rawTarget, evidence: [`Digest email target configured as ${rawTarget}.`] };
+
+  const query = rawTarget || managerName || 'Mod Administrator';
+  try {
+    const lookup = await findUser({ query });
+    if (lookup.success && lookup.results[0]?.email) {
+      evidence.push(`Resolved ${query} to ${lookup.results[0].displayName} <${lookup.results[0].email}> via ${lookup.source || 'directory lookup'}.`);
+      return { target: lookup.results[0].email, evidence };
+    }
+    evidence.push(`Directory lookup for ${query} returned no email.`);
+  } catch (error) {
+    evidence.push(`Directory lookup for ${query} failed: ${error instanceof Error ? error.message : String(error)}.`);
+  }
+  const fallbackEmail = firstConfiguredValue(process.env.MOD_ADMINISTRATOR_EMAIL, process.env.MOD_ADMIN_EMAIL, process.env.MOD_ADMINISTRATOR_UPN, process.env.CFO_EMAIL);
+  if (fallbackEmail?.includes('@')) {
+    evidence.push('Using configured email fallback for digest delivery.');
+    return { target: fallbackEmail, evidence };
+  }
+  evidence.push('No email fallback is configured; digest email delivery will be marked failed until an exact recipient email is supplied.');
+  return { target: rawTarget || query, evidence };
+}
+
+async function sendTeamsWebhook(url: string, message: string): Promise<CorpGenDigestChannelStatus> {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: message }),
+    });
+    if (!response.ok) return { enabled: true, status: 'failed', target: 'Teams webhook', source: 'teams-webhook', error: `Teams webhook HTTP ${response.status}` };
+    return { enabled: true, status: 'sent', target: 'Teams webhook', messageId: `webhook-${Date.now()}`, source: 'teams-webhook' };
+  } catch (error) {
+    return { enabled: true, status: 'failed', target: 'Teams webhook', source: 'teams-webhook', error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function deliverCorpGenDigest(input: {
+  runId: string;
+  source: MissionTaskRecord['source'];
+  forceDigestDelivery?: boolean;
+  period: string;
+  headline: string;
+  records: MissionTaskRecord[];
+  subAgentHandoffs: SubAgentHandoffResult[];
+  artifact: ArtifactEvaluationResult;
+}): Promise<CorpGenDigestDeliveryStatus> {
+  const managerName = firstConfiguredValue(process.env.CORPGEN_DIGEST_MANAGER_NAME, process.env.MOD_ADMINISTRATOR_NAME) || 'Mod Administrator';
+  const enabled = boolFromEnv('CORPGEN_DIGEST_ENABLED', true);
+  const scheduledEnabled = boolFromEnv('CORPGEN_DIGEST_SEND_ON_SCHEDULE', false);
+  const shouldDeliver = enabled && (input.forceDigestDelivery || input.source !== 'scheduled_job' || scheduledEnabled);
+  const generatedAt = new Date().toISOString();
+
+  if (!shouldDeliver) {
+    lastCorpGenDigestDelivery = {
+      runId: input.runId,
+      generatedAt,
+      enabled,
+      period: input.period,
+      headline: input.headline,
+      summary: enabled ? 'Digest delivery skipped for scheduled CorpGen cycles. Set CORPGEN_DIGEST_SEND_ON_SCHEDULE=true to enable scheduled delivery.' : 'CorpGen digest delivery is disabled.',
+      document: { enabled: false, status: 'skipped', error: 'Digest delivery disabled for this run source.' },
+      email: { enabled: false, status: 'skipped', error: 'Digest delivery disabled for this run source.' },
+      teams: { enabled: false, status: 'skipped', error: 'Digest delivery disabled for this run source.' },
+      evidence: [],
+    };
+    return lastCorpGenDigestDelivery;
+  }
+
+  const title = `Morgan CorpGen CFO Day Digest - ${input.period} - ${input.runId}`;
+  const digestContent = buildCorpGenDigestContent(input);
+  const evidence: string[] = [`Run ID ${input.runId}`, `Mission Control ${missionControlUrl()}`];
+
+  let document: CorpGenDigestDocumentStatus;
+  try {
+    const result = await createWordDocument({
+      title,
+      content: digestContent,
+      save_to_sharepoint: boolFromEnv('CORPGEN_DIGEST_SAVE_TO_SHAREPOINT', true),
+    });
+    document = result.success
+      ? { enabled: true, status: 'created', title, documentUrl: result.documentUrl, localPath: result.localPath, source: result.source }
+      : { enabled: true, status: 'failed', title, source: result.source, error: result.error || 'Word document creation failed.' };
+  } catch (error) {
+    document = { enabled: true, status: 'failed', title, error: error instanceof Error ? error.message : String(error) };
+  }
+  if (document.documentUrl) evidence.push(`Word digest ${document.documentUrl}`);
+  if (document.localPath) evidence.push(`Word digest local path ${document.localPath}`);
+  if (document.error) evidence.push(`Word digest error ${document.error}`);
+
+  const teamsSummary = buildTeamsDigestSummary({ ...input, documentUrl: document.documentUrl, localPath: document.localPath });
+  const emailTargetRaw = firstConfiguredValue(process.env.CORPGEN_DIGEST_EMAIL_TO, process.env.MOD_ADMINISTRATOR_EMAIL, process.env.MOD_ADMIN_EMAIL, process.env.MOD_ADMINISTRATOR_UPN, process.env.CFO_EMAIL);
+  const resolvedRecipient = await resolveDigestRecipient(emailTargetRaw, managerName);
+  evidence.push(...resolvedRecipient.evidence);
+
+  let email: CorpGenDigestChannelStatus;
+  if (!boolFromEnv('CORPGEN_DIGEST_EMAIL_ENABLED', true)) {
+    email = { enabled: false, status: 'skipped', error: 'CORPGEN_DIGEST_EMAIL_ENABLED=false' };
+  } else if (!resolvedRecipient.target) {
+    email = { enabled: true, status: 'failed', target: managerName, error: 'No digest email recipient could be resolved.' };
+  } else {
+    const docLine = document.documentUrl
+      ? `Word digest: ${document.documentUrl}`
+      : document.localPath
+        ? `Word-compatible digest was created locally at: ${document.localPath}`
+        : `Word digest status: ${document.status}${document.error ? ` (${document.error})` : ''}`;
+    const emailBody = [
+      buildCorpGenDigestEmailHtml({ ...input, documentUrl: document.documentUrl, localPath: document.localPath }),
+      '<!-- Text summary for mail clients that preview plaintext: -->',
+      `Morgan completed a CorpGen CFO day run for ${input.period}. ${docLine}`,
+    ].join('\n');
+    const result = await sendEmail({
+      to: resolvedRecipient.target,
+      subject: `Morgan End-of-Day CFO Report - ${input.period}`,
+      body: emailBody,
+      bodyContentType: 'html',
+      importance: input.records.some((record) => record.status === 'blocked' || record.status === 'failed') ? 'high' : 'normal',
+    });
+    email = result.success
+      ? { enabled: true, status: 'sent', target: resolvedRecipient.target, messageId: result.messageId, source: result.source }
+      : { enabled: true, status: 'failed', target: resolvedRecipient.target, source: result.source, error: result.error || 'Email send failed.' };
+  }
+  if (email.messageId) evidence.push(`Email sent ${email.messageId} to ${email.target}`);
+  if (email.error) evidence.push(`Email delivery error ${email.error}`);
+
+  let teams: CorpGenDigestChannelStatus;
+  const teamsWebhookUrl = firstConfiguredValue(process.env.CORPGEN_TEAMS_WEBHOOK_URL, process.env.TEAMS_WEBHOOK_URL);
+  const teamsChannelId = firstConfiguredValue(process.env.CORPGEN_TEAMS_CHANNEL_ID, process.env.M365_TEAMS_CHANNEL_ID, process.env.TEAMS_CHANNEL_ID);
+  if (!boolFromEnv('CORPGEN_TEAMS_SUMMARY_ENABLED', true)) {
+    teams = { enabled: false, status: 'skipped', error: 'CORPGEN_TEAMS_SUMMARY_ENABLED=false' };
+  } else if (teamsWebhookUrl) {
+    teams = await sendTeamsWebhook(teamsWebhookUrl, teamsSummary);
+  } else if (teamsChannelId) {
+    const result = await sendTeamsMessage({ channel_id: teamsChannelId, subject: `Morgan CorpGen CFO day - ${input.period}`, message: teamsSummary });
+    teams = result.success
+      ? { enabled: true, status: 'sent', target: teamsChannelId, messageId: result.messageId, source: result.source }
+      : { enabled: true, status: 'failed', target: teamsChannelId, source: result.source, error: result.error || 'Teams send failed.' };
+  } else {
+    teams = { enabled: true, status: 'skipped', error: 'Set CORPGEN_TEAMS_CHANNEL_ID or CORPGEN_TEAMS_WEBHOOK_URL to send the Teams summary.' };
+  }
+  if (teams.messageId) evidence.push(`Teams summary sent ${teams.messageId}`);
+  if (teams.error) evidence.push(`Teams summary status ${teams.error}`);
+
+  const failedEnabledChannels = [document, email, teams].filter((channel) => channel.enabled && channel.status === 'failed').length;
+  const sentOrCreated = [document.status === 'created', email.status === 'sent', teams.status === 'sent'].filter(Boolean).length;
+  lastCorpGenDigestDelivery = {
+    runId: input.runId,
+    generatedAt,
+    enabled: true,
+    period: input.period,
+    headline: input.headline,
+    summary: failedEnabledChannels
+      ? `CorpGen digest workflow completed with ${failedEnabledChannels} failed enabled channel(s).`
+      : `CorpGen digest workflow completed with ${sentOrCreated} created/sent artifact(s).`,
+    document,
+    email,
+    teams,
+    evidence,
+  };
+  recordAuditEvent({
+    kind: 'mission.digest.delivery',
+    label: 'CorpGen digest delivery completed',
+    correlationId: input.runId,
+    data: {
+      documentStatus: document.status,
+      emailStatus: email.status,
+      teamsStatus: teams.status,
+      emailSource: email.source,
+      emailError: email.error,
+      emailTarget: email.target,
+      emailMessageId: email.messageId,
+      teamsSource: teams.source,
+      documentSource: document.source,
+    },
+  });
+  recordAgentEvent({
+    kind: 'mission.task',
+    label: `CorpGen digest delivery: ${lastCorpGenDigestDelivery.summary}`,
+    status: failedEnabledChannels ? 'partial' : 'ok',
+    correlationId: input.runId,
+    data: { document, email, teams, reasoningSummary: 'Morgan closed the CorpGen run by preparing the manager digest and delivery notifications.' },
+  });
+  return lastCorpGenDigestDelivery;
+}
+
+export function getCorpGenDigestDeliveryStatus(): CorpGenDigestDeliveryStatus {
+  return lastCorpGenDigestDelivery;
+}
 
 function missionStateFilePath(): string {
   if (process.env.MORGAN_MISSION_STATE_FILE) return path.resolve(process.env.MORGAN_MISSION_STATE_FILE);
@@ -1082,8 +1861,8 @@ export function getEnterpriseReadiness(): EnterpriseReadinessCheck[] {
   const observability = getObservabilityStatus();
   const subAgents = getSubAgentRegistry();
   const configuredSubAgents = subAgents.filter((agent) => agent.status === 'configured').length;
-  const appInsightsReady = Boolean(observability.applicationInsightsConfigured || process.env.APPLICATIONINSIGHTS_RESOURCE_ID);
-  const logAnalyticsReady = Boolean(process.env.LOG_ANALYTICS_WORKSPACE_ID);
+  const appInsightsReady = Boolean(observability.applicationInsightsConfigured || observability.applicationInsightsResourceId);
+  const logAnalyticsReady = Boolean(observability.logAnalyticsWorkspaceId);
   const mcpReady = Boolean(process.env.MCP_PLATFORM_ENDPOINT && (process.env.MicrosoftAppId || process.env.agent_id));
   const avatarReady = Boolean(process.env.VOICELIVE_ENDPOINT && process.env.SPEECH_REGION && (process.env.SPEECH_RESOURCE_ID || process.env.SPEECH_RESOURCE_KEY));
   const teamsFederationReady = Boolean(process.env.ACS_CONNECTION_STRING && (process.env.BASE_URL || process.env.PUBLIC_HOSTNAME || process.env.WEBSITE_HOSTNAME) && (process.env.AZURE_OPENAI_ENDPOINT || process.env.VOICELIVE_ENDPOINT || process.env.AZURE_AI_SERVICES_ENDPOINT));
@@ -1590,6 +2369,8 @@ export function getMissionControlSnapshot(): MissionControlSnapshot {
     experientialLearning: getExperientialLearningPlaybook(),
     operatingPlan: generateCfoOperatingPlan(),
     autonomousKanban: getAutonomousKanbanBoard(),
+    cfoImpactRoadmap: getCfoImpactRoadmap(),
+    corpgenDigestDelivery: getCorpGenDigestDeliveryStatus(),
     recentArtifactEvaluations: artifactEvaluations.slice(-5).reverse(),
     keyTasks: KEY_TASKS,
     today: {
@@ -1643,14 +2424,17 @@ export function getEndOfDayReport(params: { date?: string } = {}): {
   };
 }
 
-export async function runAutonomousCfoWorkday(params: { source?: MissionTaskRecord['source'] } = {}): Promise<{
+export async function runAutonomousCfoWorkday(params: { source?: MissionTaskRecord['source']; forceDigestDelivery?: boolean } = {}): Promise<{
+  runId: string;
   period: string;
   records: MissionTaskRecord[];
   subAgentHandoffs: SubAgentHandoffResult[];
+  digestDelivery: CorpGenDigestDeliveryStatus;
   headline: string;
 }> {
   const source = params.source || 'scheduled_job';
   const period = currentPeriod();
+  const runId = `corpgen-${Date.now()}`;
   const records: MissionTaskRecord[] = [];
 
   const plan = generateCfoOperatingPlan();
@@ -1756,10 +2540,33 @@ export async function runAutonomousCfoWorkday(params: { source?: MissionTaskReco
     source,
   }));
 
+  const headline = `Morgan completed ${records.length} autonomous CFO checks for ${period}.`;
+  const digestDelivery = await deliverCorpGenDigest({
+    runId,
+    source,
+    forceDigestDelivery: params.forceDigestDelivery,
+    period,
+    headline,
+    records: records.slice(),
+    subAgentHandoffs,
+    artifact,
+  });
+  const digestBlocked = [digestDelivery.document, digestDelivery.email, digestDelivery.teams]
+    .some((channel) => channel.enabled && channel.status === 'failed');
+  records.push(createRecord({
+    taskId: 'working-day-audit',
+    status: digestBlocked ? 'blocked' : 'completed',
+    summary: digestDelivery.summary,
+    evidence: digestDelivery.evidence,
+    source,
+  }));
+
   return {
+    runId,
     period,
     records,
     subAgentHandoffs,
+    digestDelivery,
     headline: `Morgan completed ${records.length} autonomous CFO checks for ${period}.`,
   };
 }
@@ -1865,6 +2672,14 @@ export const MISSION_TOOL_DEFINITIONS: ChatCompletionTool[] = [
     function: {
       name: 'getEnterpriseReadiness',
       description: 'Return enterprise readiness checks for Agent 365 SDK, MCP tooling, observability, Purview, avatar presence, sub-agents, durable memory, and scheduler safety.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'getCorpGenDigestDeliveryStatus',
+      description: 'Return the latest CorpGen run digest delivery status, including Word document, Mod Administrator email, and Teams summary channels.',
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },

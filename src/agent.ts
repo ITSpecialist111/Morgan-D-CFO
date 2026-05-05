@@ -29,11 +29,23 @@ import {
 import { recordAuditEvent } from './observability/agentAudit';
 import { recordAgentEvent } from './observability/agentEvents';
 import { createAgentStorage } from './storage/agentStorage';
+import { tryHandleShowcaseShortcut } from './showcaseShortcuts';
 
 // State interfaces
+interface PendingDelivery {
+  kind: 'assistant-response' | 'end-of-day-report';
+  subject: string;
+  body: string;
+  createdAt: string;
+  awaitingRecipient?: boolean;
+}
+
 interface ConversationData {
   history: Array<{ role: 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string }>;
   lastBriefingDate?: string;
+  knownEmail?: string;
+  lastDeliverable?: PendingDelivery;
+  pendingDelivery?: PendingDelivery;
 }
 interface AppTurnState extends TurnState {
   conversation: ConversationData;
@@ -56,6 +68,26 @@ const openai = new AzureOpenAI({
   apiVersion: '2025-04-01-preview',
   deployment: process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5',
 });
+
+const TEAMS_LIVE_MCP_DISCOVERY_TIMEOUT_MS = Number(process.env.TEAMS_LIVE_MCP_DISCOVERY_TIMEOUT_MS || 3_500);
+const TEAMS_OPENAI_TIMEOUT_MS = Number(process.env.TEAMS_OPENAI_TIMEOUT_MS || 25_000);
+const TEAMS_TOOL_TIMEOUT_MS = Number(process.env.TEAMS_TOOL_TIMEOUT_MS || 12_000);
+const TEAMS_MAX_ITERATIONS = Math.max(1, Number(process.env.TEAMS_MAX_ITERATIONS || 4));
+const TEAMS_MAX_COMPLETION_TOKENS = Math.max(512, Number(process.env.TEAMS_MAX_COMPLETION_TOKENS || 1600));
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timeout after ${Math.round(timeoutMs / 1000)}s`)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 function parseAgenticScopes(): string[] {
   const raw =
@@ -100,8 +132,129 @@ const MICROSOFT_365_WRAPPER_TOOLS = new Set([
 
 function classifyTool(name: string, liveMcpToolNames: Set<string>): string {
   if (liveMcpToolNames.has(name)) return 'Agent 365 MCP';
-  if (MICROSOFT_365_WRAPPER_TOOLS.has(name)) return 'Graph / Microsoft 365 wrapper';
+  if (MICROSOFT_365_WRAPPER_TOOLS.has(name)) return 'WorkIQ / Graph wrapper';
   return 'Morgan native';
+}
+
+function normalizeIntent(input: string): string {
+  return input.toLowerCase().replace(/[^a-z0-9@._\-\s]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function extractEmailAddress(input: string): string | undefined {
+  const match = input.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match?.[0].replace(/[).,;:]+$/, '');
+}
+
+function isEmailDeliveryRequest(input: string): boolean {
+  const normalized = normalizeIntent(input).replace(/e\s*-\s*mail/g, 'email');
+  const asksForMail = /\b(email|mail|send)\b/.test(normalized);
+  const refersToPriorWork = /\b(that|this|it|report|summary|breakdown|to me|me)\b/.test(normalized);
+  return asksForMail && refersToPriorWork;
+}
+
+function isEndOfDayRequest(input: string): boolean {
+  return /\b(end of day|end-of-day|day end|day-end)\b/i.test(input);
+}
+
+function shouldRememberDeliverable(input: string, reply: string): boolean {
+  if (reply.length < 80) return false;
+  const normalized = normalizeIntent(input);
+  return /\b(report|summary|briefing|breakdown|p l|pnl|profit and loss|microsoft iq|readiness|workday)\b/.test(normalized) || isEndOfDayRequest(input);
+}
+
+function createPendingDelivery(input: string, reply: string): PendingDelivery | undefined {
+  if (!shouldRememberDeliverable(input, reply)) return undefined;
+  const date = new Date().toISOString().slice(0, 10);
+  return {
+    kind: isEndOfDayRequest(input) ? 'end-of-day-report' : 'assistant-response',
+    subject: isEndOfDayRequest(input) ? `Morgan End-of-Day CFO Report - ${date}` : `Morgan CFO Summary - ${date}`,
+    body: reply,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function rememberDeliverable(state: AppTurnState, userMessage: string, reply: string): void {
+  const deliverable = createPendingDelivery(userMessage, reply);
+  if (deliverable) state.conversation.lastDeliverable = deliverable;
+}
+
+function parseToolJson<T>(raw: string): T | undefined {
+  try { return JSON.parse(raw) as T; } catch { return undefined; }
+}
+
+async function sendPendingDelivery(
+  context: TurnContext,
+  state: AppTurnState,
+  target: string,
+  correlationId: string,
+): Promise<string> {
+  const delivery = state.conversation.pendingDelivery || state.conversation.lastDeliverable;
+  if (!delivery) return 'I do not have a report or summary queued to email yet. Ask me for the report first, then say "email that to me."';
+
+  state.conversation.pendingDelivery = { ...delivery, awaitingRecipient: true };
+  recordAgentEvent({
+    kind: 'tool.call',
+    label: 'WorkIQ / Graph wrapper: sendEmail',
+    status: 'started',
+    correlationId,
+    data: { source: 'WorkIQ / Graph wrapper', tool: 'sendEmail', pendingDeliveryKind: delivery.kind, targetType: extractEmailAddress(target) ? 'email' : 'display-name' },
+  });
+  const started = Date.now();
+  const raw = await executeTool('sendEmail', {
+    to: target,
+    subject: delivery.subject,
+    body: delivery.body,
+    importance: delivery.kind === 'end-of-day-report' ? 'high' : 'normal',
+  }, context);
+  const result = parseToolJson<{ success?: boolean; messageId?: string; source?: string; error?: string }>(raw) || { success: false, error: raw };
+  recordAgentEvent({
+    kind: 'tool.result',
+    label: `sendEmail ${result.success ? 'completed' : 'failed'}`,
+    status: result.success ? 'ok' : 'error',
+    durationMs: Date.now() - started,
+    correlationId,
+    data: { source: result.source || 'WorkIQ / Graph wrapper', tool: 'sendEmail', resultBytes: Buffer.byteLength(raw, 'utf8') },
+  });
+
+  if (result.success) {
+    const email = extractEmailAddress(target);
+    if (email) state.conversation.knownEmail = email;
+    state.conversation.pendingDelivery = undefined;
+    recordAuditEvent({
+      kind: 'agent365.teams.response.sent',
+      label: 'Morgan emailed pending deliverable through WorkIQ Mail path',
+      correlationId,
+      actor: 'Morgan',
+      data: { deliveryKind: delivery.kind, mailSource: result.source, messageId: result.messageId },
+    });
+    return `Done. I emailed the ${delivery.kind === 'end-of-day-report' ? 'end-of-day report' : 'summary'} to ${target} using Morgan's WorkIQ Mail path${result.source ? ` (${result.source})` : ''}.`;
+  }
+
+  state.conversation.pendingDelivery = { ...delivery, awaitingRecipient: true };
+  const targetWasEmail = Boolean(extractEmailAddress(target));
+  if (targetWasEmail) {
+    return `I tried to email the report to ${target}, but the Mail tool returned: ${result.error || 'unknown error'}. I still have the report queued.`;
+  }
+  return `I have the report queued, but I could not resolve your email address through WorkIQ/Graph yet. Send me the exact email address and I will send it straight away.`;
+}
+
+async function tryHandlePendingDelivery(
+  userMessage: string,
+  userName: string,
+  context: TurnContext,
+  state: AppTurnState,
+  correlationId: string,
+): Promise<string | null> {
+  const email = extractEmailAddress(userMessage);
+  if (email) state.conversation.knownEmail = email;
+
+  const hasQueuedDelivery = Boolean(state.conversation.pendingDelivery || state.conversation.lastDeliverable);
+  const isWaitingForAddress = Boolean(state.conversation.pendingDelivery?.awaitingRecipient);
+  if (email && isWaitingForAddress) return sendPendingDelivery(context, state, email, correlationId);
+  if (!isEmailDeliveryRequest(userMessage) || !hasQueuedDelivery) return null;
+
+  const target = email || state.conversation.knownEmail || userName;
+  return sendPendingDelivery(context, state, target, correlationId);
 }
 
 agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, state: AppTurnState) => {
@@ -189,7 +342,7 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
   }
 
   if (!state.conversation?.history) {
-    state.conversation = { history: [] };
+    state.conversation = { ...(state.conversation || {}), history: [] };
   }
   state.conversation.history.push({ role: 'user', content: userMessage });
   const recentHistory = state.conversation.history.slice(-20);
@@ -203,6 +356,39 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
   }, 4000);
 
   try {
+    const pendingDeliveryReply = await tryHandlePendingDelivery(userMessage, userName, context, state, correlationId);
+    if (pendingDeliveryReply) {
+      state.conversation.history.push({ role: 'assistant', content: pendingDeliveryReply });
+      try { await context.sendActivity(pendingDeliveryReply); } catch (sendErr: unknown) { console.error('sendActivity error:', sendErr); }
+      return;
+    }
+
+    const showcaseReply = await tryHandleShowcaseShortcut(userMessage, context, { allowVoiceActions: true });
+    if (showcaseReply) {
+      state.conversation.history.push({ role: 'assistant', content: showcaseReply });
+      rememberDeliverable(state, userMessage, showcaseReply);
+      recordAuditEvent({
+        kind: 'agent365.teams.response.sent',
+        label: 'Teams showcase shortcut response sent through Agent 365 SDK channel',
+        correlationId,
+        actor: 'Morgan',
+        data: { responseLength: showcaseReply.length },
+      });
+      recordAgentEvent({
+        kind: 'agent.reply',
+        label: `Morgan replied with ${showcaseReply.length} character(s) via showcase shortcut`,
+        status: 'ok',
+        correlationId,
+        data: {
+          responseLength: showcaseReply.length,
+          responsePreview: showcaseReply.slice(0, 700),
+          reasoningSummary: 'Morgan used a deterministic showcase shortcut to call the required tool for a Dragon Den demo prompt.',
+        },
+      });
+      try { await context.sendActivity(showcaseReply); } catch (sendErr: unknown) { console.error('sendActivity error:', sendErr); }
+      return;
+    }
+
     // Build messages array for the agentic loop
     const messages: ChatCompletionMessageParam[] = [
       { role: 'system', content: MORGAN_SYSTEM_PROMPT },
@@ -217,20 +403,25 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
     const staticTools = getAllTools();
     let liveMcpTools: ChatCompletionTool[] = [];
     try {
-      liveMcpTools = await getLiveMcpToolDefinitions(context);
+      liveMcpTools = await withTimeout(
+        getLiveMcpToolDefinitions(context),
+        TEAMS_LIVE_MCP_DISCOVERY_TIMEOUT_MS,
+        'Live Agent 365 MCP discovery',
+      );
     } catch (err) {
       recordAgentEvent({
         kind: 'mcp.discover',
         label: 'Live Agent 365 MCP tool discovery failed',
         status: 'error',
         correlationId,
-        data: { error: err instanceof Error ? err.message : String(err) },
+        data: { error: errorText(err) },
       });
     }
     const liveMcpToolNames = new Set(liveMcpTools.map(toolName));
+    const staticToolNames = new Set(staticTools.map(toolName));
     const mergedTools = [
-      ...liveMcpTools,
-      ...staticTools.filter((tool) => !liveMcpToolNames.has(toolName(tool))),
+      ...staticTools,
+      ...liveMcpTools.filter((tool) => !staticToolNames.has(toolName(tool))),
     ].slice(0, 128);
 
     recordAgentEvent({
@@ -243,16 +434,20 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
 
     // Agentic loop — GPT-4o reasons + calls tools until it produces a final response
     let reply = 'Sorry, I could not generate a response.';
-    const maxIterations = 10;
+    const maxIterations = TEAMS_MAX_ITERATIONS;
     for (let i = 0; i < maxIterations; i++) {
       const iterationStarted = Date.now();
-      const response = await openai.chat.completions.create({
-        model: process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5',
-        messages,
-        tools: mergedTools,
-        tool_choice: 'auto',
-        max_completion_tokens: 4000,
-      });
+      const response = await withTimeout(
+        openai.chat.completions.create({
+          model: process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5',
+          messages,
+          tools: mergedTools,
+          tool_choice: 'auto',
+          max_completion_tokens: TEAMS_MAX_COMPLETION_TOKENS,
+        }),
+        TEAMS_OPENAI_TIMEOUT_MS,
+        'Azure OpenAI Teams completion',
+      );
 
       const choice = response.choices[0];
       messages.push(choice.message as ChatCompletionMessageParam);
@@ -311,8 +506,19 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
               liveMcp: liveMcpToolNames.has(calledToolName),
             },
           });
-          const result = await executeTool(calledToolName, params, context);
-          const isError = result.includes('"error"');
+          let result: string;
+          let isError = false;
+          try {
+            result = await withTimeout(
+              executeTool(calledToolName, params, context),
+              TEAMS_TOOL_TIMEOUT_MS,
+              `Morgan tool ${calledToolName}`,
+            );
+            isError = result.includes('"error"');
+          } catch (err) {
+            isError = true;
+            result = JSON.stringify({ success: false, error: errorText(err), source });
+          }
           recordAgentEvent({
             kind: 'tool.result',
             label: `${calledToolName} ${isError ? 'failed' : 'completed'}`,
@@ -337,6 +543,7 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
     }
 
     state.conversation.history.push({ role: 'assistant', content: reply });
+    rememberDeliverable(state, userMessage, reply);
     recordAuditEvent({
       kind: 'agent365.teams.response.sent',
       label: 'Teams response sent through Agent 365 SDK channel',

@@ -173,7 +173,7 @@ This is how Morgan and other agentic workloads are governed inside the Microsoft
 - **Agent Mind**: Mission Control exposes live tool calls, Graph/MCP activity, safe reasoning summaries, voice turns, Teams call events, and autonomous task records without exposing hidden chain-of-thought
 - **Microsoft IQ Command Layer**: Mission Control shows WorkIQ, Foundry IQ, and Fabric IQ signals in one working CFO briefing, backed by deterministic demo adapters until tenant data is connected
 - **Cost of Morgan**: `/mission-control` contains a high-level daily/weekly cost panel, and `/mission-control/costs` drills into Azure actuals plus showback estimates for avatar, Agent 365, Microsoft IQ, Foundry/AI, Fabric IQ, compute, tools, and observability
-- **Avatar**: `/voice` and `/avatar` expose Aria as Morgan, backed by Azure Voice Live, Speech avatar relay ICE tokens, WebRTC media, and a blank dark avatar background
+- **Avatar**: `/voice` and `/avatar` expose Morgan, backed by Azure Voice Live, Speech avatar relay ICE tokens, WebRTC media, and the bundled visitor-center avatar background
 - **Interactive Beta Starfield**: the avatar and Mission Control starfields have zoom controls, wheel zoom, drag pan, keyboard reset, cursor-reactive particles, cinematic depth, and state-aware intensity
 - **Agent protocols**: `/api/messages`, `/api/agent-messages`, `/responses`, and `/responses/health` support Teams, Agent-to-Agent, and Foundry hosted-agent workflows
 - **Health probes**: `/api/health` reports app, voice, avatar, ACS calling, and Mission Control state; `/api/voice/status` reports the voice gate
@@ -565,7 +565,7 @@ Morgan connects to Microsoft 365 services via MCP servers:
    - `VOICE_NAME` = `en-US-Ava:DragonHDLatestNeural` or your chosen avatar voice
    - `AVATAR_CHARACTER` = `meg` or your chosen Speech avatar character
    - `AVATAR_STYLE` = `casual` / `business` or the supported style for that character
-   - `AVATAR_DISPLAY_NAME` = `Aria as Morgan`
+   - `AVATAR_DISPLAY_NAME` = `Morgan`
    - `AVATAR_BACKGROUND_COLOR` = `#FFFFFF` for the default white avatar backdrop (use a dark hex like `#000000` to enable the keying compositor)
 
 The avatar page requires a signed-in browser session for `/api/web-auth/me`, `/api/avatar/config`, `/api/avatar/ice`, and the `/api/voice` WebSocket. If microphone permission is blocked or slow, Morgan still starts the avatar session without microphone capture so the visual avatar can come online for the showcase.

@@ -19,6 +19,7 @@ const skipSettings = args.has('--skip-settings');
 const liveAvatarSettings = args.has('--live-avatar-settings');
 const skipRoles = args.has('--skip-roles');
 const skipAuth = args.has('--skip-auth');
+const packageOnly = args.has('--package-only');
 
 function run(command, commandArgs, options = {}) {
   try {
@@ -118,7 +119,7 @@ function syncLiveAvatarSettings() {
     AVATAR_BACKGROUND_COLOR: '#FFFFFF',
     AVATAR_CHARACTER: 'meg',
     AVATAR_STYLE: 'business',
-    AVATAR_DISPLAY_NAME: 'Aria as Morgan',
+    AVATAR_DISPLAY_NAME: 'Morgan',
     AGENT_ROLE: 'Digital CFO',
     VOICE_ENABLED_DEFAULT: 'true',
     WEBSITE_NODE_DEFAULT_VERSION: '~20',
@@ -293,6 +294,12 @@ function deployZip(zipPath) {
     console.warn(`[deploy] Startup file update skipped after successful zip deploy: ${error.message}`);
   }
   az(['webapp', 'restart', '--resource-group', resourceGroup, '--name', webAppName, '--output', 'none'], { timeoutMs: 120_000 });
+}
+
+if (packageOnly) {
+  const zipPath = createDeploymentZip();
+  console.log(`[deploy] Created deployment package: ${path.relative(projectRoot, zipPath)}`);
+  process.exit(0);
 }
 
 az(['config', 'set', 'extension.use_dynamic_install=yes_without_prompt'], { allowFailure: true, timeoutMs: 30_000 });

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const requiredModules = ['dotenv', 'express', 'openai', '@microsoft/agents-hosting'];
@@ -9,13 +9,25 @@ const port = Number(process.env.PORT) || 8080;
 const host = process.env.HOST || '0.0.0.0';
 
 function run(command, args) {
-  const result = spawnSync(command, args, {
-    cwd: root,
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-    env: process.env,
+  const npmCache = process.env.NPM_CONFIG_CACHE || process.env.npm_config_cache || (process.platform === 'win32' ? path.join(root, '.npm-cache') : '/tmp/npm-cache');
+  try { fs.mkdirSync(npmCache, { recursive: true }); } catch { /* ignore */ }
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: root,
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+      env: { ...process.env, NPM_CONFIG_CACHE: npmCache, npm_config_cache: npmCache },
+    });
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${command} ${args.join(' ')} exited with code ${code || 1}`));
+      }
+    });
   });
-  if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} exited with code ${result.status || 1}`);
 }
 
 function missingRuntimeDependencies() {
@@ -48,22 +60,63 @@ function createStartupServer() {
       state = 'failed';
       detail = error instanceof Error ? error.message : String(error);
     },
+    update(nextDetail) {
+      detail = nextDetail;
+    },
   };
 }
 
-if (missingRuntimeDependencies()) {
-  const startupServer = createStartupServer();
-  console.log('[startup] Runtime dependencies missing; installing production packages.');
-  try {
-    run('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund']);
-  } catch (error) {
+function optimizedNodeModulesArchive() {
+  const archivePath = path.join(root, 'node_modules.tar.gz');
+  return fs.existsSync(archivePath) ? archivePath : null;
+}
+
+async function start() {
+  if (missingRuntimeDependencies()) {
+    const startupServer = createStartupServer();
+    const archivePath = optimizedNodeModulesArchive();
+    if (archivePath) {
+      console.log(`[startup] Found optimized node_modules archive at ${archivePath}; extracting.`);
+      startupServer.update('Extracting Morgan production dependencies from App Service optimized package.');
+      try {
+        await run('tar', ['-xzf', archivePath, '-C', root]);
+      } catch (error) {
+        startupServer.fail(error);
+        console.error('[startup] Runtime dependency extraction failed:', error);
+        return;
+      }
+      if (!missingRuntimeDependencies()) {
+        console.log('[startup] Runtime dependencies extracted; starting Morgan.');
+        startupServer.server.close(() => require(path.join(root, 'dist', 'index.js')));
+        return;
+      }
+      console.warn('[startup] Optimized archive extracted, but required modules are still missing. Falling back to npm install.');
+    }
+
+    console.log('[startup] Runtime dependencies missing; installing production packages.');
+    startupServer.update('Installing Morgan production dependencies.');
+    try {
+      await run('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund']);
+    } catch (error) {
+      startupServer.fail(error);
+      console.error('[startup] Runtime dependency install failed:', error);
+      return;
+    }
+    if (!missingRuntimeDependencies()) {
+      console.log('[startup] Runtime dependencies installed; starting Morgan.');
+      startupServer.server.close(() => require(path.join(root, 'dist', 'index.js')));
+      return;
+    }
+    const error = new Error('Runtime dependency install completed, but required modules are still missing.');
     startupServer.fail(error);
     console.error('[startup] Runtime dependency install failed:', error);
+    return;
   }
-  if (!missingRuntimeDependencies()) {
-    console.log('[startup] Runtime dependencies installed; starting Morgan.');
-    startupServer.server.close(() => require(path.join(root, 'dist', 'index.js')));
-  }
-} else {
+
   require(path.join(root, 'dist', 'index.js'));
 }
+
+start().catch((error) => {
+  console.error('[startup] Morgan startup failed:', error);
+  process.exitCode = 1;
+});

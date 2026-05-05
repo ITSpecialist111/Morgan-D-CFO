@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Morgan Mission Control — ECIF Director</title>
+  <style>
+    :root {
+      --bg: #101216;
+      --panel: #181b22;
+      --panel-2: #20242d;
+      --border: #303642;
+      --text: #f3f5f7;
+      --muted: #9aa3af;
+      --teal: #36c2b4;
+      --amber: #f0b429;
+      --red: #e05858;
+      --blue: #5b8def;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Segoe UI, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      background: #151820;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mark {
+      width: 38px; height: 38px; border-radius: 8px;
+      display: grid; place-items: center;
+      color: #061412; background: var(--teal); font-weight: 800; font-size: 16px;
+    }
+    h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    .subtitle { margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    a, button {
+      color: var(--text); background: var(--panel-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 12px; font: inherit; font-size: 13px; text-decoration: none; cursor: pointer;
+    }
+    button.primary, a.primary { background: var(--teal); color: #061412; border-color: var(--teal); font-weight: 650; }
+    main { padding: 20px 24px 28px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+    section { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; min-width: 0; }
+    .section-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    h2 { margin: 0; font-size: 14px; font-weight: 650; }
+    .body { padding: 14px 16px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .metric { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-height: 70px; }
+    .metric b { display: block; font-size: 22px; margin-bottom: 4px; }
+    .metric span { color: var(--muted); font-size: 12px; }
+    .wide { grid-column: 1 / -1; }
+    .pill { border-radius: 999px; padding: 3px 8px; font-size: 11px; color: #061412; background: var(--teal); white-space: nowrap; }
+    .pill.amber { background: var(--amber); }
+    .pill.red { background: var(--red); }
+    .pill.blue { background: var(--blue); color: #fff; }
+    .small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .status-dot { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .status-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px rgba(240,180,41,.5); }
+    .status-dot.ready::before, .status-dot.configured::before, .status-dot.live::before, .status-dot.active::before { background: var(--teal); box-shadow: 0 0 10px rgba(54,194,180,.55); }
+    .status-dot.partial::before { background: var(--amber); }
+    .status-dot.blocked::before { background: var(--red); box-shadow: 0 0 10px rgba(224,88,88,.5); }
+    .compact-list { display: grid; gap: 8px; }
+    .compact-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: #151922; }
+    .compact-item b { font-size: 13px; }
+    .compact-item p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .workday-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .call-result { border: 1px solid var(--border); background: #111620; border-radius: 8px; padding: 11px 12px; color: var(--muted); font-size: 12px; line-height: 1.45; min-height: 44px; margin-top: 10px; }
+    .call-result.ready { border-color: rgba(54, 194, 180, .55); color: #dffcf8; }
+
+    /* Kanban */
+    .kanban-summary { display: grid; grid-template-columns: repeat(7, minmax(96px, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .kanban-summary-item { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 10px 12px; min-width: 0; }
+    .kanban-summary-item b { display: block; font-size: 16px; margin-bottom: 4px; }
+    .kanban-summary-item span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .kanban-board { display: grid; grid-template-columns: repeat(7, minmax(180px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 2px; }
+    .kanban-column { border: 1px solid var(--border); background: #121720; border-radius: 8px; min-width: 180px; display: flex; flex-direction: column; max-height: 560px; }
+    .kanban-column-head { padding: 10px 11px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .kanban-column-head b { display: block; font-size: 12px; }
+    .kanban-count { color: #061412; background: var(--teal); border-radius: 999px; padding: 2px 7px; font-size: 11px; font-weight: 700; }
+    .kanban-cards { display: grid; gap: 8px; padding: 10px; overflow: auto; }
+    .kanban-card { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #181d27; border-radius: 8px; padding: 10px; display: grid; gap: 7px; }
+    .kanban-card.active { border-left-color: var(--teal); }
+    .kanban-card.waiting { border-left-color: var(--red); }
+    .kanban-card.review { border-left-color: var(--amber); }
+    .kanban-card.done { border-left-color: #81c784; }
+    .kanban-card-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .kanban-card-title b { font-size: 12px; line-height: 1.25; }
+    .kanban-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .kanban-meta { color: var(--muted); font-size: 10px; display: flex; flex-wrap: wrap; gap: 5px; }
+    .kanban-chip { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #d8dee9; border-radius: 999px; padding: 3px 6px; font-size: 10px; }
+
+    /* IQ Cards */
+    .iq-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .iq-card { border: 1px solid var(--border); border-left: 3px solid var(--teal); border-radius: 0 8px 8px 0; padding: 12px; background: #151922; min-width: 0; display: grid; gap: 7px; }
+    .iq-card.foundry { border-left-color: var(--blue); }
+    .iq-card.fabric { border-left-color: var(--amber); }
+    .iq-card b { font-size: 13px; }
+    .iq-card .tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .iq-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+    /* Capability grid */
+    .capability-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .capability { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: #151922; display: grid; gap: 7px; }
+    .capability b { font-size: 13px; }
+    .capability .tag { color: var(--teal); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .capability p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+    /* Cost/ROI */
+    .cost-summary { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; }
+    .cost-card { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 11px 12px; min-width: 0; }
+    .cost-card b { display: block; font-size: 18px; margin-bottom: 4px; }
+    .cost-card span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+
+    /* Mindmap */
+    .mindmap-section { overflow: hidden; order: -1; }
+    .mindmap-shell {
+      position: relative;
+      height: min(64vh, 620px);
+      min-height: 440px;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(54, 194, 180, 0.15), transparent 24%),
+        radial-gradient(circle at 18% 20%, rgba(91, 141, 239, 0.16), transparent 28%),
+        radial-gradient(circle at 82% 76%, rgba(240, 180, 41, 0.1), transparent 24%),
+        #080b10;
+      border-radius: 0 0 8px 8px;
+      overflow: hidden;
+    }
+    #mindmapCanvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+    #mindmapCanvas.is-dragging { cursor: grabbing; }
+    .mindmap-controls {
+      position: absolute; top: 12px; right: 12px;
+      display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
+      max-width: min(560px, calc(100% - 24px)); z-index: 4;
+    }
+    .mindmap-controls button {
+      border-color: rgba(255,255,255,0.14); background: rgba(16, 18, 24, 0.82);
+      backdrop-filter: blur(10px); color: var(--muted); padding: 7px 9px; font-size: 11px;
+    }
+    .mindmap-controls button.active {
+      background: rgba(54, 194, 180, 0.2); border-color: rgba(54, 194, 180, 0.64); color: var(--text);
+    }
+    .mindmap-viewport-tools {
+      position: absolute; right: 12px; bottom: 12px;
+      display: flex; align-items: center; gap: 6px; z-index: 5;
+      border: 1px solid rgba(255,255,255,0.14); background: rgba(16, 18, 24, 0.78);
+      backdrop-filter: blur(12px); border-radius: 8px; padding: 6px;
+    }
+    .mindmap-viewport-tools button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; font-weight: 800; }
+    .mindmap-viewport-tools .readout { min-width: 48px; text-align: center; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .mindmap-stats {
+      position: absolute; top: 12px; left: 12px;
+      display: flex; gap: 8px; flex-wrap: wrap; max-width: calc(100% - 24px); z-index: 3;
+    }
+    .mindmap-stat {
+      border: 1px solid rgba(255,255,255,0.14); background: rgba(16, 18, 24, 0.82);
+      backdrop-filter: blur(10px); border-radius: 8px; padding: 7px 9px; min-width: 88px;
+    }
+    .mindmap-stat b { display: block; font-size: 16px; }
+    .mindmap-stat span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    .mindmap-legend {
+      position: absolute; left: 12px; bottom: 12px;
+      display: flex; gap: 8px; flex-wrap: wrap; z-index: 3; max-width: calc(100% - 340px);
+    }
+    .mindmap-legend-item {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--muted); font-size: 11px;
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(16, 18, 24, 0.76);
+      border-radius: 999px; padding: 5px 8px;
+    }
+    .mindmap-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .mindmap-detail {
+      position: absolute; left: 12px; bottom: 52px;
+      width: min(310px, calc(100% - 24px)); max-height: 300px; overflow: auto;
+      border: 1px solid rgba(255,255,255,0.14); background: rgba(16, 18, 24, 0.9);
+      backdrop-filter: blur(12px); border-radius: 8px; padding: 13px; z-index: 3;
+    }
+    .mindmap-detail h3 { margin: 0 0 5px; font-size: 14px; }
+    .mindmap-detail p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .mindmap-detail .type { color: var(--teal); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+    .mindmap-detail-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .mindmap-detail-actions span {
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06);
+      border-radius: 999px; color: #d8dee9; font-size: 10px; padding: 4px 7px;
+    }
+    [hidden] { display: none !important; }
+
+    /* Evidence health bars */
+    .evidence-bar { height: 7px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 6px; }
+    .evidence-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--blue)); }
+    .evidence-fill.warning { background: linear-gradient(90deg, var(--amber), var(--red)); }
+    .evidence-fill.good { background: linear-gradient(90deg, var(--teal), #81c784); }
+
+    /* Alignment list */
+    .alignment-list { display: grid; gap: 8px; }
+    .alignment { border-left: 3px solid var(--teal); padding: 10px 12px; background: #141922; border-radius: 0 8px 8px 0; display: grid; gap: 6px; }
+    .alignment.amber { border-left-color: var(--amber); }
+    .alignment.blue { border-left-color: var(--blue); }
+    .alignment b { font-size: 13px; }
+    .alignment .small strong { color: var(--text); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="mark">M</div>
+      <div>
+        <h1>Morgan Mission Control</h1>
+        <div class="subtitle">ECIF Director — End Customer Investment Funds Lifecycle Agent</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <a href="#betaStarfield">Starfield</a>
+      <a href="#ecifPipeline">Pipeline</a>
+      <a href="#ecifDigest">Digest</a>
+      <a href="#ecifIQ">ECIF IQ</a>
+      <a href="#capabilities">Capabilities</a>
+      <a href="#evidenceHealth">Evidence</a>
+      <a href="#ecifValue">Value</a>
+      <a class="primary" href="#betaStarfield">Open Avatar</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Operating Plan -->
+    <section>
+      <div class="section-head"><h2>ECIF Operating Plan</h2><span class="status-dot active">autonomous</span></div>
+      <div class="body">
+        <div class="grid">
+          <div class="metric"><b>14</b><span>active cases</span></div>
+          <div class="metric"><b>$2.4M</b><span>ECIF approved</span></div>
+          <div class="metric"><b>$6.1M</b><span>ACR forecast</span></div>
+          <div class="metric"><b>3</b><span>approvals pending</span></div>
+          <div class="metric"><b>2</b><span>POE due &lt;7d</span></div>
+          <div class="metric"><b>1</b><span>blocked</span></div>
+        </div>
+        <div class="workday-actions">
+          <button class="primary" type="button" onclick="startECIFDay()">Start ECIF Day</button>
+        </div>
+        <div class="call-result" id="ecifDayResult">Ready to force-start Morgan's autonomous ECIF Director workday — case monitoring, approval chasing, evidence scans, and deadline pre-flights.</div>
+      </div>
+    </section>
+
+    <!-- Digest Delivery -->
+    <section id="ecifDigest">
+      <div class="section-head"><h2>ECIF Digest Delivery</h2><span class="status-dot configured">delivered</span></div>
+      <div class="body">
+        <div class="compact-list">
+          <div class="compact-item"><p><b>Weekly ECIF Portfolio Digest — Week 19, FY26</b></p><p>Run: ecif-digest-2026-W19 · Period: 28 Apr – 05 May 2026</p></div>
+          <div class="compact-item"><span class="status-dot configured">created</span><p><b>Word digest</b></p><p><a style="color:var(--teal)">Open Word digest</a></p><p>Source: Morgan autonomous workday 09:15 UTC</p></div>
+          <div class="compact-item"><span class="status-dot configured">sent</span><p><b>Email to ECIF Sponsor</b></p><p>Delivered to admin@ABSx02771022.onmicrosoft.com at 09:17 UTC</p><p>Source: Microsoft Graph sendMail via MCP</p></div>
+          <div class="compact-item"><span class="status-dot configured">sent</span><p><b>Teams summary</b></p><p>Posted to ECIF Case Updates channel at 09:18 UTC</p><p>Source: Microsoft Graph chatMessage via MCP</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Job Description -->
+    <section>
+      <div class="section-head"><h2>Job Description</h2><span class="pill">customer visible</span></div>
+      <div class="body">
+        <div class="small">
+          <p><strong>Morgan — ECIF Director</strong></p>
+          <p>Morgan is an autonomous AI agent that manages the full End Customer Investment Funds (ECIF) lifecycle: from identifying the right investment vehicle, through nomination pack assembly, approval chasing, SOW execution, POE evidence collection, payment processing, and case closeout.</p>
+          <p>Morgan wraps — not replaces — existing Microsoft systems (MSX, OneAsk, Partner Center, SharePoint) and operates with human-in-the-loop gates on every external communication and dollar-bearing decision. The sponsor seller remains in command; Morgan is the sponsor's hands.</p>
+          <p><strong>Operating model:</strong> Case-driven autonomous cycles with HITL gates at L1 (info send), L2 (external comms), and L3 (dollar-bearing actions). Evidence capture on every state transition. Wrap-not-replace existing Microsoft tooling.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Enterprise Readiness -->
+    <section>
+      <div class="section-head"><h2>Enterprise Readiness</h2><span class="status-dot active">production</span></div>
+      <div class="body">
+        <div class="alignment-list">
+          <div class="alignment"><b>HITL Gate Framework</b><div class="small"><strong>Status:</strong> Active · L1/L2/L3 gates on all external sends and $-bearing actions<br><strong>Control:</strong> Sponsor approval required before any external communication or fund commitment</div></div>
+          <div class="alignment"><b>Evidence Chain Integrity</b><div class="small"><strong>Status:</strong> Active · SHA-256 hashing + ISO timestamps on all artefacts<br><strong>Control:</strong> Purview retention labels applied; signatory tuples captured for attestations</div></div>
+          <div class="alignment amber"><b>Dataverse Case Store</b><div class="small"><strong>Status:</strong> Configuration in progress · Schema deployed, RBAC pending<br><strong>Control:</strong> All case state persisted to ecif_cases table with full audit trail</div></div>
+          <div class="alignment"><b>Purview Audit Integration</b><div class="small"><strong>Status:</strong> Active · All agent actions logged to Log Analytics + Purview<br><strong>Control:</strong> Microsoft 365 user/app activity, Entra sign-ins, Graph/MCP actions audited</div></div>
+          <div class="alignment blue"><b>Agent 365 MCP Platform</b><div class="small"><strong>Status:</strong> Connected · WorkIQ, Graph, Fabric MCP tools discovered<br><strong>Control:</strong> Agentic auth OBO flow; scoped to graph.microsoft.com/.default</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ECIF Pipeline Kanban — full width -->
+    <section class="wide" id="ecifPipeline">
+      <div class="section-head"><h2>ECIF Case Pipeline</h2><span class="pill">7-stage lifecycle</span></div>
+      <div class="body">
+        <div class="kanban-summary">
+          <div class="kanban-summary-item"><b>3</b><span>Intake</span></div>
+          <div class="kanban-summary-item"><b>2</b><span>Vehicle</span></div>
+          <div class="kanban-summary-item"><b>3</b><span>Nominate</span></div>
+          <div class="kanban-summary-item"><b>2</b><span>Approve</span></div>
+          <div class="kanban-summary-item"><b>2</b><span>Execute</span></div>
+          <div class="kanban-summary-item"><b>1</b><span>POE</span></div>
+          <div class="kanban-summary-item"><b>1</b><span>Close</span></div>
+        </div>
+        <div class="kanban-board" id="kanbanBoard"></div>
+      </div>
+    </section>
+
+    <!-- Beta Starfield — full width -->
+    <section class="wide mindmap-section" id="betaStarfield">
+      <div class="section-head"><h2>ECIF Director Starfield</h2><span class="pill">enterprise operating graph</span></div>
+      <div class="mindmap-shell">
+        <canvas id="mindmapCanvas" tabindex="0" aria-label="Interactive Morgan ECIF Director starfield"></canvas>
+        <div class="mindmap-controls" id="mindmapControls">
+          <button type="button" data-mode="all" class="active">All</button>
+          <button type="button" data-mode="lifecycle">Lifecycle</button>
+          <button type="button" data-mode="tools">Tools</button>
+          <button type="button" data-mode="governance">Governance</button>
+          <button type="button" data-mode="evidence">Evidence</button>
+          <button type="button" data-mode="stakeholder">Stakeholders</button>
+        </div>
+        <div class="mindmap-stats">
+          <div class="mindmap-stat"><b id="mindNodes">0</b><span>nodes</span></div>
+          <div class="mindmap-stat"><b id="mindTools">0</b><span>tools</span></div>
+          <div class="mindmap-stat"><b id="mindAgents">0</b><span>agents</span></div>
+          <div class="mindmap-stat"><b id="mindCases">14</b><span>cases</span></div>
+        </div>
+        <div class="mindmap-legend" id="mindmapLegend"></div>
+        <div class="mindmap-viewport-tools">
+          <button id="mindZoomOut">−</button>
+          <span class="readout" id="mindZoomReadout">91%</span>
+          <button id="mindZoomIn">+</button>
+          <button id="mindZoomReset">0</button>
+        </div>
+        <div class="mindmap-detail" id="mindmapDetail" hidden></div>
+      </div>
+    </section>
+
+    <!-- ECIF IQ -->
+    <section class="wide" id="ecifIQ">
+      <div class="section-head"><h2>ECIF Intelligence</h2><span class="pill blue">3-layer IQ</span></div>
+      <div class="body">
+        <div class="iq-grid">
+          <div class="iq-card"><div class="tag">Foundry IQ</div><b>FY26 Criteria Engine</b><p>Semantic search over ECIF/ME3E5/ABS+S/AI Workforce/Surface eligibility criteria. Vehicle recommendation confidence: 94%. Last indexed: 2026-05-04.</p></div>
+          <div class="iq-card foundry"><div class="tag">Work IQ</div><b>Stakeholder Signals</b><p>People graph: sponsor sellers, partner contacts, approver chains, customer champions. Organisation signals from Entra + Teams presence. 47 contacts mapped across 14 cases.</p></div>
+          <div class="iq-card fabric"><div class="tag">Fabric IQ</div><b>Consumption Analytics</b><p>ACR/MAU telemetry via Fabric MCP. Baseline vs forecast vs realised consumption tracking. 2:1 ROI validation pipeline active for all nominated cases.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Capabilities -->
+    <section class="wide" id="capabilities">
+      <div class="section-head"><h2>ECIF Director Capabilities</h2><span class="status-dot active">22 tools</span></div>
+      <div class="body">
+        <div class="capability-grid">
+          <div class="capability"><div class="tag">Stage 1 · Vehicle Selection</div><b>Investment Vehicle Picker</b><p>Recommends ECIF vs ME3E5 vs ABS+S vs AI Workforce vs Surface based on workload, segment, deal size, MCEM stage, and customer size. Double-dipping conflict check against MAP/Innovate/MTA programs.</p></div>
+          <div class="capability"><div class="tag">Stages 2-3 · Nomination</div><b>Nomination Pack Assembly</b><p>MSX opportunity verification, Partner Solutions Designation check, ROI computation (2:1 min), SOW validation (USD/deliverables/milestones/hours), justification narrative generation, public sector disclosure gate.</p></div>
+          <div class="capability"><div class="tag">Stage 4 · Approval</div><b>Approval Chain Management</b><p>Auto-resolves approver chain by tier + workload. SLA tracking with soft/firm/escalation nudge cadence. Captures approval decision tuples (approverId, decision, rationale, timestamp).</p></div>
+          <div class="capability"><div class="tag">Stage 5 · Execution + POE</div><b>Evidence Collection Engine</b><p>Scans M365 stores for artefacts, ingests with classifier tags, requests partner/customer attestations, reconciles invoices against SOW, assembles POE packs with T-7 preflight checks.</p></div>
+          <div class="capability"><div class="tag">Stage 6 · Closeout</div><b>Payment + ACR Realisation</b><p>Submits POE to ECIF Ops, tracks payment status, writes back ACR realisation to MSX, archives case with retention policy, generates optional case study drafts.</p></div>
+          <div class="capability"><div class="tag">Cross-cutting</div><b>HITL Gate Framework</b><p>Three-tier human-in-the-loop system: L1 (informational sends), L2 (external communications), L3 (dollar-bearing actions). Adaptive Card rendering for sponsor approval. Trust ramp over 30-day calibration period.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Evidence Health -->
+    <section class="wide" id="evidenceHealth">
+      <div class="section-head"><h2>Evidence Health</h2><span class="status-dot active">14 cases tracked</span></div>
+      <div class="body" id="evidenceHealthBody"></div>
+    </section>
+
+    <!-- Value Model -->
+    <section class="wide" id="ecifValue">
+      <div class="section-head"><h2>ECIF Director Value</h2><span class="pill">autonomous ROI</span></div>
+      <div class="body">
+        <div class="cost-summary">
+          <div class="cost-card"><b>$2.4M</b><span>ECIF Approved</span></div>
+          <div class="cost-card"><b>$6.1M</b><span>ACR Forecast</span></div>
+          <div class="cost-card"><b>2.54:1</b><span>Avg ROI</span></div>
+          <div class="cost-card"><b>12h → 55min</b><span>Avg Case Cycle</span></div>
+          <div class="cost-card"><b>$0.42</b><span>Agent Cost/Case</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sub-agents -->
+    <section>
+      <div class="section-head"><h2>ECIF Specialist Agents</h2><span class="pill">7 sub-agents</span></div>
+      <div class="body">
+        <div class="compact-list">
+          <div class="compact-item"><b>Vehicle Picker</b><p>Stage 1 specialist — recommends investment vehicle, checks double-dipping, pulls baseline ACR</p></div>
+          <div class="compact-item"><b>Nominator</b><p>Stages 2-3 specialist — assembles nomination packs, validates SOW, drafts justification narratives</p></div>
+          <div class="compact-item"><b>Approver Chaser</b><p>Stage 4 specialist — resolves approver chains, tracks SLAs, sends nudge cadence</p></div>
+          <div class="compact-item"><b>POE Collector</b><p>Stage 5 specialist — scans for evidence, requests attestations, reconciles invoices, assembles POE packs</p></div>
+          <div class="compact-item"><b>Closeout Reporter</b><p>Stage 6 specialist — submits POE, tracks payment, writes back ACR realisation, archives cases</p></div>
+          <div class="compact-item"><b>Comms Specialist</b><p>Cross-cutting — all external sends funnel through HITL gates; Teams/email/OneAsk communications</p></div>
+          <div class="compact-item"><b>Evidence Librarian</b><p>Cross-cutting — hash + timestamp + retention + signatory management; precedent search across cases</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HITL Queue -->
+    <section>
+      <div class="section-head"><h2>HITL Approval Queue</h2><span class="pill amber">3 pending</span></div>
+      <div class="body">
+        <div class="compact-list">
+          <div class="compact-item" style="border-left:3px solid var(--amber);border-radius:0 8px 8px 0"><b>L3 — $180K ECIF Nomination for Contoso</b><p>Awaiting sponsor approval · Vehicle: ECIF · Workload: Azure AI · Submitted 2h ago</p></div>
+          <div class="compact-item" style="border-left:3px solid var(--amber);border-radius:0 8px 8px 0"><b>L2 — Partner attestation request to Fabrikam</b><p>Email to partner contact requesting SOW attestation · Case: CASE-2026-009</p></div>
+          <div class="compact-item" style="border-left:3px solid var(--blue);border-radius:0 8px 8px 0"><b>L1 — Weekly digest email to sponsor</b><p>Portfolio summary for Week 19 · Auto-approved via trust ramp (day 34)</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ── Mock Data ──
+    const CASES = [
+      { id: 'CASE-2026-001', customer: 'Contoso Ltd', workload: 'Azure AI', vehicle: 'ECIF', stage: 'nominate', ask: 180000, acr: 450000, partner: 'Fabrikam Solutions', deadline: '2026-05-12', evidence: 72 },
+      { id: 'CASE-2026-002', customer: 'Northwind Traders', workload: 'Modern Work', vehicle: 'ME3E5', stage: 'approve', ask: 95000, acr: 240000, partner: 'Adatum Corp', deadline: '2026-05-08', evidence: 45 },
+      { id: 'CASE-2026-003', customer: 'Adventure Works', workload: 'Security', vehicle: 'ECIF', stage: 'execute', ask: 320000, acr: 810000, partner: 'WingTip Toys', deadline: '2026-05-20', evidence: 88 },
+      { id: 'CASE-2026-004', customer: 'Tailspin Toys', workload: 'Azure Infra', vehicle: 'ABS+S', stage: 'intake', ask: 55000, acr: 140000, partner: 'Lucerne Publishing', deadline: '2026-05-25', evidence: 10 },
+      { id: 'CASE-2026-005', customer: 'Woodgrove Bank', workload: 'Azure AI', vehicle: 'AI Workforce', stage: 'vehicle', ask: 420000, acr: 1100000, partner: 'Proseware Inc', deadline: '2026-06-01', evidence: 25 },
+      { id: 'CASE-2026-006', customer: 'Litware Inc', workload: 'Surface', vehicle: 'Surface', stage: 'poe', ask: 75000, acr: 190000, partner: 'Datum Corp', deadline: '2026-05-10', evidence: 95 },
+      { id: 'CASE-2026-007', customer: 'Margie Travel', workload: 'Dynamics 365', vehicle: 'ECIF', stage: 'close', ask: 145000, acr: 370000, partner: 'Trey Research', deadline: '2026-05-03', evidence: 100 },
+      { id: 'CASE-2026-008', customer: 'VanArsdel Ltd', workload: 'Azure Data', vehicle: 'ECIF', stage: 'nominate', ask: 210000, acr: 530000, partner: 'A Datum Corp', deadline: '2026-05-15', evidence: 60 },
+      { id: 'CASE-2026-009', customer: 'Relecloud', workload: 'Modern Work', vehicle: 'ME3E5', stage: 'execute', ask: 88000, acr: 220000, partner: 'Fabrikam Solutions', deadline: '2026-05-18', evidence: 82 },
+      { id: 'CASE-2026-010', customer: 'Fourth Coffee', workload: 'Azure AI', vehicle: 'ECIF', stage: 'approve', ask: 290000, acr: 730000, partner: 'Bellows College', deadline: '2026-05-09', evidence: 38 },
+      { id: 'CASE-2026-011', customer: 'Graphic Design Inst', workload: 'Security', vehicle: 'ECIF', stage: 'intake', ask: 110000, acr: 280000, partner: 'Proseware Inc', deadline: '2026-05-30', evidence: 5 },
+      { id: 'CASE-2026-012', customer: 'Munson Pickles', workload: 'Azure Infra', vehicle: 'ABS+S', stage: 'vehicle', ask: 165000, acr: 420000, partner: 'WingTip Toys', deadline: '2026-06-05', evidence: 18 },
+      { id: 'CASE-2026-013', customer: 'Best For You Org', workload: 'Azure AI', vehicle: 'AI Workforce', stage: 'intake', ask: 350000, acr: 900000, partner: 'Trey Research', deadline: '2026-06-10', evidence: 0 },
+      { id: 'CASE-2026-014', customer: 'Alpine Ski House', workload: 'Modern Work', vehicle: 'ECIF', stage: 'nominate', ask: 130000, acr: 330000, partner: 'Lucerne Publishing', deadline: '2026-05-22', evidence: 55 },
+    ];
+
+    const STAGES = ['intake', 'vehicle', 'nominate', 'approve', 'execute', 'poe', 'close'];
+    const STAGE_LABELS = { intake: 'Intake', vehicle: 'Vehicle Selection', nominate: 'Nomination', approve: 'Approval', execute: 'Execution', poe: 'POE Collection', close: 'Closeout' };
+    const STAGE_COLORS = { intake: '#5b8def', vehicle: '#22d3ee', nominate: '#f0b429', approve: '#f472b6', execute: '#36c2b4', poe: '#a78bfa', close: '#81c784' };
+
+    // ── Kanban Board ──
+    function renderKanban() {
+      const board = document.getElementById('kanbanBoard');
+      board.innerHTML = STAGES.map(stage => {
+        const cases = CASES.filter(c => c.stage === stage);
+        const cardClass = stage === 'close' ? 'done' : stage === 'approve' ? 'review' : stage === 'poe' ? 'waiting' : 'active';
+        return `<div class="kanban-column">
+          <div class="kanban-column-head"><div><b>${STAGE_LABELS[stage]}</b></div><span class="kanban-count">${cases.length}</span></div>
+          <div class="kanban-cards">${cases.map(c => `
+            <div class="kanban-card ${cardClass}">
+              <div class="kanban-card-title"><b>${c.customer}</b><span class="pill" style="background:${STAGE_COLORS[stage]};font-size:9px">${c.vehicle}</span></div>
+              <p>${c.workload} · $${(c.ask/1000).toFixed(0)}K ask · ${c.partner}</p>
+              <div class="kanban-meta"><span class="kanban-chip">${c.id}</span><span class="kanban-chip">Due ${c.deadline.slice(5)}</span><span class="kanban-chip">Evidence ${c.evidence}%</span></div>
+            </div>`).join('')}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Evidence Health ──
+    function renderEvidence() {
+      const body = document.getElementById('evidenceHealthBody');
+      body.innerHTML = '<div class="compact-list">' + CASES.filter(c => c.stage !== 'close').map(c => {
+        const cls = c.evidence > 75 ? 'good' : c.evidence > 40 ? '' : 'warning';
+        return `<div class="compact-item"><b>${c.customer}</b> — ${c.id}<p>${c.workload} · ${STAGE_LABELS[c.stage]} · ${c.vehicle} · Evidence completeness: <strong style="color:${c.evidence > 75 ? 'var(--teal)' : c.evidence > 40 ? 'var(--amber)' : 'var(--red)'}">${c.evidence}%</strong></p><div class="evidence-bar"><div class="evidence-fill ${cls}" style="width:${c.evidence}%"></div></div></div>`;
+      }).join('') + '</div>';
+    }
+
+    // ── ECIF Day ──
+    function startECIFDay() {
+      const el = document.getElementById('ecifDayResult');
+      el.textContent = 'Morgan ECIF Director day started. Running case monitor tick: checking 14 active cases, 3 pending approvals, 2 approaching deadlines, 1 evidence scan trigger...';
+      el.className = 'call-result ready';
+      setTimeout(() => {
+        el.textContent = 'ECIF Day complete. Processed: 14 cases monitored · 2 approval nudges sent · 1 POE preflight triggered · 1 weekly digest generated and delivered · 0 escalations needed.';
+      }, 3000);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  STARFIELD / MINDMAP ENGINE
+    // ═══════════════════════════════════════════════════════════════
+    const mindmapColors = {
+      core: '#6ea8fe', mission: '#36c2b4', instruction: '#f0b429', ecif: '#74c0fc',
+      tool: '#7dd3fc', agent: '#f6ad55', task: '#f472b6', memory: '#81c784',
+      voice: '#a78bfa', planning: '#22d3ee', governance: '#fb7185', evaluation: '#c4b5fd',
+      communication: '#60a5fa', audit: '#cbd5e1', vehicle: '#22d3ee', evidence: '#81c784',
+      hitl: '#fb7185', stakeholder: '#f6ad55',
+    };
+
+    const ECIF_NODES = [
+      { id: 'morgan-core', label: 'Morgan', type: 'core', group: 'core', importance: 10, detail: 'ECIF Director — autonomous agent managing the full End Customer Investment Funds lifecycle across 14 active cases.' },
+      // Hubs
+      { id: 'hub-lifecycle', label: 'ECIF Lifecycle', type: 'mission', group: 'lifecycle', importance: 8, detail: '7-stage case pipeline: Intake → Vehicle → Nominate → Approve → Execute → POE → Close' },
+      { id: 'hub-tools', label: 'Tool Catalogue', type: 'tool', group: 'tools', importance: 8, detail: '22 ECIF-specific tools across vehicle selection, nomination, approval, POE, and closeout stages.' },
+      { id: 'hub-governance', label: 'Governance', type: 'governance', group: 'governance', importance: 8, detail: 'HITL gates, evidence integrity, audit trails, Purview retention, and compliance controls.' },
+      { id: 'hub-evidence', label: 'Evidence Chain', type: 'evidence', group: 'evidence', importance: 8, detail: 'SHA-256 hashing, ISO timestamps, signatory tuples, Purview retention labels on all artefacts.' },
+      { id: 'hub-stakeholder', label: 'Stakeholders', type: 'stakeholder', group: 'stakeholder', importance: 7, detail: 'Sponsor sellers, partner contacts, approver chains, customer champions, ECIF Ops.' },
+      // Lifecycle stages
+      { id: 'stage-intake', label: 'Intake', type: 'ecif', group: 'lifecycle', importance: 6, detail: 'New case registration: customer, workload, sponsor assignment, initial triage.' },
+      { id: 'stage-vehicle', label: 'Vehicle Selection', type: 'vehicle', group: 'lifecycle', importance: 6, detail: 'ECIF vs ME3E5 vs ABS+S vs AI Workforce vs Surface — based on workload, segment, deal size, MCEM stage.' },
+      { id: 'stage-nominate', label: 'Nomination', type: 'ecif', group: 'lifecycle', importance: 7, detail: 'MSX verification, partner designation check, ROI computation, SOW validation, justification narrative.' },
+      { id: 'stage-approve', label: 'Approval', type: 'ecif', group: 'lifecycle', importance: 7, detail: 'Auto-resolved approver chain. SLA tracking with soft/firm/escalation nudge cadence.' },
+      { id: 'stage-execute', label: 'Execution', type: 'ecif', group: 'lifecycle', importance: 6, detail: 'SOW execution monitoring, milestone tracking, partner payment scheduling.' },
+      { id: 'stage-poe', label: 'POE Collection', type: 'evidence', group: 'lifecycle', importance: 7, detail: 'Evidence scanning, artefact ingestion, attestation requests, invoice reconciliation, POE pack assembly.' },
+      { id: 'stage-close', label: 'Closeout', type: 'ecif', group: 'lifecycle', importance: 6, detail: 'POE submission, payment tracking, ACR realisation writeback, case archival, optional case study.' },
+      // Tools
+      { id: 'tool-vehicle-picker', label: 'Vehicle Picker', type: 'tool', group: 'tools', importance: 5, detail: 'recommendVehicle(), checkDoubleDipping(), getBaselineACR(), getCriteriaForVehicle()' },
+      { id: 'tool-nomination', label: 'Nomination Tools', type: 'tool', group: 'tools', importance: 5, detail: 'verifyMSXOpportunity(), verifyPartnerDesignation(), computeROI(), validateSOW(), generateNominationPack()' },
+      { id: 'tool-approval', label: 'Approval Tools', type: 'tool', group: 'tools', importance: 5, detail: 'resolveApproverChain(), checkApprovalStatus(), sendNudge(), recordApprovalDecision()' },
+      { id: 'tool-poe', label: 'POE Tools', type: 'tool', group: 'tools', importance: 5, detail: 'scanForEvidence(), ingestArtefact(), requestAttestation(), reconcileInvoices(), assemblePOEPack()' },
+      { id: 'tool-closeout', label: 'Closeout Tools', type: 'tool', group: 'tools', importance: 5, detail: 'submitPOE(), checkPaymentStatus(), writeBackACRRealisation(), archiveCase()' },
+      { id: 'tool-graph', label: 'Microsoft Graph', type: 'tool', group: 'tools', importance: 5, detail: 'Email, Teams, Calendar, SharePoint, OneDrive via Agent 365 MCP platform.' },
+      { id: 'tool-fabric', label: 'Fabric Analytics', type: 'tool', group: 'tools', importance: 4, detail: 'ACR/MAU consumption telemetry, baseline vs forecast vs realised tracking.' },
+      // Agents
+      { id: 'agent-vehicle', label: 'Vehicle Picker Agent', type: 'agent', group: 'tools', importance: 5, detail: 'Stage 1 specialist sub-agent for investment vehicle recommendation.' },
+      { id: 'agent-nominator', label: 'Nominator Agent', type: 'agent', group: 'tools', importance: 5, detail: 'Stages 2-3 specialist for nomination pack assembly and SOW validation.' },
+      { id: 'agent-chaser', label: 'Approver Chaser', type: 'agent', group: 'tools', importance: 5, detail: 'Stage 4 specialist for approval chain resolution and nudge cadence.' },
+      { id: 'agent-poe', label: 'POE Collector', type: 'agent', group: 'tools', importance: 5, detail: 'Stage 5 specialist for evidence scanning and POE pack assembly.' },
+      { id: 'agent-closeout', label: 'Closeout Reporter', type: 'agent', group: 'tools', importance: 5, detail: 'Stage 6 specialist for payment tracking and ACR realisation.' },
+      { id: 'agent-comms', label: 'Comms Specialist', type: 'agent', group: 'tools', importance: 5, detail: 'Cross-cutting external sends funnel with HITL gate enforcement.' },
+      { id: 'agent-librarian', label: 'Evidence Librarian', type: 'agent', group: 'evidence', importance: 5, detail: 'Cross-cutting evidence management: hash, retention, signatory, precedent search.' },
+      // Governance
+      { id: 'hitl-l1', label: 'L1 — Info Send', type: 'hitl', group: 'governance', importance: 5, detail: 'Informational sends to internal stakeholders. Auto-approved after trust ramp (day 30+).' },
+      { id: 'hitl-l2', label: 'L2 — External Comms', type: 'hitl', group: 'governance', importance: 6, detail: 'External communications to partners, customers, ECIF Ops. Sponsor approval required.' },
+      { id: 'hitl-l3', label: 'L3 — $ Bearing', type: 'hitl', group: 'governance', importance: 7, detail: 'Dollar-bearing actions: nominations, POE submissions, payment approvals. Always gated.' },
+      { id: 'gov-audit', label: 'Audit Trail', type: 'audit', group: 'governance', importance: 5, detail: 'Every state transition logged: case.created, stage.transitioned, hitl.requested, evidence.ingested, external.send.' },
+      { id: 'gov-purview', label: 'Purview Retention', type: 'governance', group: 'governance', importance: 5, detail: 'Microsoft Purview retention labels on all case artefacts. 7-year retention for financial evidence.' },
+      // Evidence
+      { id: 'ev-hash', label: 'SHA-256 Integrity', type: 'evidence', group: 'evidence', importance: 5, detail: 'Every artefact hashed with SHA-256 + ISO timestamp at ingestion.' },
+      { id: 'ev-signatory', label: 'Signatory Tuples', type: 'evidence', group: 'evidence', importance: 5, detail: 'Captures: signatoryId, role, docHash, timestamp for attestations and approvals.' },
+      { id: 'ev-precedent', label: 'Precedent Search', type: 'evidence', group: 'evidence', importance: 4, detail: 'Cross-case semantic search for similar evidence, SOWs, and justification narratives.' },
+      // Stakeholders
+      { id: 'sh-sponsor', label: 'Sponsor Seller', type: 'stakeholder', group: 'stakeholder', importance: 6, detail: 'Primary human-in-the-loop. Approves all external sends and $-bearing actions.' },
+      { id: 'sh-partner', label: 'Partner Contacts', type: 'stakeholder', group: 'stakeholder', importance: 5, detail: 'Solutions Partner personnel: technical leads, project managers, billing contacts.' },
+      { id: 'sh-customer', label: 'Customer Champions', type: 'stakeholder', group: 'stakeholder', importance: 5, detail: 'Customer-side stakeholders: IT decision makers, project sponsors, technical contacts.' },
+      { id: 'sh-ecifops', label: 'ECIF Ops (SPMO)', type: 'stakeholder', group: 'stakeholder', importance: 5, detail: 'Microsoft ECIF Operations team. POE submissions and payment processing.' },
+      { id: 'sh-approvers', label: 'Approver Chain', type: 'stakeholder', group: 'stakeholder', importance: 6, detail: 'Tier-based approvers resolved by deal size and workload. SLA-tracked.' },
+      // Memory/Planning
+      { id: 'mem-casestate', label: 'Case State Store', type: 'memory', group: 'evidence', importance: 5, detail: 'Cosmos DB / Dataverse: all case records, transitions, evidence metadata, comms log.' },
+      { id: 'plan-workday', label: 'Daily Monitor', type: 'planning', group: 'lifecycle', importance: 5, detail: 'Autonomous daily tick: check all open cases, approval SLAs, evidence scans, deadline pre-flights.' },
+      // Voice
+      { id: 'voice-avatar', label: 'Morgan Avatar', type: 'voice', group: 'tools', importance: 4, detail: 'GPT-5 powered voice avatar for live ECIF case discussions and sponsor briefings.' },
+    ];
+
+    const ECIF_LINKS = [
+      // Core to hubs
+      { source: 'morgan-core', target: 'hub-lifecycle', type: 'core', strength: 0.9 },
+      { source: 'morgan-core', target: 'hub-tools', type: 'core', strength: 0.8 },
+      { source: 'morgan-core', target: 'hub-governance', type: 'core', strength: 0.85 },
+      { source: 'morgan-core', target: 'hub-evidence', type: 'core', strength: 0.8 },
+      { source: 'morgan-core', target: 'hub-stakeholder', type: 'core', strength: 0.75 },
+      // Lifecycle chain
+      { source: 'hub-lifecycle', target: 'stage-intake', type: 'task_flow', strength: 0.7 },
+      { source: 'stage-intake', target: 'stage-vehicle', type: 'task_flow', strength: 0.7 },
+      { source: 'stage-vehicle', target: 'stage-nominate', type: 'task_flow', strength: 0.7 },
+      { source: 'stage-nominate', target: 'stage-approve', type: 'task_flow', strength: 0.7 },
+      { source: 'stage-approve', target: 'stage-execute', type: 'task_flow', strength: 0.7 },
+      { source: 'stage-execute', target: 'stage-poe', type: 'task_flow', strength: 0.7 },
+      { source: 'stage-poe', target: 'stage-close', type: 'task_flow', strength: 0.7 },
+      // Tools to stages
+      { source: 'hub-tools', target: 'tool-vehicle-picker', type: 'tool_use', strength: 0.6 },
+      { source: 'hub-tools', target: 'tool-nomination', type: 'tool_use', strength: 0.6 },
+      { source: 'hub-tools', target: 'tool-approval', type: 'tool_use', strength: 0.6 },
+      { source: 'hub-tools', target: 'tool-poe', type: 'tool_use', strength: 0.6 },
+      { source: 'hub-tools', target: 'tool-closeout', type: 'tool_use', strength: 0.6 },
+      { source: 'hub-tools', target: 'tool-graph', type: 'tool_use', strength: 0.5 },
+      { source: 'hub-tools', target: 'tool-fabric', type: 'tool_use', strength: 0.5 },
+      // Agents
+      { source: 'hub-tools', target: 'agent-vehicle', type: 'agent_link', strength: 0.55 },
+      { source: 'hub-tools', target: 'agent-nominator', type: 'agent_link', strength: 0.55 },
+      { source: 'hub-tools', target: 'agent-chaser', type: 'agent_link', strength: 0.55 },
+      { source: 'hub-tools', target: 'agent-poe', type: 'agent_link', strength: 0.55 },
+      { source: 'hub-tools', target: 'agent-closeout', type: 'agent_link', strength: 0.55 },
+      { source: 'hub-tools', target: 'agent-comms', type: 'agent_link', strength: 0.55 },
+      { source: 'hub-evidence', target: 'agent-librarian', type: 'agent_link', strength: 0.6 },
+      // Governance
+      { source: 'hub-governance', target: 'hitl-l1', type: 'governance', strength: 0.6 },
+      { source: 'hub-governance', target: 'hitl-l2', type: 'governance', strength: 0.7 },
+      { source: 'hub-governance', target: 'hitl-l3', type: 'governance', strength: 0.8 },
+      { source: 'hub-governance', target: 'gov-audit', type: 'governance', strength: 0.6 },
+      { source: 'hub-governance', target: 'gov-purview', type: 'governance', strength: 0.6 },
+      // Evidence
+      { source: 'hub-evidence', target: 'ev-hash', type: 'capability', strength: 0.6 },
+      { source: 'hub-evidence', target: 'ev-signatory', type: 'capability', strength: 0.6 },
+      { source: 'hub-evidence', target: 'ev-precedent', type: 'capability', strength: 0.5 },
+      { source: 'hub-evidence', target: 'mem-casestate', type: 'memory_recall', strength: 0.6 },
+      // Stakeholders
+      { source: 'hub-stakeholder', target: 'sh-sponsor', type: 'capability', strength: 0.8 },
+      { source: 'hub-stakeholder', target: 'sh-partner', type: 'capability', strength: 0.6 },
+      { source: 'hub-stakeholder', target: 'sh-customer', type: 'capability', strength: 0.6 },
+      { source: 'hub-stakeholder', target: 'sh-ecifops', type: 'capability', strength: 0.6 },
+      { source: 'hub-stakeholder', target: 'sh-approvers', type: 'capability', strength: 0.7 },
+      // Cross-links
+      { source: 'sh-sponsor', target: 'hitl-l3', type: 'governance', strength: 0.7 },
+      { source: 'agent-comms', target: 'hitl-l2', type: 'governance', strength: 0.65 },
+      { source: 'hub-lifecycle', target: 'plan-workday', type: 'task_flow', strength: 0.5 },
+      { source: 'morgan-core', target: 'voice-avatar', type: 'voice_link', strength: 0.4 },
+    ];
+
+    // ── Mindmap Modes ──
+    const MODES = {
+      all: { groups: null },
+      lifecycle: { groups: ['lifecycle'] },
+      tools: { groups: ['tools'] },
+      governance: { groups: ['governance'] },
+      evidence: { groups: ['evidence'] },
+      stakeholder: { groups: ['stakeholder'] },
+    };
+
+    // ── Mindmap State ──
+    const G = {
+      nodes: ECIF_NODES,
+      links: ECIF_LINKS,
+      positions: new Map(),
+      selected: null,
+      hover: null,
+      focusMode: 'all',
+      particles: [],
+      camera: { zoom: 0.91, panX: 0, panY: 0, targetZoom: 0.91, targetPanX: 0, targetPanY: 0, dragging: false, didDrag: false, lastPointer: null, pointer: { x: 0.5, y: 0.5, active: false } },
+    };
+    let animFrame = 0;
+
+    function typeRing(node) {
+      if (node.id === 'morgan-core') return 0;
+      if (node.id.startsWith('hub-')) return 112;
+      if (['planning', 'governance', 'hitl'].includes(node.type)) return 185;
+      if (['ecif', 'vehicle', 'instruction'].includes(node.type)) return 230;
+      if (['tool', 'agent', 'voice', 'communication'].includes(node.type)) return 305;
+      if (['memory', 'audit', 'evidence', 'stakeholder'].includes(node.type)) return 370;
+      return 320;
+    }
+
+    function positionNodes() {
+      const rings = {};
+      G.nodes.forEach(n => {
+        const r = typeRing(n);
+        if (!rings[r]) rings[r] = [];
+        rings[r].push(n);
+      });
+      G.positions.clear();
+      for (const [ring, nodes] of Object.entries(rings)) {
+        const r = Number(ring);
+        nodes.forEach((n, i) => {
+          const angle = (i / nodes.length) * Math.PI * 2 + (r * 0.3);
+          const phase = Math.random() * Math.PI * 2;
+          G.positions.set(n.id, { x: r === 0 ? 0 : Math.cos(angle) * r, y: r === 0 ? 0 : Math.sin(angle) * r, radius: r, angle, phase, size: n.id === 'morgan-core' ? 16 : n.id.startsWith('hub-') ? 10 : 4 + n.importance * 0.6 });
+        });
+      }
+    }
+
+    function ensureParticles() {
+      if (G.particles.length >= 86) return;
+      while (G.particles.length < 86) {
+        G.particles.push({ x: (Math.random() - 0.5) * 900, y: (Math.random() - 0.5) * 700, depth: 0.2 + Math.random() * 0.8, phase: Math.random() * Math.PI * 2, speed: 0.3 + Math.random() * 0.7 });
+      }
+    }
+
+    // ── Camera ──
+    function setZoom(next, ox, oy) {
+      next = Math.max(0.52, Math.min(3.6, next));
+      G.camera.targetZoom = next;
+      document.getElementById('mindZoomReadout').textContent = Math.round(next * 100) + '%';
+    }
+    function resetCamera() { G.camera.targetZoom = 0.91; G.camera.targetPanX = 0; G.camera.targetPanY = 0; setZoom(0.91); }
+    function focusNode(node) {
+      if (!node) { resetCamera(); return; }
+      const pos = G.positions.get(node.id);
+      if (!pos) return;
+      const z = node.id === 'morgan-core' ? 1.45 : node.id.startsWith('hub-') ? 1.75 : 2.25;
+      G.camera.targetZoom = z; G.camera.targetPanX = -pos.x; G.camera.targetPanY = -pos.y;
+      setZoom(z);
+    }
+
+    function transformPoint(x, y, canvas) {
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      const px = (G.camera.pointer.x - 0.5) * Math.min(G.camera.zoom, 1.8);
+      return [(x + G.camera.panX) * G.camera.zoom + cx + px * 18, (y + G.camera.panY) * G.camera.zoom + cy + (G.camera.pointer.y - 0.5) * Math.min(G.camera.zoom, 1.8) * 14];
+    }
+    function inversePoint(sx, sy, canvas) {
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      return [(sx - cx) / G.camera.zoom - G.camera.panX, (sy - cy) / G.camera.zoom - G.camera.panY];
+    }
+    function pickNode(event) {
+      const canvas = document.getElementById('mindmapCanvas');
+      const rect = canvas.getBoundingClientRect();
+      const sx = (event.clientX - rect.left) * (canvas.width / rect.width);
+      const sy = (event.clientY - rect.top) * (canvas.height / rect.height);
+      let best = null, bestDist = 30;
+      for (const node of G.nodes) {
+        const pos = G.positions.get(node.id);
+        if (!pos) continue;
+        const [nx, ny] = transformPoint(pos.x, pos.y, canvas);
+        const d = Math.hypot(sx - nx, sy - ny);
+        if (d < bestDist) { best = node; bestDist = d; }
+      }
+      return best;
+    }
+
+    // ── Rendering ──
+    function draw() {
+      const canvas = document.getElementById('mindmapCanvas');
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== canvas.clientWidth * dpr || canvas.height !== canvas.clientHeight * dpr) {
+        canvas.width = canvas.clientWidth * dpr; canvas.height = canvas.clientHeight * dpr;
+      }
+      const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2;
+      const t = animFrame++ * 0.016;
+
+      // Lerp camera
+      G.camera.zoom += (G.camera.targetZoom - G.camera.zoom) * 0.12;
+      G.camera.panX += (G.camera.targetPanX - G.camera.panX) * 0.12;
+      G.camera.panY += (G.camera.targetPanY - G.camera.panY) * 0.12;
+
+      // Background
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.7);
+      grad.addColorStop(0, '#0d1520'); grad.addColorStop(1, '#060810');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // Particles
+      ensureParticles();
+      const pxOff = (G.camera.pointer.x - 0.5) * Math.min(G.camera.zoom, 1.8);
+      const pyOff = (G.camera.pointer.y - 0.5) * Math.min(G.camera.zoom, 1.8);
+      for (const p of G.particles) {
+        const px = cx + (p.x + G.camera.panX * p.depth * 0.3) * G.camera.zoom * p.depth + pxOff * p.depth * 12;
+        const py = cy + (p.y + G.camera.panY * p.depth * 0.3) * G.camera.zoom * p.depth + pyOff * p.depth * 8;
+        const twinkle = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 1.4 + p.phase));
+        const sz = (0.6 + p.depth * 1.2) * Math.min(G.camera.zoom, 1.5);
+        ctx.globalAlpha = twinkle * p.depth * 0.6;
+        ctx.fillStyle = '#93c5fd';
+        ctx.beginPath(); ctx.arc(px, py, sz, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      const modeGroups = MODES[G.focusMode]?.groups;
+
+      // Links
+      for (const link of G.links) {
+        const sp = G.positions.get(link.source), tp = G.positions.get(link.target);
+        if (!sp || !tp) continue;
+        const sn = G.nodes.find(n => n.id === link.source), tn = G.nodes.find(n => n.id === link.target);
+        const active = !modeGroups || (sn && modeGroups.includes(sn.group)) || (tn && modeGroups.includes(tn.group));
+        const [sx, sy] = transformPoint(sp.x + Math.sin(t * 0.5 + sp.phase) * 3, sp.y + Math.cos(t * 0.4 + sp.phase) * 3, canvas);
+        const [tx, ty] = transformPoint(tp.x + Math.sin(t * 0.5 + tp.phase) * 3, tp.y + Math.cos(t * 0.4 + tp.phase) * 3, canvas);
+        ctx.strokeStyle = active ? 'rgba(94, 234, 212, 0.22)' : 'rgba(94, 234, 212, 0.06)';
+        ctx.lineWidth = active ? 1.2 : 0.6;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke();
+        // Traveling particle
+        if (active) {
+          const prog = (t * link.strength * 0.3) % 1;
+          const ppx = sx + (tx - sx) * prog, ppy = sy + (ty - sy) * prog;
+          ctx.fillStyle = 'rgba(94, 234, 212, 0.55)';
+          ctx.beginPath(); ctx.arc(ppx, ppy, 1.5 * Math.min(G.camera.zoom, 1.5), 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      // Nodes
+      for (const node of G.nodes) {
+        const pos = G.positions.get(node.id);
+        if (!pos) continue;
+        const active = !modeGroups || modeGroups.includes(node.group) || node.id === 'morgan-core';
+        const drift = active ? 8 : 4;
+        const nx = pos.x + Math.sin(t * 0.5 + pos.phase) * drift;
+        const ny = pos.y + Math.cos(t * 0.4 + pos.phase) * drift;
+        const [sx, sy] = transformPoint(nx, ny, canvas);
+        const sz = pos.size * G.camera.zoom;
+        const color = mindmapColors[node.type] || '#6ea8fe';
+        const pulse = 0.7 + 0.3 * Math.sin(t * (active ? 2.2 : 1.2) + pos.phase);
+
+        ctx.globalAlpha = active ? pulse : 0.25;
+        // Glow
+        if (active && sz > 3) {
+          const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, sz * 3);
+          glow.addColorStop(0, color + '44'); glow.addColorStop(1, color + '00');
+          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(sx, sy, sz * 3, 0, Math.PI * 2); ctx.fill();
+        }
+        // Circle
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(sx, sy, sz, 0, Math.PI * 2); ctx.fill();
+        // Selection ring
+        if (G.selected === node || G.hover === node) {
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(sx, sy, sz + 4, 0, Math.PI * 2); ctx.stroke();
+        }
+        // Label
+        const showLabel = G.selected === node || G.hover === node || (G.camera.zoom > 1.55) || (active && sz > 4.5 && G.camera.zoom > 1.25) || node.id === 'morgan-core' || node.id.startsWith('hub-');
+        if (showLabel && active) {
+          ctx.globalAlpha = active ? 1 : 0.4;
+          ctx.font = `600 ${Math.max(10, 11 * Math.min(G.camera.zoom, 1.5))}px Segoe UI, system-ui, sans-serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+          ctx.strokeStyle = 'rgba(8,11,16,0.82)'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+          ctx.strokeText(node.label, sx, sy + sz + 6);
+          ctx.fillStyle = '#f3f5f7';
+          ctx.fillText(node.label, sx, sy + sz + 6);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // ── Detail Panel ──
+    function setDetail(node) {
+      const el = document.getElementById('mindmapDetail');
+      if (!node) { el.hidden = true; return; }
+      el.hidden = false;
+      const color = mindmapColors[node.type] || '#6ea8fe';
+      el.innerHTML = `<div class="type">${node.type} · importance ${node.importance}/10</div><h3>${node.label}</h3><p>${node.detail || ''}</p><div class="mindmap-detail-actions">${node.group ? `<span>${node.group}</span>` : ''}${node.type === 'tool' ? '<span>Call tool</span>' : ''}${node.type === 'agent' ? '<span>Invoke agent</span>' : ''}${node.type === 'hitl' ? '<span>View queue</span>' : ''}${node.id === 'morgan-core' ? '<span>Start ECIF day</span><span>Run digest</span>' : ''}</div>`;
+    }
+
+    // ── Legend ──
+    function renderLegend() {
+      const types = [...new Set(G.nodes.map(n => n.type))];
+      document.getElementById('mindmapLegend').innerHTML = types.map(t => `<div class="mindmap-legend-item"><div class="mindmap-dot" style="background:${mindmapColors[t] || '#6ea8fe'}"></div>${t}</div>`).join('');
+    }
+
+    // ── Stats ──
+    function renderStats() {
+      document.getElementById('mindNodes').textContent = G.nodes.length;
+      document.getElementById('mindTools').textContent = G.nodes.filter(n => n.type === 'tool').length;
+      document.getElementById('mindAgents').textContent = G.nodes.filter(n => n.type === 'agent').length;
+    }
+
+    // ── Events ──
+    function initMindmap() {
+      const canvas = document.getElementById('mindmapCanvas');
+      positionNodes(); ensureParticles(); renderLegend(); renderStats();
+
+      canvas.addEventListener('pointerdown', e => {
+        G.camera.dragging = true; G.camera.didDrag = false; G.camera.lastPointer = { x: e.clientX, y: e.clientY };
+        canvas.classList.add('is-dragging'); canvas.setPointerCapture(e.pointerId);
+      });
+      canvas.addEventListener('pointermove', e => {
+        const rect = canvas.getBoundingClientRect();
+        G.camera.pointer = { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height, active: true };
+        if (G.camera.dragging && G.camera.lastPointer) {
+          const dx = e.clientX - G.camera.lastPointer.x, dy = e.clientY - G.camera.lastPointer.y;
+          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) G.camera.didDrag = true;
+          G.camera.targetPanX += dx / G.camera.zoom; G.camera.targetPanY += dy / G.camera.zoom;
+          G.camera.panX += dx / G.camera.zoom; G.camera.panY += dy / G.camera.zoom;
+          G.camera.lastPointer = { x: e.clientX, y: e.clientY };
+        } else {
+          G.hover = pickNode(e);
+        }
+      });
+      canvas.addEventListener('pointerup', e => { G.camera.dragging = false; canvas.classList.remove('is-dragging'); });
+      canvas.addEventListener('pointerleave', () => { G.camera.pointer.active = false; G.hover = null; });
+      canvas.addEventListener('click', e => {
+        if (G.camera.didDrag) return;
+        G.selected = pickNode(e);
+        setDetail(G.selected);
+        focusNode(G.selected);
+      });
+      canvas.addEventListener('wheel', e => { e.preventDefault(); setZoom(G.camera.targetZoom * (e.deltaY < 0 ? 1.18 : 1 / 1.18)); }, { passive: false });
+
+      document.getElementById('mindZoomIn').onclick = () => setZoom(G.camera.targetZoom * 1.18);
+      document.getElementById('mindZoomOut').onclick = () => setZoom(G.camera.targetZoom / 1.18);
+      document.getElementById('mindZoomReset').onclick = resetCamera;
+
+      document.getElementById('mindmapControls').addEventListener('click', e => {
+        const btn = e.target.closest('button[data-mode]');
+        if (!btn) return;
+        G.focusMode = btn.dataset.mode;
+        document.querySelectorAll('#mindmapControls button').forEach(b => b.classList.toggle('active', b === btn));
+      });
+
+      requestAnimationFrame(draw);
+    }
+
+    // ── Init ──
+    renderKanban();
+    renderEvidence();
+    initMindmap();
+  </script>
+</body>
+</html>

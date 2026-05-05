@@ -7,6 +7,7 @@ import { executeTool, getAllTools } from '../tools';
 import { getLiveMcpToolDefinitions } from '../tools/mcpToolSetup';
 import { recordAuditEvent } from '../observability/agentAudit';
 import { recordAgentEvent } from '../observability/agentEvents';
+import { tryHandleShowcaseShortcut } from '../showcaseShortcuts';
 
 interface FoundryResponsesRequest {
   input?: string | Array<{ role?: string; content?: string | Array<{ text?: string; type?: string }> }>;
@@ -80,6 +81,22 @@ async function runMorganCompletion(inputText: string, requestMetadata?: Record<s
     },
   });
 
+  const showcaseReply = await tryHandleShowcaseShortcut(inputText, undefined, { allowVoiceActions: false });
+  if (showcaseReply) {
+    recordAgentEvent({
+      kind: 'agent.reply',
+      label: `Foundry showcase shortcut reply with ${showcaseReply.length} character(s)`,
+      status: 'ok',
+      correlationId,
+      data: {
+        responseLength: showcaseReply.length,
+        responsePreview: showcaseReply.slice(0, 700),
+        reasoningSummary: 'Morgan used a deterministic showcase shortcut to call the required tool for a Dragon Den demo prompt.',
+      },
+    });
+    return showcaseReply;
+  }
+
   const messages: ChatCompletionMessageParam[] = [
     {
       role: 'system',
@@ -98,9 +115,10 @@ async function runMorganCompletion(inputText: string, requestMetadata?: Record<s
     recordAgentEvent({ kind: 'mcp.discover', label: 'Foundry live MCP discovery failed', status: 'error', correlationId, data: { error: err instanceof Error ? err.message : String(err) } });
   }
   const liveMcpToolNames = new Set(liveMcpTools.map(toolName));
+  const staticToolNames = new Set(staticTools.map(toolName));
   const mergedTools = [
-    ...liveMcpTools,
-    ...staticTools.filter((tool) => !liveMcpToolNames.has(toolName(tool))),
+    ...staticTools,
+    ...liveMcpTools.filter((tool) => !staticToolNames.has(toolName(tool))),
   ].slice(0, 128);
   recordAgentEvent({ kind: 'mcp.discover', label: `Foundry turn loaded ${liveMcpTools.length} live MCP tool(s)`, status: liveMcpTools.length ? 'ok' : 'partial', correlationId, data: { liveMcpTools: liveMcpTools.length, staticTools: staticTools.length, totalTools: mergedTools.length } });
 

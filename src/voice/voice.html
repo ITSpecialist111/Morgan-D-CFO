@@ -123,9 +123,21 @@
     }
     .starfield.is-dragging { cursor: grabbing; }
     .starfield:focus-visible { outline: 2px solid var(--teal); outline-offset: -4px; }
-    .stage.is-live .starfield { opacity: .92; }
-    .stage.is-speaking .starfield { opacity: 1; }
-    .stage.is-tool .starfield { opacity: 1; filter: drop-shadow(0 0 14px rgba(240, 180, 41, 0.35)); }
+    /* Hide the floating-orb starfield (and its controls) once the avatar is live so
+       the stage is dedicated to Morgan. The pre-session view keeps the orbs. */
+    .stage.is-live .starfield,
+    .stage.is-speaking .starfield,
+    .stage.is-tool .starfield {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .stage.is-live .starfield-tools,
+    .stage.is-speaking .starfield-tools,
+    .stage.is-tool .starfield-tools {
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+    }
     .starfield-tools {
       position: absolute;
       top: 74px;
@@ -556,7 +568,7 @@
       <div class="mark">M</div>
       <div>
         <h1>Morgan</h1>
-        <div class="meta" id="avatarMeta">Aria as Morgan - HD avatar</div>
+        <div class="meta" id="avatarMeta">Morgan - HD avatar</div>
       </div>
     </div>
     <div class="header-actions">
@@ -590,7 +602,7 @@
             <div class="avatar-orb">M</div>
             <div class="avatar-signal"><span></span><span></span><span></span><span></span></div>
           </div>
-          <h2>Aria as Morgan</h2>
+          <h2>Morgan</h2>
           <p>Start Morgan's live HD avatar session.</p>
         </div>
       </div>
@@ -1547,7 +1559,7 @@
           backgroundImage: typeof config.backgroundImage === 'string' ? config.backgroundImage : avatarConfig.backgroundImage,
         };
         applyAvatarVisuals();
-        avatarMeta.textContent = `${config.displayName || 'Aria as Morgan'} - ${config.role || 'Digital CFO'} - ${config.voice || 'Voice Live'}`;
+        avatarMeta.textContent = `${config.displayName || 'Morgan'} - ${config.role || 'Digital CFO'} - ${config.voice || 'Voice Live'}`;
       } catch {
         avatarMeta.textContent = 'Digital CFO avatar';
       }
