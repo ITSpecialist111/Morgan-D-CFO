@@ -83,6 +83,8 @@ flowchart LR
 
 The screenshots below are captured from the live Morgan showcase. Together they tell the customer story end-to-end: the digital worker contract, the mind behind the briefings, the instruction set, the enterprise readiness controls, the cognitive toolchain and operating cadence, the autonomous Kanban, the human-facing avatar, and how Morgan appears inside the Microsoft 365 admin surface.
 
+For a shareable static preview, open [src/mission/mission-control-mockup.html](src/mission/mission-control-mockup.html). After build or deployment, the same mockup is served at `/mission-control/mockup` with fixed demo data so reviewers can see the dashboard shape without a live signed-in session.
+
 ### Mission Control and Beta Starfield
 
 ![Morgan Mission Control with Beta Starfield, identity strip, daily counters, and customer-visible job description](docs/screenshots/mission-control-beta-starfield.png)
@@ -136,6 +138,7 @@ This is how Morgan and other agentic workloads are governed inside the Microsoft
 - **Production app**: `https://morganfinanceagent-webapp.azurewebsites.net`
 - **Azure host**: Linux Azure App Service on Basic B1 with Node.js 20 and WebSockets enabled
 - **Mission Control**: `/mission-control` shows Morgan's job description, operating contract, autonomous instructions, key tasks, CorpGen alignment, live task log, day-end summary, D-CFO Kanban, cost panel, Agent Mind, and a cinematic interactive Beta Starfield
+- **Mission Control mockup**: `/mission-control/mockup` serves a static customer-preview dashboard with fixed data for the Beta Starfield, Agent Mind, Microsoft IQ, cost, Kanban, and readiness surfaces
 - **Agent Mind**: Mission Control exposes live tool calls, Graph/MCP activity, safe reasoning summaries, voice turns, Teams call events, and autonomous task records without exposing hidden chain-of-thought
 - **Microsoft IQ Command Layer**: Mission Control shows WorkIQ, Foundry IQ, and Fabric IQ signals in one working CFO briefing, backed by deterministic demo adapters until tenant data is connected
 - **Cost of Morgan**: `/mission-control` contains a high-level daily/weekly cost panel, and `/mission-control/costs` drills into Azure actuals plus showback estimates for avatar, Agent 365, Microsoft IQ, Foundry/AI, Fabric IQ, compute, tools, and observability
@@ -243,6 +246,7 @@ Morgan-D-CFO/
 │   │   ├── mindmap.ts           # Beta Starfield / Agent Mind graph data
 │   │   ├── costModel.ts         # Cost/value dashboard model with Azure actuals
 │   │   ├── mission-control.html # Customer-facing Mission Control dashboard
+│   │   ├── mission-control-mockup.html # Static stakeholder preview dashboard
 │   │   └── cost-dashboard.html  # Detailed Morgan cost dashboard
 │   ├── orchestrator/
 │   │   └── subAgents.ts        # Cassidy / Avatar / AI Kanban registry + calls
@@ -277,6 +281,7 @@ Morgan-D-CFO/
 | Route | Purpose | Protection |
 |---|---|---|
 | `/mission-control` | Main Morgan Mission Control surface: job contract, CorpGen loop, Agent Mind, Starfield, IQ, D-CFO Kanban, Teams call control, cost panel, EOD report | Microsoft web sign-in / EasyAuth-compatible principal |
+| `/mission-control/mockup` | Static Mission Control preview with fixed demo data for stakeholder walkthroughs | Public static mockup |
 | `/mission-control/costs` | Detailed cost and value dashboard | Microsoft web sign-in / EasyAuth-compatible principal |
 | `/voice` and `/avatar` | Aria-as-Morgan avatar and Voice Live UI | Microsoft web sign-in / EasyAuth-compatible principal |
 | `/api/mission-control` | Mission Control JSON snapshot used by UI and tools | EasyAuth |

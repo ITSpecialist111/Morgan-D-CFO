@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Morgan Mission Control Mockup</title>
+  <style>
+    :root {
+      --bg: #101216;
+      --panel: #181b22;
+      --panel-2: #20242d;
+      --panel-3: #151922;
+      --border: #303642;
+      --text: #f3f5f7;
+      --muted: #9aa3af;
+      --teal: #36c2b4;
+      --amber: #f0b429;
+      --red: #e05858;
+      --blue: #5b8def;
+      --green: #81c784;
+      --violet: #a78bfa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Segoe UI, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      background: #151820;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: #061412;
+      background: var(--teal);
+      font-weight: 800;
+    }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 18px; font-weight: 650; }
+    h2 { font-size: 14px; font-weight: 650; }
+    h3 { font-size: 13px; font-weight: 650; }
+    .subtitle { margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    a, button {
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font: inherit;
+      font-size: 13px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    a.primary, button.primary { background: var(--teal); color: #061412; border-color: var(--teal); font-weight: 650; }
+    main { padding: 20px 24px 28px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 18px; }
+    section { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; min-width: 0; overflow: hidden; }
+    .wide { grid-column: 1 / -1; }
+    .section-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .body { padding: 14px 16px; }
+    .small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .pill { border-radius: 999px; padding: 3px 8px; font-size: 11px; color: #061412; background: var(--teal); white-space: nowrap; font-weight: 700; }
+    .pill.amber { background: var(--amber); }
+    .status-dot { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+    .status-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px rgba(240,180,41,.5); }
+    .status-dot.live::before, .status-dot.ready::before, .status-dot.configured::before { background: var(--teal); box-shadow: 0 0 10px rgba(54,194,180,.55); }
+    .status-dot.review::before { background: var(--amber); }
+    .status-dot.blocked::before { background: var(--red); box-shadow: 0 0 10px rgba(224,88,88,.5); }
+    .overview-grid { display: grid; grid-template-columns: 1.3fr repeat(4, minmax(110px, .65fr)); gap: 10px; }
+    .identity-card, .metric, .compact-item, .timeline-item, .kanban-card, .readiness-item, .iq-card, .cost-card {
+      border: 1px solid var(--border);
+      background: var(--panel-3);
+      border-radius: 8px;
+      min-width: 0;
+    }
+    .identity-card { padding: 12px; display: grid; gap: 9px; }
+    .identity-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .identity-title { display: grid; gap: 4px; }
+    .identity-title b { font-size: 18px; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #d8dee9; border-radius: 999px; padding: 3px 6px; font-size: 10px; }
+    .metric { padding: 12px; min-height: 82px; }
+    .metric b { display: block; font-size: 23px; margin-bottom: 5px; overflow-wrap: anywhere; }
+    .metric span { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .starfield { background: #080b10; }
+    .starfield-wrap { position: relative; min-height: 520px; background: #080b10; }
+    .starfield-svg { width: 100%; height: 520px; display: block; }
+    .star-line { stroke: rgba(154,164,178,.24); stroke-width: 1.3; stroke-dasharray: 5 7; }
+    .star-orbit { fill: none; stroke: rgba(54,194,180,.11); stroke-width: 1; }
+    .star-node circle { stroke: rgba(255,255,255,.72); stroke-width: 1.4; filter: drop-shadow(0 0 10px rgba(54,194,180,.32)); }
+    .star-node text { fill: #f3f5f7; font: 600 11px Segoe UI, system-ui, sans-serif; paint-order: stroke; stroke: rgba(8,11,16,.82); stroke-width: 3px; stroke-linejoin: round; }
+    .star-center circle { filter: drop-shadow(0 0 18px rgba(54,194,180,.68)); }
+    .star-stats { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; flex-wrap: wrap; max-width: calc(100% - 24px); }
+    .star-stat { border: 1px solid rgba(255,255,255,.14); background: rgba(16,18,24,.82); border-radius: 8px; padding: 7px 9px; min-width: 88px; }
+    .star-stat b { display: block; font-size: 16px; }
+    .star-stat span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    .star-callouts { position: absolute; right: 12px; top: 12px; width: min(340px, calc(100% - 24px)); display: grid; gap: 8px; }
+    .callout { border: 1px solid rgba(255,255,255,.14); background: rgba(16,18,24,.82); border-radius: 8px; padding: 10px 11px; display: grid; gap: 5px; }
+    .callout b { font-size: 12px; }
+    .callout p { color: var(--muted); font-size: 11px; line-height: 1.38; }
+    .compact-list, .timeline, .readiness-list { display: grid; gap: 9px; }
+    .compact-item { padding: 10px 12px; }
+    .compact-item b { font-size: 13px; }
+    .compact-item p { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .timeline-item { border-left: 3px solid var(--blue); border-radius: 0 8px 8px 0; padding: 10px 12px; display: grid; gap: 5px; }
+    .timeline-item.tool { border-left-color: var(--amber); }
+    .timeline-item.reply { border-left-color: var(--teal); }
+    .timeline-item.voice { border-left-color: var(--violet); }
+    .timeline-top { display: grid; grid-template-columns: 68px 96px 1fr auto; gap: 9px; align-items: center; }
+    .timeline-time, .timeline-kind { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .timeline-label { font-size: 13px; overflow-wrap: anywhere; }
+    .iq-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .iq-card { border-left: 3px solid var(--teal); border-radius: 0 8px 8px 0; padding: 12px; display: grid; gap: 7px; }
+    .iq-card.foundry { border-left-color: var(--blue); }
+    .iq-card.fabric { border-left-color: var(--amber); }
+    .iq-card p { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .cost-grid { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; }
+    .cost-card { padding: 11px 12px; }
+    .cost-card b { display: block; font-size: 18px; margin-bottom: 4px; overflow-wrap: anywhere; }
+    .cost-card span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .bar-list { display: grid; gap: 8px; margin-top: 12px; }
+    .bar-row { display: grid; grid-template-columns: minmax(130px, .8fr) 1fr minmax(70px, auto); gap: 10px; align-items: center; color: var(--muted); font-size: 12px; }
+    .bar-row b { color: var(--text); font-size: 12px; }
+    .track { height: 7px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--blue)); }
+    .fill.amber { background: linear-gradient(90deg, var(--amber), var(--teal)); }
+    .fill.violet { background: linear-gradient(90deg, var(--blue), var(--violet)); }
+    .kanban-summary { display: grid; grid-template-columns: 1.2fr repeat(4, minmax(100px, .55fr)); gap: 10px; margin-bottom: 12px; }
+    .kanban-board { display: grid; grid-template-columns: repeat(5, minmax(210px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 2px; }
+    .kanban-column { border: 1px solid var(--border); background: #121720; border-radius: 8px; min-width: 210px; display: grid; grid-template-rows: auto 1fr; }
+    .kanban-head { padding: 10px 11px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .kanban-head b { display: block; font-size: 13px; }
+    .kanban-head span { display: block; color: var(--muted); font-size: 11px; line-height: 1.3; margin-top: 3px; }
+    .kanban-count { color: #061412; background: var(--teal); border-radius: 999px; padding: 2px 7px; font-size: 11px; font-weight: 700; }
+    .kanban-cards { display: grid; gap: 8px; padding: 10px; align-content: start; }
+    .kanban-card { border-left: 3px solid var(--blue); border-radius: 0 8px 8px 0; padding: 10px; display: grid; gap: 7px; }
+    .kanban-card.active { border-left-color: var(--teal); }
+    .kanban-card.waiting { border-left-color: var(--red); }
+    .kanban-card.review { border-left-color: var(--amber); }
+    .kanban-card.done { border-left-color: var(--green); }
+    .kanban-card p { color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .readiness-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .readiness-item { padding: 10px 12px; border-left: 3px solid var(--teal); border-radius: 0 8px 8px 0; display: grid; gap: 6px; }
+    .readiness-item.review { border-left-color: var(--amber); }
+    .readiness-item.blocked { border-left-color: var(--red); }
+    .readiness-item p { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--border); padding: 9px 8px; text-align: left; vertical-align: top; font-size: 12px; }
+    th { color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    td.amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    @media (max-width: 1040px) {
+      header { align-items: flex-start; flex-direction: column; }
+      main { grid-template-columns: 1fr; padding: 16px; }
+      .overview-grid, .split, .iq-grid, .cost-grid, .kanban-summary, .readiness-grid { grid-template-columns: 1fr; }
+      .timeline-top { grid-template-columns: 1fr; }
+      .starfield-wrap { min-height: 620px; }
+      .starfield-svg { height: 620px; }
+      .star-callouts { position: static; width: auto; padding: 0 12px 12px; }
+      .star-stats { position: static; padding: 12px 12px 0; }
+      .bar-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="mark">M</div>
+      <div>
+        <h1>Morgan Mission Control</h1>
+        <div class="subtitle">Static dashboard mockup - customer preview</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <a href="/mission-control">Live Dashboard</a>
+      <a href="/mission-control/costs">Cost Dashboard</a>
+      <a href="/voice" class="primary">Open Avatar</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="wide">
+      <div class="section-head"><h2>Executive Operating View</h2><span class="pill amber">mock data</span></div>
+      <div class="body">
+        <div class="overview-grid">
+          <div class="identity-card">
+            <div class="identity-row">
+              <div class="identity-title">
+                <b>Morgan</b>
+                <span class="small">Digital CFO worker for CorpGen finance operations</span>
+              </div>
+              <span class="status-dot live">09:00-17:00 workday</span>
+            </div>
+            <div class="chips">
+              <span class="chip">Agent 365 runtime</span>
+              <span class="chip">Microsoft web sign-in</span>
+              <span class="chip">Foundry IQ</span>
+              <span class="chip">Fabric IQ</span>
+              <span class="chip">Teams federation</span>
+            </div>
+          </div>
+          <div class="metric"><b>18</b><span>completed CFO tasks today</span></div>
+          <div class="metric"><b>4</b><span>in-cycle autonomous tasks</span></div>
+          <div class="metric"><b>2</b><span>items waiting on humans</span></div>
+          <div class="metric"><b>7.8x</b><span>estimated value-to-cost ratio</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wide starfield" id="betaStarfield">
+      <div class="section-head"><h2>Beta Starfield</h2><span class="status-dot live">live operating graph</span></div>
+      <div class="starfield-wrap">
+        <div class="star-stats">
+          <div class="star-stat"><b>180</b><span>nodes</span></div>
+          <div class="star-stat"><b>318</b><span>paths</span></div>
+          <div class="star-stat"><b>12</b><span>tools</span></div>
+          <div class="star-stat"><b>5</b><span>agents</span></div>
+        </div>
+        <svg class="starfield-svg" viewBox="0 0 980 520" role="img" aria-label="Morgan Mission Control operating graph mockup">
+          <circle class="star-orbit" cx="490" cy="270" r="88"></circle>
+          <circle class="star-orbit" cx="490" cy="270" r="166"></circle>
+          <circle class="star-orbit" cx="490" cy="270" r="246"></circle>
+          <line class="star-line" x1="490" y1="270" x2="205" y2="138"></line>
+          <line class="star-line" x1="490" y1="270" x2="280" y2="382"></line>
+          <line class="star-line" x1="490" y1="270" x2="745" y2="132"></line>
+          <line class="star-line" x1="490" y1="270" x2="782" y2="386"></line>
+          <line class="star-line" x1="490" y1="270" x2="478" y2="76"></line>
+          <line class="star-line" x1="490" y1="270" x2="486" y2="452"></line>
+          <line class="star-line" x1="205" y1="138" x2="478" y2="76"></line>
+          <line class="star-line" x1="745" y1="132" x2="782" y2="386"></line>
+          <g class="star-node star-center"><circle cx="490" cy="270" r="38" fill="#36c2b4"></circle><text x="490" y="274" text-anchor="middle">Morgan</text></g>
+          <g class="star-node"><circle cx="205" cy="138" r="24" fill="#5b8def"></circle><text x="205" y="174" text-anchor="middle">Plan</text></g>
+          <g class="star-node"><circle cx="280" cy="382" r="24" fill="#36c2b4"></circle><text x="280" y="419" text-anchor="middle">Execute</text></g>
+          <g class="star-node"><circle cx="745" cy="132" r="24" fill="#f0b429"></circle><text x="745" y="168" text-anchor="middle">Govern</text></g>
+          <g class="star-node"><circle cx="782" cy="386" r="24" fill="#81c784"></circle><text x="782" y="423" text-anchor="middle">Prove</text></g>
+          <g class="star-node"><circle cx="478" cy="76" r="21" fill="#a78bfa"></circle><text x="478" y="111" text-anchor="middle">Sub-agents</text></g>
+          <g class="star-node"><circle cx="486" cy="452" r="21" fill="#e05858"></circle><text x="486" y="487" text-anchor="middle">Escalate</text></g>
+          <g class="star-node"><circle cx="132" cy="286" r="15" fill="#5b8def"></circle></g>
+          <g class="star-node"><circle cx="645" cy="70" r="15" fill="#36c2b4"></circle></g>
+          <g class="star-node"><circle cx="856" cy="246" r="15" fill="#f0b429"></circle></g>
+          <g class="star-node"><circle cx="646" cy="456" r="15" fill="#81c784"></circle></g>
+        </svg>
+        <div class="star-callouts">
+          <div class="callout"><b>Current run</b><p>CorpGen workday cycle is preparing variance commentary, cash runway notes, and approval follow-ups.</p></div>
+          <div class="callout"><b>Active trace</b><p>Prompt, tool call, tool result, safe reasoning summary, artifact score, and Teams handoff are visible in Agent Mind.</p></div>
+          <div class="callout"><b>Human control</b><p>Cash, external communications, board materials, and policy-sensitive actions stop at review gates.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Today</h2><span class="status-dot ready">ready</span></div>
+      <div class="body compact-list">
+        <div class="compact-item"><b>Start CorpGen Day</b><p>Manual trigger is available for a signed-in operator, then Mission Control refreshes the work ledger.</p></div>
+        <div class="compact-item"><b>Operating cadence</b><p>Day Init, recurring execution cycles, cross-functional IQ refresh, artifact review, and day-end reflection.</p></div>
+        <div class="compact-item"><b>Next best action</b><p>Review the cash variance packet and route the one blocked approval to the CFO operator.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Job Description</h2><span class="pill">customer visible</span></div>
+      <div class="body compact-list">
+        <div class="compact-item"><b>Purpose</b><p>Operate as a governed Digital CFO worker that plans, executes, delegates, escalates, proves, and learns across daily finance work.</p></div>
+        <div class="compact-item"><b>Mandate</b><p>Own CFO-ready briefings, financial variance analysis, cash risk watchlists, board narrative drafts, and evidence-backed recommendations.</p></div>
+        <div class="compact-item"><b>Boundaries</b><p>Human approval remains required for external distribution, cash movement, journal entry execution, and policy-sensitive actions.</p></div>
+      </div>
+    </section>
+
+    <section class="wide" id="agentMind">
+      <div class="section-head"><h2>Agent Mind</h2><span class="status-dot live">observable trace</span></div>
+      <div class="body timeline">
+        <div class="timeline-item"><div class="timeline-top"><span class="timeline-time">09:04</span><span class="timeline-kind">prompt</span><span class="timeline-label">Build the morning CFO operating plan for CorpGen.</span><span class="chip">safe preview</span></div><p class="small">The live surface shows previews and summaries, not hidden chain-of-thought.</p></div>
+        <div class="timeline-item tool"><div class="timeline-top"><span class="timeline-time">09:06</span><span class="timeline-kind">tool</span><span class="timeline-label">getLatestPnL, synthesizeMicrosoftIQBriefing, getAutonomousKanbanBoard</span><span class="chip">3 calls</span></div><p class="small">Tool evidence becomes part of the CFO work record.</p></div>
+        <div class="timeline-item reply"><div class="timeline-top"><span class="timeline-time">09:08</span><span class="timeline-kind">reply</span><span class="timeline-label">Morning briefing drafted with variance, cash, and owner action items.</span><span class="chip">artifact score 91</span></div><p class="small">Morgan records the summary, evidence, confidence, and follow-up action.</p></div>
+        <div class="timeline-item voice"><div class="timeline-top"><span class="timeline-time">09:12</span><span class="timeline-kind">teams</span><span class="timeline-label">CFO operator callback queued through ACS-to-Teams bridge.</span><span class="chip">human review</span></div><p class="small">Escalations are visible beside task state and audit events.</p></div>
+      </div>
+    </section>
+
+    <section class="wide" id="microsoftIQ">
+      <div class="section-head"><h2>Microsoft IQ Command Layer</h2><span class="status-dot configured">working demo</span></div>
+      <div class="body">
+        <div class="iq-grid">
+          <div class="iq-card"><span class="status-dot live">WorkIQ</span><h3>Microsoft 365 work graph</h3><p>Finance meetings, approval threads, owner signals, and blocked work become CFO context.</p></div>
+          <div class="iq-card foundry"><span class="status-dot live">Foundry IQ</span><h3>Models, traces, evals</h3><p>Prompt quality, tool selection, grounding, and artifact scoring show how Morgan improves safely.</p></div>
+          <div class="iq-card fabric"><span class="status-dot review">Fabric IQ</span><h3>Semantic financial model</h3><p>Revenue, gross margin, EBITDA, runway, pipeline coverage, NRR, and cost signals drive the briefing.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wide" id="costOfMorgan">
+      <div class="section-head"><h2>Cost of Morgan</h2><span class="status-dot ready">showback</span></div>
+      <div class="body">
+        <div class="cost-grid">
+          <div class="cost-card"><b>$41.80</b><span>daily run-rate</span></div>
+          <div class="cost-card"><b>$292.60</b><span>weekly run-rate</span></div>
+          <div class="cost-card"><b>38%</b><span>avatar and Teams share</span></div>
+          <div class="cost-card"><b>7.8x</b><span>value to cost</span></div>
+          <div class="cost-card"><b>$186</b><span>Azure actual week</span></div>
+        </div>
+        <div class="bar-list">
+          <div class="bar-row"><b>Voice and Teams presence</b><div class="track"><div class="fill amber" style="width:38%"></div></div><span>$111.19</span></div>
+          <div class="bar-row"><b>Foundry and AI turns</b><div class="track"><div class="fill violet" style="width:24%"></div></div><span>$70.22</span></div>
+          <div class="bar-row"><b>Compute and storage</b><div class="track"><div class="fill" style="width:21%"></div></div><span>$61.45</span></div>
+          <div class="bar-row"><b>Graph, MCP, and tools</b><div class="track"><div class="fill" style="width:11%"></div></div><span>$32.18</span></div>
+          <div class="bar-row"><b>Observability</b><div class="track"><div class="fill violet" style="width:6%"></div></div><span>$17.56</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wide" id="autonomousKanban">
+      <div class="section-head"><h2>D-CFO Kanban</h2><span class="status-dot live">proof of work</span></div>
+      <div class="body">
+        <div class="kanban-summary">
+          <div class="metric"><b>Cash variance approval</b><span>next best action</span></div>
+          <div class="metric"><b>22</b><span>total cards</span></div>
+          <div class="metric"><b>4</b><span>active</span></div>
+          <div class="metric"><b>2</b><span>waiting</span></div>
+          <div class="metric"><b>9</b><span>done today</span></div>
+        </div>
+        <div class="kanban-board">
+          <div class="kanban-column"><div class="kanban-head"><div><b>Queue</b><span>ranked CFO work</span></div><span class="kanban-count">5</span></div><div class="kanban-cards"><div class="kanban-card"><h3>Refresh revenue outlook</h3><p>Pull latest pipeline coverage and renewal risk.</p><div class="chips"><span class="chip">FP&A</span><span class="chip">Fabric IQ</span></div></div></div></div>
+          <div class="kanban-column"><div class="kanban-head"><div><b>In Cycle</b><span>running now</span></div><span class="kanban-count">4</span></div><div class="kanban-cards"><div class="kanban-card active"><h3>Draft CFO briefing</h3><p>Variance, runway, margin, and action owners.</p><div class="chips"><span class="chip">Foundry IQ</span><span class="chip">artifact</span></div></div></div></div>
+          <div class="kanban-column"><div class="kanban-head"><div><b>Waiting</b><span>human input</span></div><span class="kanban-count">2</span></div><div class="kanban-cards"><div class="kanban-card waiting"><h3>Cash approval</h3><p>Needs CFO sign-off before external message.</p><div class="chips"><span class="chip">approval</span><span class="chip">Teams</span></div></div></div></div>
+          <div class="kanban-column"><div class="kanban-head"><div><b>Proof</b><span>review gate</span></div><span class="kanban-count">2</span></div><div class="kanban-cards"><div class="kanban-card review"><h3>Board narrative</h3><p>Evidence check and artifact score pending.</p><div class="chips"><span class="chip">score 88</span><span class="chip">review</span></div></div></div></div>
+          <div class="kanban-column"><div class="kanban-head"><div><b>Done Today</b><span>audited output</span></div><span class="kanban-count">9</span></div><div class="kanban-cards"><div class="kanban-card done"><h3>Morning P&L</h3><p>Gross margin, EBITDA, cash, and tax view logged.</p><div class="chips"><span class="chip">complete</span><span class="chip">audit</span></div></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wide">
+      <div class="section-head"><h2>Enterprise Readiness</h2><span class="status-dot review">pilot boundary</span></div>
+      <div class="body readiness-grid">
+        <div class="readiness-list">
+          <div class="readiness-item"><span class="status-dot ready">ready</span><h3>Agent 365 runtime</h3><p>Teams, A2A, hosted-agent Responses protocol, and route-level controls are wired.</p></div>
+          <div class="readiness-item"><span class="status-dot configured">configured</span><h3>Application Insights</h3><p>Audit and Agent Mind events can be exported for operational inspection.</p></div>
+          <div class="readiness-item review"><span class="status-dot review">partial</span><h3>Durable ledger</h3><p>Mission records persist for showcase use; enterprise pilots should use tenant-backed storage and retention policy.</p></div>
+        </div>
+        <div class="readiness-list">
+          <div class="readiness-item"><span class="status-dot ready">ready</span><h3>Avatar presence</h3><p>Browser avatar and ACS Teams audio bridge provide human-facing CFO interaction.</p></div>
+          <div class="readiness-item review"><span class="status-dot review">cutover</span><h3>Microsoft IQ data</h3><p>Deterministic adapters keep demos stable until Graph, Foundry, and Fabric tenant connections are approved.</p></div>
+          <div class="readiness-item blocked"><span class="status-dot blocked">approval</span><h3>Action authority</h3><p>Cash, journal, external, and board actions remain blocked until policy grants bounded authority.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wide">
+      <div class="section-head"><h2>Expected Screens</h2><span class="pill">preview set</span></div>
+      <div class="body">
+        <table>
+          <thead><tr><th>Surface</th><th>What reviewers see</th><th>Proof signal</th></tr></thead>
+          <tbody>
+            <tr><td>Mission Control</td><td>Identity, workday counters, Beta Starfield, Agent Mind, Microsoft IQ, Kanban, cost, readiness.</td><td>One customer-facing operating cockpit.</td></tr>
+            <tr><td>Cost Dashboard</td><td>Azure actuals, showback estimates, run-rate, usage drivers, cost controls.</td><td>Transparent cost-to-value model.</td></tr>
+            <tr><td>Avatar</td><td>Human-facing Morgan presence with chat, voice, quick prompts, and Mission Control link.</td><td>Visible employee-style interaction.</td></tr>
+            <tr><td>Admin/Governance</td><td>Agent registration, tool policy, observability, audit export, and enterprise readiness status.</td><td>Governed digital worker boundary.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

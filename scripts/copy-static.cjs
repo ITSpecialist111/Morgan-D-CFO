@@ -6,6 +6,7 @@ const projectRoot = path.resolve(__dirname, '..');
 const files = [
   ['src/voice/voice.html', 'dist/voice/voice.html'],
   ['src/mission/mission-control.html', 'dist/mission/mission-control.html'],
+  ['src/mission/mission-control-mockup.html', 'dist/mission/mission-control-mockup.html'],
   ['src/mission/cost-dashboard.html', 'dist/mission/cost-dashboard.html'],
 ];
 

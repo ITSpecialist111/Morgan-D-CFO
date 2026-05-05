@@ -189,6 +189,9 @@ server.use(['/api/mission-control', '/api/observability', '/api/audit/events'], 
 server.get('/mission-control', (_req, res: Response) => {
   res.sendFile(path.join(__dirname, 'mission', 'mission-control.html'));
 });
+server.get('/mission-control/mockup', (_req, res: Response) => {
+  res.sendFile(path.join(__dirname, 'mission', 'mission-control-mockup.html'));
+});
 server.get('/mission-control/costs', (_req, res: Response) => {
   res.sendFile(path.join(__dirname, 'mission', 'cost-dashboard.html'));
 });
@@ -446,6 +449,7 @@ server.use((req, res, next) => {
     '/voice',
     '/avatar',
     '/mission-control',
+    '/mission-control/mockup',
     '/mission-control/costs',
     '/api/scheduled',
     '/api/scheduled/end-of-day',
