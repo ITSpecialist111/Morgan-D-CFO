@@ -38,7 +38,10 @@ The benefit of Morgan is not that she can chat about finance. The benefit is tha
 | Better governance | Tool calls, prompt previews, safe reasoning summaries, controls, and evidence are inspectable | Agent Mind, Enterprise Readiness, audit events, EasyAuth-protected operator routes |
 | Better output quality | CFO artifacts are scored for purpose, evidence, actionability, governance, and readiness before delivery | Artifact Judge, Foundry IQ evaluation posture, proof/review Kanban lane |
 | Clear Microsoft platform value | Morgan needs the whole Microsoft stack working together, not a single isolated model endpoint | Teams, Graph/MCP, Agent 365, Foundry, Fabric/Power BI, Azure App Service, App Insights, ACS, Voice Live |
+
 For the fuller operating model, see [docs/corpgen-operating-model.md](docs/corpgen-operating-model.md).
+
+For the next enterprise capability roadmap, including effort, value, and ROI scoring, see [docs/morgan-enterprise-roadmap.md](docs/morgan-enterprise-roadmap.md).
 
 ## CorpGen Operating Loop
 
