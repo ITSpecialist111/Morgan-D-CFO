@@ -119,6 +119,22 @@
     .cost-card { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 11px 12px; min-width: 0; }
     .cost-card b { display: block; font-size: 18px; margin-bottom: 4px; }
     .cost-card span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .cost-body { display: grid; grid-template-columns: 1.2fr .8fr; gap: 10px; margin-top: 12px; }
+    .cost-bars { display: grid; gap: 8px; }
+    .cost-bar-row { display: grid; grid-template-columns: minmax(130px, .85fr) 1fr minmax(72px, auto); gap: 10px; align-items: center; color: var(--muted); font-size: 12px; }
+    .cost-bar-row b { color: var(--text); font-size: 12px; }
+    .cost-track { height: 7px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .cost-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--blue)); }
+    .cost-fill.tools { background: linear-gradient(90deg, var(--amber), var(--teal)); }
+    .cost-fill.voice { background: linear-gradient(90deg, #a78bfa, var(--blue)); }
+    .cost-fill.infra { background: linear-gradient(90deg, var(--blue), #6ea8fe); }
+    .roi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+    .roi-card { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 14px; text-align: center; }
+    .roi-card b { display: block; font-size: 22px; margin-bottom: 4px; }
+    .roi-card span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .roi-card .delta { font-size: 11px; margin-top: 4px; }
+    .roi-card .delta.positive { color: #34d399; }
+    .roi-card .delta.negative { color: #f87171; }
 
     /* Mindmap */
     .mindmap-section { overflow: hidden; order: -1; }
@@ -206,6 +222,11 @@
     .alignment.blue { border-left-color: var(--blue); }
     .alignment b { font-size: 13px; }
     .alignment .small strong { color: var(--text); }
+    @media (max-width: 800px) {
+      .cost-summary, .roi-grid { grid-template-columns: repeat(2, 1fr); }
+      .cost-body { grid-template-columns: 1fr; }
+      .cost-bar-row { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -224,6 +245,7 @@
       <a href="#ecifIQ">ECIF IQ</a>
       <a href="#capabilities">Capabilities</a>
       <a href="#evidenceHealth">Evidence</a>
+      <a href="#ecifCost">Cost</a>
       <a href="#ecifValue">Value</a>
       <a class="primary" href="#betaStarfield">Open Avatar</a>
     </div>
@@ -369,16 +391,70 @@
       <div class="body" id="evidenceHealthBody"></div>
     </section>
 
-    <!-- Value Model -->
+    <!-- Cost of Morgan -->
+    <section class="wide" id="ecifCost">
+      <div class="section-head"><h2>Cost of Morgan</h2><span class="pill" style="background:rgba(52,211,153,.15);color:#34d399">azure actuals</span></div>
+      <div class="body">
+        <div class="cost-summary">
+          <div class="cost-card"><b>$4.82</b><span>Daily Run-Rate</span></div>
+          <div class="cost-card"><b>$33.74</b><span>Weekly Run-Rate</span></div>
+          <div class="cost-card"><b>12%</b><span>Voice/Avatar Share</span></div>
+          <div class="cost-card"><b>48.6x</b><span>Value to Cost</span></div>
+          <div class="cost-card"><b>$31.20</b><span>Azure Actual / Week</span></div>
+        </div>
+        <div class="cost-body">
+          <div class="cost-bars">
+            <div class="cost-bar-row"><b>Azure OpenAI (GPT-5)</b><div class="cost-track"><div class="cost-fill" style="width:100%"></div></div><span>$18.40/wk</span></div>
+            <div class="cost-bar-row"><b>MCP Tool Calls (Graph)</b><div class="cost-track"><div class="cost-fill tools" style="width:38%"></div></div><span>$6.95/wk</span></div>
+            <div class="cost-bar-row"><b>Voice Live + Avatar</b><div class="cost-track"><div class="cost-fill voice" style="width:22%"></div></div><span>$4.05/wk</span></div>
+            <div class="cost-bar-row"><b>Foundry Hosting</b><div class="cost-track"><div class="cost-fill infra" style="width:16%"></div></div><span>$2.90/wk</span></div>
+            <div class="cost-bar-row"><b>Cosmos DB (State)</b><div class="cost-track"><div class="cost-fill infra" style="width:5%"></div></div><span>$0.92/wk</span></div>
+            <div class="cost-bar-row"><b>App Insights + Logs</b><div class="cost-track"><div class="cost-fill infra" style="width:3%"></div></div><span>$0.52/wk</span></div>
+          </div>
+          <div class="compact-list">
+            <div class="compact-item"><span class="status-dot" style="background:#34d399">Cost Management connected</span><p><b>Weekly value:</b> $1,640 from 13.7 estimated hours saved across 14 active cases.</p></div>
+            <div class="compact-item"><p><b>Realtime avatar:</b> $4.05 this week, currently 12% of Morgan's run-rate. Voice engagement: 3 sponsor calls, 1 partner walkthrough.</p></div>
+            <div class="compact-item"><p><b>Cost per case:</b> $0.42 avg across lifecycle. Peak cost at Stage 3 (nomination pack assembly, GPT-5 reasoning loops). Minimal cost at Stage 1 (vehicle recommendation = single tool call).</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ECIF Value & ROI -->
     <section class="wide" id="ecifValue">
       <div class="section-head"><h2>ECIF Director Value</h2><span class="pill">autonomous ROI</span></div>
       <div class="body">
         <div class="cost-summary">
           <div class="cost-card"><b>$2.4M</b><span>ECIF Approved</span></div>
           <div class="cost-card"><b>$6.1M</b><span>ACR Forecast</span></div>
-          <div class="cost-card"><b>2.54:1</b><span>Avg ROI</span></div>
+          <div class="cost-card"><b>2.54:1</b><span>Avg Case ROI</span></div>
           <div class="cost-card"><b>12h → 55min</b><span>Avg Case Cycle</span></div>
           <div class="cost-card"><b>$0.42</b><span>Agent Cost/Case</span></div>
+        </div>
+        <div class="roi-grid">
+          <div class="roi-card"><b>$85,280</b><span>Risk-Adjusted Annual Value</span><div class="delta positive">+$71,520 net of agent cost</div></div>
+          <div class="roi-card"><b>2w</b><span>Fastest Time to Value</span><div class="delta positive">Vehicle recommendation in &lt;5 min</div></div>
+          <div class="roi-card"><b>$0</b><span>Forfeited Claims</span><div class="delta positive">0 missed POE deadlines</div></div>
+          <div class="roi-card"><b>714 hrs</b><span>Hours Saved Annually</span><div class="delta positive">51 cases × 12h → 55min each</div></div>
+        </div>
+        <div class="cost-body" style="margin-top:12px">
+          <div class="compact-list">
+            <div class="compact-item"><b>Value Model Breakdown</b>
+              <p><b>Manual effort eliminated:</b> 12h/case × 51 cases/yr = 612h → now 46.75h = 565h saved @ $150/hr blended = $84,750</p>
+              <p><b>Forfeited claim prevention:</b> 3–5 cases/yr at risk × $180K avg = $540K–$900K protected</p>
+              <p><b>Approval acceleration:</b> 14–24 weeks → 10–18 weeks (25% faster dollar realisation)</p>
+              <p><b>Evidence quality:</b> continuous capture vs deadline crunch = 95% pack completeness at T-7</p>
+            </div>
+            <div class="compact-list">
+              <div class="compact-item"><b>Agent Cost Breakdown (Annual)</b>
+                <p><b>Azure OpenAI (GPT-5):</b> $956.80 — ReAct reasoning, narrative generation, IQ synthesis</p>
+                <p><b>MCP + Graph API:</b> $361.40 — M365 tool calls (mail, Teams, SharePoint, Calendar)</p>
+                <p><b>Voice Live + Avatar:</b> $210.60 — sponsor calls, partner walkthroughs, attestation guidance</p>
+                <p><b>Foundry + Infra:</b> $225.68 — hosting, Cosmos DB state, App Insights, Log Analytics</p>
+                <p><b>Total annual cost:</b> $1,754.48 — delivering $85K+ in value = <b>48.6x return</b></p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
