@@ -185,6 +185,7 @@
     }
     #mindmapCanvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
     #mindmapCanvas.is-dragging { cursor: grabbing; }
+    #mindmapCanvas:focus-visible { outline: 2px solid var(--teal); outline-offset: -4px; }
     .mindmap-controls {
       position: absolute; top: 12px; right: 12px;
       display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
@@ -240,6 +241,28 @@
       border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06);
       border-radius: 999px; color: #d8dee9; font-size: 10px; padding: 4px 7px;
     }
+    .mindmap-activity {
+      position: absolute; right: 12px; top: 58px;
+      width: min(320px, calc(100% - 24px));
+      border: 1px solid rgba(255,255,255,0.14); background: rgba(16, 18, 24, 0.78);
+      backdrop-filter: blur(12px); border-radius: 8px; padding: 11px; z-index: 3;
+      display: grid; gap: 8px;
+    }
+    .mindmap-activity-title { display: flex; justify-content: space-between; gap: 10px; color: var(--text); font-size: 12px; font-weight: 650; }
+    .activity-row { display: grid; grid-template-columns: 70px 1fr; gap: 8px; align-items: center; color: var(--muted); font-size: 11px; }
+    .activity-row b { color: var(--text); font-size: 11px; }
+    .activity-track { height: 5px; border-radius: 999px; background: rgba(255,255,255,0.09); overflow: hidden; }
+    .activity-fill { height: 100%; width: 50%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--blue)); box-shadow: 0 0 16px rgba(54,194,180,.55); }
+    .live-trace { display: grid; gap: 7px; max-height: 310px; overflow: auto; }
+    .live-trace-row { border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.045); border-radius: 8px; padding: 8px; display: grid; gap: 4px; }
+    .live-trace-row b { color: var(--text); font-size: 11px; }
+    .live-trace-row span { color: var(--teal); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    .live-trace-row p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.38; }
+    .live-trace-row.prompt { border-left: 3px solid var(--blue); }
+    .live-trace-row.reasoning { border-left: 3px solid var(--amber); }
+    .live-trace-row.response { border-left: 3px solid var(--teal); }
+    .live-trace-row.tool { border-left: 3px solid #7dd3fc; }
+    .live-trace-row.voice, .live-trace-row.teams { border-left: 3px solid #a78bfa; }
     [hidden] { display: none !important; }
 
     /* Evidence health bars */
@@ -365,31 +388,38 @@
 
     <!-- Beta Starfield — full width -->
     <section class="wide mindmap-section" id="betaStarfield">
-      <div class="section-head"><h2>ECIF Director Starfield</h2><span class="pill">enterprise operating graph</span></div>
+      <div class="section-head"><h2>Beta Starfield</h2><span class="pill">Aria-style enterprise mode</span></div>
       <div class="mindmap-shell">
         <canvas id="mindmapCanvas" tabindex="0" aria-label="Interactive Morgan ECIF Director starfield"></canvas>
-        <div class="mindmap-controls" id="mindmapControls">
+        <div class="mindmap-controls" id="mindmapControls" aria-label="Beta Starfield modes">
           <button type="button" data-mode="all" class="active">All</button>
           <button type="button" data-mode="lifecycle">Lifecycle</button>
           <button type="button" data-mode="tools">Tools</button>
           <button type="button" data-mode="governance">Governance</button>
           <button type="button" data-mode="evidence">Evidence</button>
           <button type="button" data-mode="stakeholder">Stakeholders</button>
+          <button type="button" data-mode="live">Live Run</button>
         </div>
         <div class="mindmap-stats">
           <div class="mindmap-stat"><b id="mindNodes">0</b><span>nodes</span></div>
           <div class="mindmap-stat"><b id="mindTools">0</b><span>tools</span></div>
           <div class="mindmap-stat"><b id="mindAgents">0</b><span>agents</span></div>
           <div class="mindmap-stat"><b id="mindCases">14</b><span>cases</span></div>
+          <div class="mindmap-stat"><b id="mindEvents">0</b><span>audit</span></div>
         </div>
+        <div class="mindmap-activity" id="mindmapActivity"></div>
         <div class="mindmap-legend" id="mindmapLegend"></div>
-        <div class="mindmap-viewport-tools">
-          <button id="mindZoomOut">−</button>
+        <div class="mindmap-viewport-tools" aria-label="Beta Starfield camera controls">
+          <button type="button" id="mindZoomOut" title="Zoom out" aria-label="Zoom out">-</button>
           <span class="readout" id="mindZoomReadout">91%</span>
-          <button id="mindZoomIn">+</button>
-          <button id="mindZoomReset">0</button>
+          <button type="button" id="mindZoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+          <button type="button" id="mindZoomReset" title="Reset camera" aria-label="Reset camera">0</button>
         </div>
-        <div class="mindmap-detail" id="mindmapDetail" hidden></div>
+        <div class="mindmap-detail" id="mindmapDetail">
+          <div class="type">ECIF Director starfield</div>
+          <h3>Click a node</h3>
+          <p>Aria-style starfield view of Morgan's ECIF lifecycle, tools, sub-agents, governance gates, evidence chain, and stakeholder engagement.</p>
+        </div>
       </div>
     </section>
 
