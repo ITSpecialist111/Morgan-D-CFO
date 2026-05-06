@@ -52,12 +52,12 @@
     section { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; min-width: 0; }
     .section-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
     h2 { margin: 0; font-size: 14px; font-weight: 650; }
-    .body { padding: 14px 16px; }
+    .body { padding: 14px 16px; position: relative; }
     .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
     .metric { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-height: 70px; }
     .metric b { display: block; font-size: 22px; margin-bottom: 4px; }
     .metric span { color: var(--muted); font-size: 12px; }
-    .workday-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .workday-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; position: relative; }
     .workday-actions button[disabled] { opacity: .55; cursor: not-allowed; }
     .workday-result { margin-top: 10px; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.45; }
@@ -438,15 +438,31 @@
       .mindmap-detail { left: 12px; right: 12px; width: auto; bottom: 58px; }
       .mindmap-viewport-tools { right: 12px; bottom: 12px; }
     }
+    .tutorial-hint-anchor { position: relative; }
     .tutorial-hint {
-      background: rgba(54, 194, 180, 0.08);
+      position: absolute;
+      z-index: 900;
+      top: 8px;
+      left: 12px;
+      right: 12px;
+      max-width: 520px;
+      background: rgba(18, 24, 38, 0.95);
+      border: 1px solid var(--teal);
       border-left: 3px solid var(--teal);
-      border-radius: 6px;
-      padding: 10px 14px;
-      margin-bottom: 12px;
+      border-radius: 8px;
+      padding: 12px 36px 12px 14px;
       font-size: 13px;
       line-height: 1.5;
       color: var(--muted);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      backdrop-filter: blur(8px);
+      animation: hintFadeIn 0.3s ease;
+      cursor: default;
+    }
+    .tutorial-hint.hint-top {
+      position: relative;
+      top: 0;
+      margin-bottom: 8px;
     }
     .tutorial-hint b {
       color: var(--teal);
@@ -455,6 +471,25 @@
     .tutorial-hint .hint-action {
       color: var(--text);
       font-weight: 500;
+    }
+    .tutorial-hint .hint-close {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+    .tutorial-hint .hint-close:hover { opacity: 1; color: var(--teal); }
+    @keyframes hintFadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
@@ -480,7 +515,7 @@
     </div>
   </header>
   <main id="appMain">
-    <div class="tutorial-hint"><b>Welcome to Morgan's Mission Control</b> — This is the live operating dashboard for Morgan, an autonomous AI agent that manages the entire ECIF investment fund lifecycle. Scroll down to explore, or jump to the <b>Beta Starfield</b> below to see Morgan's operating contract visualised as an interactive constellation.</div>
+    <div class="tutorial-hint hint-top"><button class="hint-close" onclick="this.parentElement.remove()">&times;</button><b>Welcome to Morgan's Mission Control</b> — This is the live operating dashboard for Morgan, an autonomous AI agent that manages the entire ECIF investment fund lifecycle. Scroll down to explore, or jump to the <b>Beta Starfield</b> below to see Morgan's operating contract visualised as an interactive constellation.</div>
     <section>
       <div class="section-head"><h2>Today</h2><span class="small" id="date"></span></div>
       <div class="body">
@@ -490,7 +525,7 @@
           <div class="metric"><b id="blocked">0</b><span>blocked</span></div>
         </div>
         <div class="workday-actions">
-          <div class="tutorial-hint"><b>Try it:</b> Click <span class="hint-action">Start CorpGen Day</span> to watch Morgan run her daily case monitor — checking all 14 open cases, chasing stuck approvals, scanning for evidence, and running deadline pre-flights. A CorpGen Day is Morgan's autonomous work cycle: she plans, executes, and reports — like a human employee's workday, but completed in seconds.</div>
+          <div class="tutorial-hint"><button class="hint-close" onclick="this.parentElement.remove()">&times;</button><b>Try it:</b> Click <span class="hint-action">Start CorpGen Day</span> to watch Morgan run her daily case monitor — checking all 14 open cases, chasing stuck approvals, scanning for evidence, and running deadline pre-flights. A CorpGen Day is Morgan's autonomous work cycle: she plans, executes, and reports — like a human employee's workday, but completed in seconds.</div>
           <button class="primary" id="startCorpGenDay" type="button">Start CorpGen Day</button>
         </div>
         <div class="call-result workday-result" id="corpgenDayResult">Ready to start Morgan's ECIF Director daily case monitor.</div>
@@ -511,7 +546,7 @@
     <section class="wide" id="costOfMorgan">
       <div class="section-head"><h2>Cost of Morgan</h2><span class="status-dot partial" id="costBadge">loading</span></div>
       <div class="body">
-        <div class="tutorial-hint"><b>Cost of Morgan</b> — Morgan runs at $2.84/day, replacing 12+ hours of manual case management per case. The 86x value-to-cost ratio means every dollar spent on Morgan returns $86 in time savings and protected investment claims.</div>
+        <div class="tutorial-hint"><button class="hint-close" onclick="this.parentElement.remove()">&times;</button><b>Cost of Morgan</b> — Morgan runs at $2.84/day, replacing 12+ hours of manual case management per case. The 86x value-to-cost ratio means every dollar spent on Morgan returns $86 in time savings and protected investment claims.</div>
         <div class="cost-summary">
           <div class="cost-card"><b id="costDaily">$0</b><span>daily run-rate</span></div>
           <div class="cost-card"><b id="costWeekly">$0</b><span>weekly run-rate</span></div>
@@ -528,7 +563,7 @@
     <section class="wide" id="ecifImpactGraph">
       <div class="section-head"><h2>ECIF Value ROI Graph</h2><span class="status-dot live" id="roiBadge">research model</span></div>
       <div class="body">
-        <div class="tutorial-hint"><b>ECIF Value ROI</b> — Click any workstream bubble to see the breakdown: hours saved, time to value, payback period, and what Morgan does vs. the current manual process.</div>
+        <div class="tutorial-hint"><button class="hint-close" onclick="this.parentElement.remove()">&times;</button><b>ECIF Value ROI</b> — Click any workstream bubble to see the breakdown: hours saved, time to value, payback period, and what Morgan does vs. the current manual process.</div>
         <div class="roi-summary">
           <div class="roi-card"><b id="roiAnnualValue">$0</b><span>risk-adjusted annual value</span></div>
           <div class="roi-card"><b id="roiHoursSaved">0h</b><span>monthly ECIF hours saved</span></div>
@@ -549,7 +584,7 @@
     <section class="wide mindmap-section" id="betaStarfield">
       <div class="section-head"><h2>Beta Starfield</h2><span class="pill">Aria-style enterprise mode</span></div>
       <div class="mindmap-shell">
-        <div class="tutorial-hint"><b>Beta Starfield</b> — This interactive constellation maps Morgan's entire operating contract: every tool, sub-agent, governance gate, evidence chain, and stakeholder relationship rendered as connected nodes. Click any node for details. Use the mode buttons below to filter by lifecycle stage, tools, governance, evidence, or stakeholders. <span class="hint-action">Click "Live Run"</span> then scroll up and <span class="hint-action">Start CorpGen Day</span> to watch the starfield light up in real-time as Morgan works.</div>
+        <div class="tutorial-hint"><button class="hint-close" onclick="this.parentElement.remove()">&times;</button><b>Beta Starfield</b> — This interactive constellation maps Morgan's entire operating contract: every tool, sub-agent, governance gate, evidence chain, and stakeholder relationship rendered as connected nodes. Click any node for details. Use the mode buttons below to filter by lifecycle stage, tools, governance, evidence, or stakeholders. <span class="hint-action">Click "Live Run"</span> then scroll up and <span class="hint-action">Start CorpGen Day</span> to watch the starfield light up in real-time as Morgan works.</div>
         <canvas id="mindmapCanvas" tabindex="0" aria-label="Interactive Morgan ECIF Director beta starfield"></canvas>
         <div class="mindmap-controls" id="mindmapControls" aria-label="Beta Starfield modes">
           <button type="button" data-mode="all" class="active">All</button>
@@ -586,7 +621,7 @@
     <section class="wide" id="agentMind">
       <div class="section-head"><h2>Agent Mind: Tool Calling</h2><span class="status-dot partial" id="agentMindBadge">waiting</span></div>
       <div class="body">
-        <div class="tutorial-hint"><b>Agent Mind</b> shows Morgan's internal reasoning in real-time — every LLM turn, tool call, MCP invocation, and Graph API call as it happens. Filter by event type to focus on what matters. When a CorpGen Day is running, you'll see the full chain of autonomous decisions here.</div>
+        <div class="tutorial-hint"><button class="hint-close" onclick="this.parentElement.remove()">&times;</button><b>Agent Mind</b> shows Morgan's internal reasoning in real-time — every LLM turn, tool call, MCP invocation, and Graph API call as it happens. Filter by event type to focus on what matters. When a CorpGen Day is running, you'll see the full chain of autonomous decisions here.</div>
         <div class="agent-mind">
           <div class="agent-mind-summary">
             <div class="agent-mind-stat"><b id="agentEventTotal">0</b><span>events</span></div>
@@ -690,7 +725,7 @@
     <section class="wide" id="autonomousKanban">
       <div class="section-head"><h2>ECIF Case Kanban</h2><span class="pill">ECIF case board</span></div>
       <div class="body">
-        <div class="tutorial-hint"><b>ECIF Case Kanban</b> — Morgan's 7-stage case pipeline. Each card is a real ECIF investment case moving through Intake, Vehicle, Nominate, Approve, Execute, POE, Close. Morgan autonomously advances cases, chases approvals, collects evidence, and closes out payments.</div>
+        <div class="tutorial-hint"><button class="hint-close" onclick="this.parentElement.remove()">&times;</button><b>ECIF Case Kanban</b> — Morgan's 7-stage case pipeline. Each card is a real ECIF investment case moving through Intake, Vehicle, Nominate, Approve, Execute, POE, Close. Morgan autonomously advances cases, chases approvals, collects evidence, and closes out payments.</div>
         <div class="kanban-summary" id="kanbanSummary"></div>
         <div class="kanban-board" id="kanbanBoard" aria-label="Morgan ECIF Director case Kanban board"></div>
       </div>
