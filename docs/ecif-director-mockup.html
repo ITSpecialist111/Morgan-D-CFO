@@ -136,6 +136,39 @@
     .roi-card .delta.positive { color: #34d399; }
     .roi-card .delta.negative { color: #f87171; }
 
+    /* Agent Mind */
+    .event-stream { max-height: 340px; overflow-y: auto; display: grid; gap: 6px; }
+    .event-row { display: grid; grid-template-columns: 70px 90px 1fr auto; gap: 8px; align-items: center; font-size: 11px; padding: 6px 8px; background: rgba(255,255,255,.03); border-radius: 6px; border-left: 3px solid var(--border); }
+    .event-row.tool-call { border-left-color: var(--teal); }
+    .event-row.mcp { border-left-color: var(--blue); }
+    .event-row.llm { border-left-color: #a78bfa; }
+    .event-row.message { border-left-color: #f6ad55; }
+    .event-row.hitl { border-left-color: var(--amber); }
+    .event-time { color: var(--muted); font-family: monospace; }
+    .event-kind { font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 10px; }
+    .event-label { color: var(--text); }
+    .event-meta { color: var(--muted); font-size: 10px; }
+    .event-stats { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+    .event-stat { font-size: 11px; color: var(--muted); }
+    .event-stat b { color: var(--text); margin-right: 4px; }
+
+    /* Teams Call */
+    .call-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+    .call-stat { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 10px 12px; }
+    .call-stat b { display: block; font-size: 15px; margin-bottom: 2px; }
+    .call-stat span { color: var(--muted); font-size: 11px; }
+    .call-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .call-form label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+    .call-form input, .call-form textarea { width: 100%; background: #0d1117; border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 7px 10px; font-size: 12px; font-family: inherit; }
+    .call-form textarea { grid-column: 1 / -1; min-height: 50px; resize: vertical; }
+    .call-form .primary { grid-column: 1 / -1; justify-self: start; }
+
+    /* Cadence */
+    .cadence-row { display: grid; grid-template-columns: 80px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 12px; }
+    .cadence-row:last-child { border-bottom: none; }
+    .cadence-time { font-family: monospace; color: var(--teal); font-size: 11px; }
+    .cadence-output { color: var(--muted); font-size: 11px; }
+
     /* Mindmap */
     .mindmap-section { overflow: hidden; order: -1; }
     .mindmap-shell {
@@ -247,6 +280,8 @@
       <a href="#evidenceHealth">Evidence</a>
       <a href="#ecifCost">Cost</a>
       <a href="#ecifValue">Value</a>
+      <a href="#agentMind">Agent Mind</a>
+      <a href="#teamsCall">Teams Call</a>
       <a class="primary" href="#betaStarfield">Open Avatar</a>
     </div>
   </header>
@@ -485,6 +520,138 @@
           <div class="compact-item" style="border-left:3px solid var(--amber);border-radius:0 8px 8px 0"><b>L3 — $180K ECIF Nomination for Contoso</b><p>Awaiting sponsor approval · Vehicle: ECIF · Workload: Azure AI · Submitted 2h ago</p></div>
           <div class="compact-item" style="border-left:3px solid var(--amber);border-radius:0 8px 8px 0"><b>L2 — Partner attestation request to Fabrikam</b><p>Email to partner contact requesting SOW attestation · Case: CASE-2026-009</p></div>
           <div class="compact-item" style="border-left:3px solid var(--blue);border-radius:0 8px 8px 0"><b>L1 — Weekly digest email to sponsor</b><p>Portfolio summary for Week 19 · Auto-approved via trust ramp (day 34)</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Agent Mind: Tool Calling -->
+    <section class="wide" id="agentMind">
+      <div class="section-head"><h2>Agent Mind: Tool Calling</h2><span class="status-dot active">live stream</span></div>
+      <div class="body">
+        <div class="event-stats">
+          <div class="event-stat"><b>47</b> events (5 min)</div>
+          <div class="event-stat"><b>12</b> tool calls</div>
+          <div class="event-stat"><b>8</b> MCP invocations</div>
+          <div class="event-stat"><b>3</b> LLM turns</div>
+          <div class="event-stat"><b>2</b> HITL surfaces</div>
+          <div class="event-stat"><b>0</b> errors</div>
+        </div>
+        <div class="event-stream">
+          <div class="event-row tool-call"><span class="event-time">09:42:18</span><span class="event-kind" style="color:var(--teal)">tool.call</span><span class="event-label">recommendVehicle(customer: "Contoso Ltd", workload: "Azure AI", segment: "Enterprise")</span><span class="event-meta">238ms</span></div>
+          <div class="event-row mcp"><span class="event-time">09:42:16</span><span class="event-kind" style="color:var(--blue)">mcp.invoke</span><span class="event-label">readSharePointData — FY26 ECIF Criteria Library / Azure AI workload eligibility</span><span class="event-meta">1.2s</span></div>
+          <div class="event-row llm"><span class="event-time">09:42:12</span><span class="event-kind" style="color:#a78bfa">llm.turn</span><span class="event-label">GPT-5 reasoning: "Contoso is Enterprise segment with existing Azure AI consumption. Checking ECIF vs AI Workforce eligibility..."</span><span class="event-meta">4.1s</span></div>
+          <div class="event-row mcp"><span class="event-time">09:41:58</span><span class="event-kind" style="color:var(--blue)">mcp.invoke</span><span class="event-label">sendTeamsMessage — ECIF Case Updates channel: "New case intake: Contoso Ltd / Azure AI"</span><span class="event-meta">890ms</span></div>
+          <div class="event-row hitl"><span class="event-time">09:41:45</span><span class="event-kind" style="color:var(--amber)">hitl.surface</span><span class="event-label">L2 gate: requesting sponsor approval to email Fabrikam Solutions re: SOW requirements</span><span class="event-meta">pending</span></div>
+          <div class="event-row tool-call"><span class="event-time">09:41:30</span><span class="event-kind" style="color:var(--teal)">tool.call</span><span class="event-label">checkApprovalStatus(caseId: "CASE-2026-002") — Northwind Traders approval SLA at 72%</span><span class="event-meta">156ms</span></div>
+          <div class="event-row mcp"><span class="event-time">09:41:22</span><span class="event-kind" style="color:var(--blue)">mcp.invoke</span><span class="event-label">readMailbox — scanning for partner attestation replies (Fabrikam, Adatum, WingTip)</span><span class="event-meta">2.3s</span></div>
+          <div class="event-row tool-call"><span class="event-time">09:41:08</span><span class="event-kind" style="color:var(--teal)">tool.call</span><span class="event-label">preflightPOE(caseId: "CASE-2026-006") — Litware POE pack 95% complete, T-4 days</span><span class="event-meta">312ms</span></div>
+          <div class="event-row message"><span class="event-time">09:40:55</span><span class="event-kind" style="color:#f6ad55">message</span><span class="event-label">Sponsor: "@Morgan status on Contoso case" — routing to Vehicle Picker agent</span><span class="event-meta">—</span></div>
+          <div class="event-row tool-call"><span class="event-time">09:40:42</span><span class="event-kind" style="color:var(--teal)">tool.call</span><span class="event-label">sendNudge(approverId: "area-lead-emea", caseId: "CASE-2026-010", tier: "firm") — Fourth Coffee SLA breached</span><span class="event-meta">445ms</span></div>
+          <div class="event-row mcp"><span class="event-time">09:40:30</span><span class="event-kind" style="color:var(--blue)">mcp.invoke</span><span class="event-label">lookupPerson — resolving approver chain for CASE-2026-008 (VanArsdel $210K)</span><span class="event-meta">670ms</span></div>
+          <div class="event-row llm"><span class="event-time">09:40:15</span><span class="event-kind" style="color:#a78bfa">llm.turn</span><span class="event-label">GPT-5 reasoning: "Daily case monitor cycle starting. 14 active cases. Prioritising: 2 POE due &lt;7d, 3 pending approvals, 1 blocked."</span><span class="event-meta">3.8s</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Teams Call Control -->
+    <section class="wide" id="teamsCall">
+      <div class="section-head"><h2>Teams Call Control</h2><span class="status-dot configured">ACS bridge ready</span></div>
+      <div class="body">
+        <div class="call-grid">
+          <div class="call-stat"><b style="color:var(--teal)">Ready</b><span>Bridge Status</span></div>
+          <div class="call-stat"><b>Graham Hosking</b><span>Default Target</span></div>
+          <div class="call-stat"><b>0</b><span>Active Calls</span></div>
+          <div class="call-stat"><b style="color:var(--teal)">Online</b><span>Avatar Presence</span></div>
+        </div>
+        <div class="call-form">
+          <div><label>Teams User (AAD OID)</label><input value="2ebb7524-6596-4f40-83e3-452c11d4298d" readonly></div>
+          <div><label>Display Name</label><input value="Graham Hosking" readonly></div>
+          <div><label>Reason</label><input value="ECIF case escalation — approval SLA breach"></div>
+          <div><label>Voice</label><input value="en-GB-Ryan:DragonHDLatestNeural" readonly></div>
+          <textarea placeholder="Call instructions: e.g. 'Discuss Fourth Coffee approval status, CASE-2026-010 has breached SLA by 3 days. Request expedited review.'"></textarea>
+          <a class="primary" style="cursor:pointer;text-decoration:none">Initiate Teams Call</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Operating Cadence -->
+    <section id="operatingCadence">
+      <div class="section-head"><h2>Operating Cadence</h2><span class="pill">CorpGen harness</span></div>
+      <div class="body">
+        <div class="cadence-row"><span class="cadence-time">08:00</span><b>Case Monitor Init</b><span class="cadence-output">Load all open cases, check deadlines, prioritise queue</span></div>
+        <div class="cadence-row"><span class="cadence-time">08:15</span><b>Evidence Scan</b><span class="cadence-output">Librarian scans mailbox, Teams, OneDrive for new artefacts</span></div>
+        <div class="cadence-row"><span class="cadence-time">08:30</span><b>Approval Chase</b><span class="cadence-output">Check SLAs, send nudges (soft/firm/escalation)</span></div>
+        <div class="cadence-row"><span class="cadence-time">09:00</span><b>Sponsor Digest</b><span class="cadence-output">Generate + deliver weekly portfolio digest (Mon only)</span></div>
+        <div class="cadence-row"><span class="cadence-time">Every 30m</span><b>Autonomous Cycle</b><span class="cadence-output">Process next-priority case action from queue</span></div>
+        <div class="cadence-row"><span class="cadence-time">12:00</span><b>Evidence Re-scan</b><span class="cadence-output">Midday evidence capture pass</span></div>
+        <div class="cadence-row"><span class="cadence-time">16:00</span><b>POE Pre-flight</b><span class="cadence-output">T-7 readiness check on approaching deadlines</span></div>
+        <div class="cadence-row"><span class="cadence-time">17:30</span><b>End-of-Day Report</b><span class="cadence-output">Cases progressed, blocked items, lessons, next priorities</span></div>
+      </div>
+    </section>
+
+    <!-- Cognitive Toolchain -->
+    <section>
+      <div class="section-head"><h2>Cognitive Toolchain</h2><span class="status-dot active">Agent 365</span></div>
+      <div class="body">
+        <div class="compact-list">
+          <div class="compact-item"><b>Case State Machine</b><p>7-stage lifecycle transitions with guard conditions. No stage skip without evidence gate pass.</p></div>
+          <div class="compact-item"><b>Vehicle Decision Engine</b><p>Rule-based + GPT-5 tie-break for ECIF/ME3E5/ABS+S/AI Workforce/Surface. Double-funding cross-check against MAP/Innovate/Migrate.</p></div>
+          <div class="compact-item"><b>ROI Validator</b><p>2:1 minimum enforcement. ACR forecast vs baseline computation. $500K AFO cap check.</p></div>
+          <div class="compact-item"><b>SOW Linter</b><p>Validates partner SOW: USD currency, deliverables, milestones, hours, pricing structure.</p></div>
+          <div class="compact-item"><b>Nomination Pack Assembler</b><p>Collates MSX opp, CPOR/PAL evidence, ROI calc, SOW, justification narrative, public sector disclosure into submission-ready pack.</p></div>
+          <div class="compact-item"><b>Approver Chain Resolver</b><p>Maps $ tier + workload to ordered approver list. Tracks SLA per approver with escalation triggers.</p></div>
+          <div class="compact-item"><b>Evidence Classifier</b><p>MIP classification labels via Agent 365. Auto-files artefacts into canonical case folder structure.</p></div>
+          <div class="compact-item"><b>Attestation Orchestrator</b><p>DocuSign integration for partner + customer attestations. Signatory identity verification, chase cadence, envelope tracking.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Adaptive Memory -->
+    <section>
+      <div class="section-head"><h2>Adaptive Memory</h2><span class="pill">cross-session</span></div>
+      <div class="body">
+        <div class="compact-list">
+          <div class="compact-item"><b>Working Context</b><p>14 active case summaries + 3 pending HITL decisions + 2 approaching deadlines. Compressed from 847 events into 42 key facts for next reasoning cycle.</p></div>
+          <div class="compact-item"><b>Critical Figures Preserved</b><p>$2.4M approved pipeline · $6.1M ACR forecast · Litware POE due 10 May · Fourth Coffee approval SLA breached · Contoso vehicle decision pending</p></div>
+          <div class="compact-item"><b>Semantic Recall</b><p>23 precedent patterns indexed across closed cases. Top recall: "Adventure Works Security ECIF — successful POE with continuous capture model, 100% at T-14."</p></div>
+          <div class="compact-item"><b>Compression Policy</b><p>Foundry built-in memory: Entra-secured, cross-session. 1,000 events considered → 42 preserved → 5 critical. Tier 2 overflow to Dataverse case records.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Experiential Learning -->
+    <section>
+      <div class="section-head"><h2>Experiential Learning</h2><span class="pill">playbook</span></div>
+      <div class="body">
+        <div class="compact-list">
+          <div class="compact-item"><b>Pattern: Early attestation request</b><p><strong>Trigger:</strong> Case enters Execute stage. <strong>Learning:</strong> Request partner attestation at execution start, not at POE crunch. Reduces chase cycle by 2-3 weeks. <strong>Applied to:</strong> 6 active cases.</p></div>
+          <div class="compact-item"><b>Pattern: Parallel evidence capture</b><p><strong>Trigger:</strong> SOW signed. <strong>Learning:</strong> Begin evidence scan immediately — don't wait for milestones. Artefacts arrive organically via email/Teams before formal submission. <strong>Applied to:</strong> all cases from Stage 4+.</p></div>
+          <div class="compact-item"><b>Pattern: Approver pre-warm</b><p><strong>Trigger:</strong> Nomination pack at 80% complete. <strong>Learning:</strong> Send heads-up to approver chain before formal submission. Reduces approval queue time by ~40%. <strong>Applied to:</strong> CASE-2026-008, CASE-2026-014.</p></div>
+          <div class="compact-item"><b>Pattern: Public sector early flag</b><p><strong>Trigger:</strong> Customer segment = Gov/EDU detected at intake. <strong>Learning:</strong> Flag disclosure requirement immediately and tag compliance reviewer. Prevents Stage 3 blockers. <strong>Applied to:</strong> 0 current (no Gov/EDU in pipeline).</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- End-of-Day Report -->
+    <section class="wide" id="endOfDay">
+      <div class="section-head"><h2>End-of-Day Breakdown</h2><span class="status-dot configured">05 May 2026</span></div>
+      <div class="body">
+        <div class="compact-list">
+          <div class="compact-item"><b>Cases Progressed Today</b>
+            <p>CASE-2026-001 (Contoso): Vehicle recommendation delivered — ECIF selected, AI Workforce ruled out (no Copilot seat prerequisite met)</p>
+            <p>CASE-2026-006 (Litware): POE pack at 95%. Partner attestation received. Customer attestation chase sent (T+0). Deadline: 10 May.</p>
+            <p>CASE-2026-007 (Margie Travel): Case closed. Payment confirmed $145K. ACR realisation written back to MSX: $370K (2.55:1 ROI).</p>
+            <p>CASE-2026-010 (Fourth Coffee): Firm approval nudge sent to Area Lead. SLA breached by 3 days. Escalation scheduled for tomorrow if no response.</p>
+          </div>
+          <div class="compact-item"><b>Blocked Items</b>
+            <p>CASE-2026-002 (Northwind): Awaiting partner SOW revision — USD line items don't match deliverable milestones. Chased Adatum Corp at 14:30.</p>
+          </div>
+          <div class="compact-item"><b>Lessons Captured</b>
+            <p>Margie Travel closeout confirmed: continuous evidence capture model delivered 100% pack completeness at T-14 (vs historical T-1). Pattern reinforced in experiential playbook.</p>
+          </div>
+          <div class="compact-item"><b>Tomorrow's Priorities</b>
+            <p>1. Litware customer attestation follow-up (T+1) · 2. Fourth Coffee escalation if no approval · 3. Contoso nomination pack assembly (vehicle confirmed) · 4. Woodgrove Bank vehicle analysis (AI Workforce vs ECIF)</p>
+          </div>
         </div>
       </div>
     </section>
