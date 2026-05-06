@@ -438,30 +438,32 @@
       .mindmap-detail { left: 12px; right: 12px; width: auto; bottom: 58px; }
       .mindmap-viewport-tools { right: 12px; bottom: 12px; }
     }
-    .tutorial-hint-anchor { position: relative; }
     .tutorial-hint {
       position: absolute;
       z-index: 900;
-      top: 8px;
-      left: 12px;
+      top: 6px;
       right: 12px;
-      max-width: 520px;
-      background: rgba(18, 24, 38, 0.95);
+      left: auto;
+      width: 280px;
+      background: rgba(18, 24, 38, 0.96);
       border: 1px solid var(--teal);
-      border-left: 3px solid var(--teal);
       border-radius: 8px;
-      padding: 12px 36px 12px 14px;
-      font-size: 13px;
-      line-height: 1.5;
+      padding: 10px 32px 10px 12px;
+      font-size: 12px;
+      line-height: 1.45;
       color: var(--muted);
-      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
-      backdrop-filter: blur(8px);
-      animation: hintFadeIn 0.3s ease;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.55);
+      backdrop-filter: blur(10px);
+      animation: hintFadeIn 0.4s ease;
       cursor: default;
+      pointer-events: auto;
     }
     .tutorial-hint.hint-top {
       position: relative;
       top: 0;
+      right: auto;
+      width: auto;
+      max-width: 560px;
       margin-bottom: 8px;
     }
     .tutorial-hint b {
@@ -474,22 +476,23 @@
     }
     .tutorial-hint .hint-close {
       position: absolute;
-      top: 6px;
-      right: 8px;
+      top: 4px;
+      right: 6px;
       background: none;
-      border: none;
+      border: 1px solid rgba(54,194,180,0.3);
+      border-radius: 4px;
       color: var(--muted);
-      font-size: 18px;
+      font-size: 14px;
       cursor: pointer;
       line-height: 1;
-      padding: 4px;
-      opacity: 0.6;
-      transition: opacity 0.15s;
+      padding: 2px 5px;
+      opacity: 0.7;
+      transition: opacity 0.15s, border-color 0.15s;
     }
-    .tutorial-hint .hint-close:hover { opacity: 1; color: var(--teal); }
+    .tutorial-hint .hint-close:hover { opacity: 1; color: var(--teal); border-color: var(--teal); }
     @keyframes hintFadeIn {
-      from { opacity: 0; transform: translateY(-6px); }
-      to { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; transform: translateX(12px); }
+      to { opacity: 1; transform: translateX(0); }
     }
   </style>
 </head>
@@ -519,13 +522,13 @@
     <section>
       <div class="section-head"><h2>Today</h2><span class="small" id="date"></span></div>
       <div class="body">
+        <div class="tutorial-hint"><button class="hint-close" onclick="this.parentElement.remove()">&times;</button><b>Try it:</b> Click <span class="hint-action">Start CorpGen Day</span> to watch Morgan run her daily case monitor — checking all 14 open cases, chasing stuck approvals, scanning for evidence, and running deadline pre-flights. A CorpGen Day is Morgan's autonomous work cycle: she plans, executes, and reports — like a human employee's workday, but completed in seconds.</div>
         <div class="grid">
           <div class="metric"><b id="completed">0</b><span>completed tasks</span></div>
           <div class="metric"><b id="progress">0</b><span>in progress</span></div>
           <div class="metric"><b id="blocked">0</b><span>blocked</span></div>
         </div>
         <div class="workday-actions">
-          <div class="tutorial-hint"><button class="hint-close" onclick="this.parentElement.remove()">&times;</button><b>Try it:</b> Click <span class="hint-action">Start CorpGen Day</span> to watch Morgan run her daily case monitor — checking all 14 open cases, chasing stuck approvals, scanning for evidence, and running deadline pre-flights. A CorpGen Day is Morgan's autonomous work cycle: she plans, executes, and reports — like a human employee's workday, but completed in seconds.</div>
           <button class="primary" id="startCorpGenDay" type="button">Start CorpGen Day</button>
         </div>
         <div class="call-result workday-result" id="corpgenDayResult">Ready to start Morgan's ECIF Director daily case monitor.</div>
