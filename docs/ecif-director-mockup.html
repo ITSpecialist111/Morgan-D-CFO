@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rowan Mission Control - ECIF Director</title>
+  <title>Morgan Mission Control - ECIF Director</title>
   <style>
     :root {
       --bg: #101216;
@@ -445,14 +445,14 @@
     <div class="brand">
       <div class="mark">M</div>
       <div>
-        <h1>Rowan Mission Control - ECIF Director</h1>
-        <div class="subtitle" id="subtitle">Rowan - ECIF Director - Microsoft CorpGen Autonomous Harness</div>
+        <h1>Morgan Mission Control - ECIF Director</h1>
+        <div class="subtitle" id="subtitle">Morgan - ECIF Director - Microsoft CorpGen Autonomous Harness</div>
       </div>
     </div>
     <div class="top-actions">
       <a href="#betaStarfield">Beta Starfield</a>
       <a href="#agentMind">Agent Mind</a>
-      <a href="#costOfRowan">Cost</a>
+      <a href="#costOfMorgan">Cost</a>
       <a href="#ecifImpactGraph">ECIF ROI</a>
       <a href="#corpgenDigestDelivery">Digest</a>
       <a href="#microsoftIQ">ECIF IQ</a>
@@ -473,7 +473,7 @@
         <div class="workday-actions">
           <button class="primary" id="startCorpGenDay" type="button">Start CorpGen Day</button>
         </div>
-        <div class="call-result workday-result" id="corpgenDayResult">Ready to start Rowan's ECIF Director daily case monitor.</div>
+        <div class="call-result workday-result" id="corpgenDayResult">Ready to start Morgan's ECIF Director daily case monitor.</div>
       </div>
     </section>
     <section id="corpgenDigestDelivery">
@@ -488,8 +488,8 @@
         <ul id="mandate"></ul>
       </div>
     </section>
-    <section class="wide" id="costOfRowan">
-      <div class="section-head"><h2>Cost of Rowan</h2><span class="status-dot partial" id="costBadge">loading</span></div>
+    <section class="wide" id="costOfMorgan">
+      <div class="section-head"><h2>Cost of Morgan</h2><span class="status-dot partial" id="costBadge">loading</span></div>
       <div class="body">
         <div class="cost-summary">
           <div class="cost-card"><b id="costDaily">$0</b><span>daily run-rate</span></div>
@@ -517,7 +517,7 @@
         <div class="roi-controls" id="roiControls" aria-label="ECIF ROI workstream filters"></div>
         <div class="roi-body">
           <div class="roi-graph-shell">
-            <svg class="roi-graph" id="roiGraph" viewBox="0 0 860 430" role="img" aria-label="Rowan ECIF ROI work graph"></svg>
+            <svg class="roi-graph" id="roiGraph" viewBox="0 0 860 430" role="img" aria-label="Morgan ECIF ROI work graph"></svg>
           </div>
           <div class="roi-detail" id="roiDetail"></div>
         </div>
@@ -527,7 +527,7 @@
     <section class="wide mindmap-section" id="betaStarfield">
       <div class="section-head"><h2>Beta Starfield</h2><span class="pill">Aria-style enterprise mode</span></div>
       <div class="mindmap-shell">
-        <canvas id="mindmapCanvas" tabindex="0" aria-label="Interactive Rowan ECIF Director beta starfield"></canvas>
+        <canvas id="mindmapCanvas" tabindex="0" aria-label="Interactive Morgan ECIF Director beta starfield"></canvas>
         <div class="mindmap-controls" id="mindmapControls" aria-label="Beta Starfield modes">
           <button type="button" data-mode="all" class="active">All</button>
           <button type="button" data-mode="autonomy">Autonomy</button>
@@ -595,7 +595,7 @@
       </div>
     </section>
     <section>
-      <div class="section-head"><h2>Instructions Rowan Follows</h2></div>
+      <div class="section-head"><h2>Instructions Morgan Follows</h2></div>
       <div class="body"><ul id="instructions"></ul></div>
     </section>
     <section>
@@ -634,12 +634,12 @@
               <input id="teamsCallVoice" autocomplete="off" placeholder="verse">
             </div>
             <div class="call-field wide">
-              <label for="teamsCallInstructions">Rowan call brief</label>
-              <textarea id="teamsCallInstructions">Open as Rowan, the ECIF Director. Say this call was initiated from Mission Control, summarize the case status and any pending approvals, ask what decision or follow-up is needed, and keep it brief.</textarea>
+              <label for="teamsCallInstructions">Morgan call brief</label>
+              <textarea id="teamsCallInstructions">Open as Morgan, the ECIF Director. Say this call was initiated from Mission Control, summarize the case status and any pending approvals, ask what decision or follow-up is needed, and keep it brief.</textarea>
             </div>
           </div>
           <div class="call-actions">
-            <button class="primary" id="teamsCallDial" type="button">Dial with Rowan AI</button>
+            <button class="primary" id="teamsCallDial" type="button">Dial with Morgan AI</button>
             <button id="teamsCallRefresh" type="button">Refresh status</button>
           </div>
           <div class="call-result" id="teamsCallResult">Ready for a protected operator command.</div>
@@ -667,7 +667,7 @@
       <div class="section-head"><h2>ECIF Case Kanban</h2><span class="pill">ECIF case board</span></div>
       <div class="body">
         <div class="kanban-summary" id="kanbanSummary"></div>
-        <div class="kanban-board" id="kanbanBoard" aria-label="Rowan ECIF Director case Kanban board"></div>
+        <div class="kanban-board" id="kanbanBoard" aria-label="Morgan ECIF Director case Kanban board"></div>
       </div>
     </section>
     <section class="wide">
@@ -851,7 +851,7 @@
       if (!pos) return;
       const rect = mindmapCanvas.getBoundingClientRect();
       const camera = mindmapGraph.camera;
-      const nextZoom = node.id === 'rowan-core' ? 1.45 : node.id.startsWith('hub-') ? 1.75 : 2.25;
+      const nextZoom = node.id === 'morgan-core' ? 1.45 : node.id.startsWith('hub-') ? 1.75 : 2.25;
       camera.targetZoom = clamp(nextZoom, 0.52, 3.6);
       camera.targetPanX = (rect.width / 2 - pos.x) * camera.targetZoom;
       camera.targetPanY = (rect.height / 2 - pos.y) * camera.targetZoom;
@@ -988,7 +988,7 @@
       const data = event.data || {};
       const source = String(data.source || '').toLowerCase();
       const tool = String(data.tool || '').toLowerCase();
-      const ids = ['rowan-core'];
+      const ids = ['morgan-core'];
       if (traceKind === 'prompt') ids.push(source.includes('voice') || String(data.channelId || '').includes('voice') ? 'hub-voice' : 'hub-mission');
       if (traceKind === 'reasoning') ids.push('hub-planning', 'hub-governance');
       if (traceKind === 'response') ids.push('hub-mission', 'hub-audit');
@@ -1032,30 +1032,30 @@
           `${title}: ${(event.label || text || event.kind).slice(0, 46)}`,
           eventNodeType(traceKind),
           traceKind === 'reasoning'
-            ? `${text || 'Safe reasoning summary available.'} Raw hidden chain-of-thought is not exposed; this is the observable reasoning trace Rowan can show.`
+            ? `${text || 'Safe reasoning summary available.'} Raw hidden chain-of-thought is not exposed; this is the observable reasoning trace Morgan can show.`
             : text || event.label || event.kind,
           event.status || traceKind,
           event.ts,
         );
-        pushLiveLink(liveLinks, 'rowan-core', node.id, traceKind === 'reasoning' ? 'task_flow' : 'capability', 0.86, title);
-        hubIds.filter((id) => id !== 'rowan-core').slice(0, 4).forEach((id) => pushLiveLink(liveLinks, id, node.id, 'capability', 0.58, title));
+        pushLiveLink(liveLinks, 'morgan-core', node.id, traceKind === 'reasoning' ? 'task_flow' : 'capability', 0.86, title);
+        hubIds.filter((id) => id !== 'morgan-core').slice(0, 4).forEach((id) => pushLiveLink(liveLinks, id, node.id, 'capability', 0.58, title));
         traces.push({ kind: traceKind, title, text: text || event.label || event.kind, ts: event.ts, status: event.status || '' });
       });
 
       activeCalls.forEach((call) => {
         const id = `live-teams-${call.callConnectionId || call.startedAt || Date.now()}`;
-        ['rowan-core', 'hub-voice', 'voice-teams-calling'].forEach((nodeId) => addActiveNode(activeIds, nodeId));
+        ['morgan-core', 'hub-voice', 'voice-teams-calling'].forEach((nodeId) => addActiveNode(activeIds, nodeId));
         pushLiveNode(
           liveNodes,
           activeIds,
           id,
           `Teams call: ${call.targetDisplayName || call.targetTeamsOid || 'active call'}`,
           'voice',
-          `Active ${call.direction || 'Teams'} call for ${call.ageSec || 0}s. Rowan's Teams audio bridge is part of the live brain trace.`,
+          `Active ${call.direction || 'Teams'} call for ${call.ageSec || 0}s. Morgan's Teams audio bridge is part of the live brain trace.`,
           'active',
           new Date().toISOString(),
         );
-        pushLiveLink(liveLinks, 'rowan-core', id, 'voice_link', 0.92, 'live Teams call');
+        pushLiveLink(liveLinks, 'morgan-core', id, 'voice_link', 0.92, 'live Teams call');
         pushLiveLink(liveLinks, 'voice-teams-calling', id, 'voice_link', 0.72, 'ACS media');
         traces.unshift({ kind: 'teams', title: 'Teams', text: `Active ${call.direction || 'Teams'} call for ${call.ageSec || 0}s.`, ts: new Date().toISOString(), status: 'active' });
       });
@@ -1100,7 +1100,7 @@
     }
 
     function typeRing(node) {
-      if (node.id === 'rowan-core') return 0;
+      if (node.id === 'morgan-core') return 0;
       if (node.id.startsWith('hub-')) return 112;
       if (node.type === 'planning' || node.type === 'governance' || node.type === 'evaluation') return 185;
       if (node.type === 'instruction' || node.type === 'task' || node.type === 'agent') return 230;
@@ -1135,7 +1135,7 @@
             x: cx + Math.cos(angle) * radius,
             y: cy + Math.sin(angle) * radius,
             phase: (seed % 360) / 57.2958,
-            size: node.id === 'rowan-core' ? 12 : node.id.startsWith('hub-') ? 7 : Math.max(2.4, Math.min(6.2, 2.2 + Math.sqrt(node.importance || 2)))
+            size: node.id === 'morgan-core' ? 12 : node.id.startsWith('hub-') ? 7 : Math.max(2.4, Math.min(6.2, 2.2 + Math.sqrt(node.importance || 2)))
           });
         });
       }
@@ -1146,7 +1146,7 @@
       if (mindmapGraph.focusMode === 'live') return mindmapGraph.live.activeIds.has(node.id);
       if (node.group === 'live') return false;
       if (!mode.groups) return true;
-      return mode.groups.includes(node.type) || mode.groups.includes(node.group) || node.id === 'rowan-core' || node.id.startsWith('hub-');
+      return mode.groups.includes(node.type) || mode.groups.includes(node.group) || node.id === 'morgan-core' || node.id.startsWith('hub-');
     }
 
     function nodeVisibleInMindmap(node) {
@@ -1164,7 +1164,7 @@
       const body = document.createElement('p');
       body.textContent = node
         ? (node.detail || node.status || 'No detail available yet.')
-        : "Rowan's starfield maps the ECIF Director operating contract into live lifecycle, tools, governance, evidence, stakeholder, and proof-of-work modes.";
+        : "Morgan's starfield maps the ECIF Director operating contract into live lifecycle, tools, governance, evidence, stakeholder, and proof-of-work modes.";
       mindmapDetail.appendChild(type);
       mindmapDetail.appendChild(title);
       mindmapDetail.appendChild(body);
@@ -1185,7 +1185,7 @@
     }
 
     function detailActionsForNode(node) {
-      if (node.id === 'rowan-core') return ['Plan case day', 'Run ECIF cycle', 'Send EOD report'];
+      if (node.id === 'morgan-core') return ['Plan case day', 'Run ECIF cycle', 'Send EOD report'];
       if (node.type === 'planning') return ['Rank tasks', 'Check dependencies', 'Advance cadence'];
       if (node.type === 'tool') return ['Call tool', 'Capture evidence', 'Record result'];
       if (node.type === 'agent') return ['Delegate', 'Isolate context', 'Return summary'];
@@ -1269,7 +1269,7 @@
         const color = mindmapColors[node.type] || '#9aa4b2';
         const selected = mindmapGraph.selected && mindmapGraph.selected.id === node.id;
         const hovered = mindmapGraph.hover && mindmapGraph.hover.id === node.id;
-        const hub = node.id === 'rowan-core' || node.id.startsWith('hub-');
+        const hub = node.id === 'morgan-core' || node.id.startsWith('hub-');
         const active = nodeMatchesMode(node);
         const pulse = 1 + Math.sin(time * (active ? 1.9 : 1.1) + pos.phase) * (active ? 0.12 : 0.04);
         const radius = (selected || hovered ? pos.size * 1.45 : pos.size) * pulse * Math.min(1.8, 0.78 + camera.zoom * 0.24);
@@ -1295,7 +1295,7 @@
         mindmapCtx.globalAlpha = 1;
 
         if (hovered || selected
-          || node.id === 'rowan-core'
+          || node.id === 'morgan-core'
           || (hub && camera.zoom > 0.95)
           || camera.zoom > 1.55
           || (active && pos.size > 4.5 && camera.zoom > 1.25)) {
@@ -1448,7 +1448,7 @@
     }
 
     const ECIF_NODES = [
-      { id: 'rowan-core', label: 'Rowan', type: 'core', group: 'core', importance: 10, detail: 'ECIF Director — autonomous agent managing the full End Customer Investment Funds lifecycle across 14 active cases.' },
+      { id: 'morgan-core', label: 'Morgan', type: 'core', group: 'core', importance: 10, detail: 'ECIF Director — autonomous agent managing the full End Customer Investment Funds lifecycle across 14 active cases.' },
       { id: 'hub-lifecycle', label: 'ECIF Lifecycle', type: 'mission', group: 'lifecycle', importance: 8, detail: '7-stage case pipeline: Intake → Vehicle → Nominate → Approve → Execute → POE → Close' },
       { id: 'hub-tools', label: 'Tool Catalogue', type: 'tool', group: 'tools', importance: 8, detail: '22 ECIF-specific tools across vehicle selection, nomination, approval, POE, and closeout stages.' },
       { id: 'hub-governance', label: 'Governance', type: 'governance', group: 'governance', importance: 8, detail: 'HITL gates, evidence integrity, audit trails, Purview retention, and compliance controls.' },
@@ -1490,14 +1490,14 @@
       { id: 'sh-approvers', label: 'Approver Chain', type: 'agent', group: 'stakeholder', importance: 6, detail: 'Tier-based approvers resolved by deal size and workload. SLA-tracked.' },
       { id: 'mem-casestate', label: 'Case State Store', type: 'memory', group: 'evidence', importance: 5, detail: 'Cosmos DB / Dataverse: all case records, transitions, evidence metadata, comms log.' },
       { id: 'plan-workday', label: 'Daily Monitor', type: 'planning', group: 'lifecycle', importance: 5, detail: 'Autonomous daily tick: check all open cases, approval SLAs, evidence scans, deadline pre-flights.' },
-      { id: 'voice-avatar', label: 'Rowan Avatar', type: 'voice', group: 'tools', importance: 4, detail: 'GPT-5 powered voice avatar for live ECIF case discussions and sponsor briefings.' },
+      { id: 'voice-avatar', label: 'Morgan Avatar', type: 'voice', group: 'tools', importance: 4, detail: 'GPT-5 powered voice avatar for live ECIF case discussions and sponsor briefings.' },
     ];
     const ECIF_LINKS = [
-      { source: 'rowan-core', target: 'hub-lifecycle', type: 'core', strength: 0.9 },
-      { source: 'rowan-core', target: 'hub-tools', type: 'core', strength: 0.8 },
-      { source: 'rowan-core', target: 'hub-governance', type: 'core', strength: 0.85 },
-      { source: 'rowan-core', target: 'hub-evidence', type: 'core', strength: 0.8 },
-      { source: 'rowan-core', target: 'hub-stakeholder', type: 'core', strength: 0.75 },
+      { source: 'morgan-core', target: 'hub-lifecycle', type: 'core', strength: 0.9 },
+      { source: 'morgan-core', target: 'hub-tools', type: 'core', strength: 0.8 },
+      { source: 'morgan-core', target: 'hub-governance', type: 'core', strength: 0.85 },
+      { source: 'morgan-core', target: 'hub-evidence', type: 'core', strength: 0.8 },
+      { source: 'morgan-core', target: 'hub-stakeholder', type: 'core', strength: 0.75 },
       { source: 'hub-lifecycle', target: 'stage-intake', type: 'task_flow', strength: 0.7 },
       { source: 'stage-intake', target: 'stage-vehicle', type: 'task_flow', strength: 0.7 },
       { source: 'stage-vehicle', target: 'stage-nominate', type: 'task_flow', strength: 0.7 },
@@ -1536,7 +1536,7 @@
       { source: 'sh-sponsor', target: 'hitl-l3', type: 'governance', strength: 0.7 },
       { source: 'agent-comms', target: 'hitl-l2', type: 'governance', strength: 0.65 },
       { source: 'hub-lifecycle', target: 'plan-workday', type: 'task_flow', strength: 0.5 },
-      { source: 'rowan-core', target: 'voice-avatar', type: 'voice_link', strength: 0.4 },
+      { source: 'morgan-core', target: 'voice-avatar', type: 'voice_link', strength: 0.4 },
     ];
     async function loadMindmap() {
       mindmapGraph.baseNodes = ECIF_NODES;
@@ -1751,7 +1751,7 @@
           <div class="roi-mini"><b>${workstream.roiScore}/5</b><span>ROI score</span></div>
         </div>
         <div class="compact-item"><p><b>Current team work</b></p><p>${escapeHtml(workstream.currentWork)}</p></div>
-        <div class="compact-item"><p><b>What Rowan does</b></p><p>${escapeHtml(workstream.rowanWork)}</p></div>
+        <div class="compact-item"><p><b>What Morgan does</b></p><p>${escapeHtml(workstream.morganWork)}</p></div>
         <div class="compact-item"><p><b>Proof signals</b></p><p>${(workstream.proofSignals || []).map(escapeHtml).join('<br>')}</p></div>
         <div class="compact-item"><p><b>Dependencies</b></p><p>${(workstream.dependencies || []).map(escapeHtml).join(', ')}</p><p><b>Model:</b> ${escapeHtml(assumptions?.valueModel || '')}</p></div>`;
     }
@@ -1823,10 +1823,10 @@
       });
       renderRoiDetail(selected, assumptions);
 
-      document.getElementById('roiResearchBasis').innerHTML = (roadmap?.researchBasis || []).map((item) => `<div class="compact-item"><span class="status-dot configured">${escapeHtml(item.source)}</span><p><b>${escapeHtml(item.finding)}</b></p><p>${escapeHtml(item.rowanImplication)}</p></div>`).join('');
+      document.getElementById('roiResearchBasis').innerHTML = (roadmap?.researchBasis || []).map((item) => `<div class="compact-item"><span class="status-dot configured">${escapeHtml(item.source)}</span><p><b>${escapeHtml(item.finding)}</b></p><p>${escapeHtml(item.morganImplication)}</p></div>`).join('');
     }
 
-    function renderRowanCosts(cost) {
+    function renderMorganCosts(cost) {
       const currency = cost?.currency || 'USD';
       const badge = document.getElementById('costBadge');
       const source = cost?.summary?.source || 'estimated';
@@ -1846,12 +1846,12 @@
       }).join('') || '<div class="small">Cost model is initializing.</div>';
       document.getElementById('costValueSummary').innerHTML = [
         `<div class="compact-item"><span class="status-dot ${cost?.azure?.available ? 'actual' : 'estimated'}">${cost?.azure?.available ? 'Cost Management connected' : 'estimate mode'}</span><p><b>Weekly value:</b> ${displayCostMoney(cost?.value?.estimatedValueWeekly, currency)} from ${Number(cost?.value?.estimatedHoursSavedWeekly || 0).toFixed(1)} estimated hours saved.</p></div>`,
-        `<div class="compact-item"><p><b>Realtime avatar:</b> ${displayCostMoney(cost?.summary?.avatarWeeklyCost, currency)} this week, currently ${cost?.summary?.avatarSharePct || 0}% of Rowan's run-rate.</p></div>`,
+        `<div class="compact-item"><p><b>Realtime avatar:</b> ${displayCostMoney(cost?.summary?.avatarWeeklyCost, currency)} this week, currently ${cost?.summary?.avatarSharePct || 0}% of Morgan's run-rate.</p></div>`,
         `<div class="compact-item"><p><b>Detail:</b> <a class="cost-link" href="${cost?.detailDashboard || '/mission-control/costs'}">Open cost dashboard</a></p></div>`,
       ].join('');
     }
 
-    async function loadRowanCosts() {
+    async function loadMorganCosts() {
       const data = {
         summary: { dailyCost: 2.84, weeklyCost: 14.20, avatarSharePct: 18, valueToCostRatio: 86, azureActualWeekly: 11.37, currency: 'USD' },
         costBars: [
@@ -1866,7 +1866,7 @@
         value: { estimatedValueWeekly: 1220, estimatedHoursSavedWeekly: 48 },
         detailDashboard: '#',
       };
-      renderRowanCosts(data);
+      renderMorganCosts(data);
       return data;
     }
 
@@ -1922,7 +1922,7 @@
       const now = new Date();
       const ts = (minutesAgo) => new Date(now.getTime() - minutesAgo * 60000).toISOString();
       const events = [
-        { id: '1', kind: 'agent.message', label: '@RowanECIF new case for Contoso on Azure AI', ts: ts(2), status: 'ok', data: { source: 'Teams', promptPreview: 'New ECIF case request from sponsor' } },
+        { id: '1', kind: 'agent.message', label: '@MorganECIF new case for Contoso on Azure AI', ts: ts(2), status: 'ok', data: { source: 'Teams', promptPreview: 'New ECIF case request from sponsor' } },
         { id: '2', kind: 'llm.turn', label: 'Analyse case intake: Contoso + Azure AI workload', ts: ts(1.8), status: 'ok', data: { reasoningSummary: 'Evaluating workload fit, segment, deal size for vehicle recommendation.' } },
         { id: '3', kind: 'tool.call', label: 'recommendVehicle(Azure AI, Enterprise, $180K)', ts: ts(1.5), status: 'ok', durationMs: 342, data: { tool: 'vehiclePicker', source: 'ecifTools' } },
         { id: '4', kind: 'tool.result', label: 'Vehicle: ECIF — criteria match, 2:1 ROI feasible', ts: ts(1.4), status: 'ok', durationMs: 12, data: { tool: 'vehiclePicker', source: 'ecifTools' } },
@@ -1986,7 +1986,7 @@
       cardEl.appendChild(summary);
       const meta = document.createElement('div');
       meta.className = 'kanban-meta';
-      [card.priority ? `P${card.priority}` : '', card.cadence || '', card.owner || 'Rowan'].filter(Boolean).forEach((value) => {
+      [card.priority ? `P${card.priority}` : '', card.cadence || '', card.owner || 'Morgan'].filter(Boolean).forEach((value) => {
         const chip = document.createElement('span');
         chip.className = 'kanban-chip';
         chip.textContent = value;
@@ -2071,7 +2071,7 @@
       const records = Array.isArray(result.records) ? result.records : [];
       const handoffs = Array.isArray(result.subAgentHandoffs) ? result.subAgentHandoffs : [];
       const blocked = records.filter((record) => ['blocked', 'failed'].includes(record.status)).length;
-      const headline = result.headline || `Rowan completed the CorpGen day for ${result.period || 'the current period'}.`;
+      const headline = result.headline || `Morgan completed the CorpGen day for ${result.period || 'the current period'}.`;
       const digest = result.digestDelivery || {};
       const digestSummary = digest.summary ? ` Digest: ${digest.summary}` : '';
       return `${headline} Records: ${records.length}. Sub-agent handoffs: ${handoffs.length}. Blocked/failed: ${blocked}.${digestSummary} Mission Control has been refreshed.`;
@@ -2110,7 +2110,7 @@
       const button = document.getElementById('startCorpGenDay');
       corpgenDayState.loading = true;
       button.disabled = true;
-      setCorpgenDayResult('Starting Rowan ECIF Director daily case monitor. Checking 14 active cases, approval SLAs, evidence scans, and deadline pre-flights...', '');
+      setCorpgenDayResult('Starting Morgan ECIF Director daily case monitor. Checking 14 active cases, approval SLAs, evidence scans, and deadline pre-flights...', '');
       await new Promise(r => setTimeout(r, 2200));
       setCorpgenDayResult('Daily case monitor complete. 14 cases checked. 3 approvals nudged (firm). 2 POE pre-flights triggered (T-7). 1 case transitioned: ECIF-2024-0012 → POE Collection. Digest delivered to sponsor channel.', 'ready');
       corpgenDayState.loading = false;
@@ -2156,7 +2156,7 @@
       if (status.configured && !status.federationResourceIdConfigured) blockers.push('ACS_TEAMS_FEDERATION_RESOURCE_ID policy marker');
       dialButton.title = dialButton.disabled
         ? `Teams call unavailable: ${blockers.length ? blockers.join(', ') : 'request already in progress'}`
-        : 'Dial Rowan over the ACS-to-Teams federation bridge';
+        : 'Dial Morgan over the ACS-to-Teams federation bridge';
       if (!status.configured && blockers.length) {
         setTeamsCallResult(`Teams calling needs configuration: ${blockers.join(', ')}.`, 'error');
       } else if (status.configured && !status.federationResourceIdConfigured) {
@@ -2200,16 +2200,16 @@
       if (teamsCallState.loading) return;
       teamsCallState.loading = true;
       document.getElementById('teamsCallDial').disabled = true;
-      setTeamsCallResult('Dialling Rowan through the Teams federation bridge...', '');
+      setTeamsCallResult('Dialling Morgan through the Teams federation bridge...', '');
       await new Promise(r => setTimeout(r, 1500));
-      setTeamsCallResult('Rowan call placed: demo-connection-id-001. Voice avatar ready for ECIF case briefing.', 'ready');
+      setTeamsCallResult('Morgan call placed: demo-connection-id-001. Voice avatar ready for ECIF case briefing.', 'ready');
       teamsCallState.loading = false;
       renderTeamsCallStatus(teamsCallState.status || {});
     }
 
     async function refresh() {
       const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-      document.getElementById('subtitle').textContent = 'Rowan - ECIF Director - Microsoft CorpGen Autonomous Harness';
+      document.getElementById('subtitle').textContent = 'Morgan - ECIF Director - Microsoft CorpGen Autonomous Harness';
       document.getElementById('date').textContent = today;
       document.getElementById('completed').textContent = '7';
       document.getElementById('progress').textContent = '4';
@@ -2225,19 +2225,19 @@
         'Enforce HITL gates: L1 info, L2 external comms, L3 $-bearing — no external send without sponsor approval',
       ]);
       list(document.getElementById('instructions'), [
-        'I am Rowan, your ECIF Director. I manage all ECIF cases autonomously, gated by your approval on external sends.',
+        'I am Morgan, your ECIF Director. I manage all ECIF cases autonomously, gated by your approval on external sends.',
         'Every case action is evidence-captured with MIP classification labels and Purview retention.',
         'I work with 7 specialist sub-agents: Vehicle Picker, Nominator, Approver Chaser, POE Collector, Closeout Reporter, Comms Specialist, Evidence Librarian.',
         'I can brief you on any case via voice avatar or Teams. Ask me about case status, deadlines, or evidence health.',
       ]);
       document.getElementById('capabilities').innerHTML = [
-        { category: 'ECIF Lifecycle', title: 'Case Pipeline Management', rowanMapping: '7-stage pipeline: Intake → Vehicle → Nominate → Approve → Execute → POE → Close', customerProof: ['14 active cases', 'Avg cycle: 23 days'] },
-        { category: 'Investment Vehicles', title: 'Vehicle Selection Engine', rowanMapping: 'Decision logic for ECIF vs ME3E5 vs ABS+S vs AI Workforce vs Surface', customerProof: ['Double-dip detection', 'FY26 criteria library'] },
-        { category: 'Approval Management', title: 'Approval Chain Orchestration', rowanMapping: 'Tier-based approver resolution with soft/firm/escalation nudge cadence', customerProof: ['SLA tracking', '94% approval rate'] },
-        { category: 'Evidence & POE', title: 'Evidence Chain Management', rowanMapping: 'MIP classification, Purview retention, signatory tuples, precedent search', customerProof: ['POE pack assembly', 'T-7 pre-flight checks'] },
-        { category: 'HITL Gates', title: 'Human-in-the-Loop Controls', rowanMapping: 'L1 info, L2 external, L3 $-bearing gates — sponsor approval on every external action', customerProof: ['Zero unapproved sends', 'Full audit trail'] },
-        { category: 'CorpGen Harness', title: 'Autonomous Digital Worker', rowanMapping: 'Microsoft Agent 365 + Foundry + GPT-5 — wrap-not-replace existing systems', customerProof: ['Azure OpenAI eval signals', 'Mission Control dashboard'] },
-      ].map(item => `<div class="capability"><div class="tag">${item.category}</div><b>${item.title}</b><p>${item.rowanMapping}</p><p><b>Proof:</b> ${item.customerProof.join(', ')}</p></div>`).join('');
+        { category: 'ECIF Lifecycle', title: 'Case Pipeline Management', morganMapping: '7-stage pipeline: Intake → Vehicle → Nominate → Approve → Execute → POE → Close', customerProof: ['14 active cases', 'Avg cycle: 23 days'] },
+        { category: 'Investment Vehicles', title: 'Vehicle Selection Engine', morganMapping: 'Decision logic for ECIF vs ME3E5 vs ABS+S vs AI Workforce vs Surface', customerProof: ['Double-dip detection', 'FY26 criteria library'] },
+        { category: 'Approval Management', title: 'Approval Chain Orchestration', morganMapping: 'Tier-based approver resolution with soft/firm/escalation nudge cadence', customerProof: ['SLA tracking', '94% approval rate'] },
+        { category: 'Evidence & POE', title: 'Evidence Chain Management', morganMapping: 'MIP classification, Purview retention, signatory tuples, precedent search', customerProof: ['POE pack assembly', 'T-7 pre-flight checks'] },
+        { category: 'HITL Gates', title: 'Human-in-the-Loop Controls', morganMapping: 'L1 info, L2 external, L3 $-bearing gates — sponsor approval on every external action', customerProof: ['Zero unapproved sends', 'Full audit trail'] },
+        { category: 'CorpGen Harness', title: 'Autonomous Digital Worker', morganMapping: 'Microsoft Agent 365 + Foundry + GPT-5 — wrap-not-replace existing systems', customerProof: ['Azure OpenAI eval signals', 'Mission Control dashboard'] },
+      ].map(item => `<div class="capability"><div class="tag">${item.category}</div><b>${item.title}</b><p>${item.morganMapping}</p><p><b>Proof:</b> ${item.customerProof.join(', ')}</p></div>`).join('');
       document.getElementById('readiness').innerHTML = [
         { area: 'Agent 365 MCP Platform', status: 'live', signal: 'Microsoft Graph, SharePoint, Teams, Dataverse connected', control: 'MCP tool discovery + execution' },
         { area: 'ECIF Case State Store', status: 'live', signal: 'Cosmos DB with case-state schema', control: 'Every transition audited' },
@@ -2262,12 +2262,12 @@
         summary: { riskAdjustedAnnualValueUsd: 1220000, monthlyHoursSaved: 48, fastestTimeToValueWeeks: 2, averagePaybackWeeks: 3, workstreamCount: 6 },
         assumptions: { valueModel: 'Based on 14 active cases, 12h → 1h per case cycle time reduction' },
         workstreams: [
-          { id: 'ws-intake', pillar: 'intake', title: 'Case Intake Automation', team: 'Sponsor Sellers', riskAdjustedAnnualValueUsd: 180000, monthlyHoursSaved: 8, timeToValueWeeks: 2, paybackWeeks: 2, effortScore: 2, roiScore: 5, currentWork: 'Manual case registration via email and spreadsheets', rowanWork: 'Automated intake from Teams, vehicle recommendation, case folder creation', proofSignals: ['14 cases auto-registered', 'Avg intake time: 3 min vs 45 min'], dependencies: ['Teams channel', 'SharePoint'] },
-          { id: 'ws-nomination', pillar: 'nomination', title: 'Nomination Pack Assembly', team: 'ECIF Operations', riskAdjustedAnnualValueUsd: 320000, monthlyHoursSaved: 12, timeToValueWeeks: 3, paybackWeeks: 3, effortScore: 3, roiScore: 5, currentWork: 'Manual ROI calculation, SOW review, narrative drafting', rowanWork: 'Auto-generated nomination packs with ROI, SOW validation, AI-drafted justification', proofSignals: ['91/100 narrative quality score', '100% SOW validation rate'], dependencies: ['MSX API', 'Partner registry'] },
-          { id: 'ws-approval', pillar: 'approval', title: 'Approval Chain Orchestration', team: 'Approval Authority', riskAdjustedAnnualValueUsd: 240000, monthlyHoursSaved: 10, timeToValueWeeks: 2, paybackWeeks: 2, effortScore: 2, roiScore: 4, currentWork: 'Manual follow-up emails, lost approvals', rowanWork: 'Auto-resolved approver chains, SLA tracking, soft/firm/escalation nudge cadence', proofSignals: ['94% approval rate', 'Avg approval SLA: 3.2 days'], dependencies: ['Approver directory'] },
-          { id: 'ws-poe', pillar: 'poe', title: 'POE Evidence Collection', team: 'Partner Operations', riskAdjustedAnnualValueUsd: 280000, monthlyHoursSaved: 10, timeToValueWeeks: 3, paybackWeeks: 4, effortScore: 3, roiScore: 4, currentWork: 'Manual evidence gathering, email-based attestations', rowanWork: 'Automated evidence scanning, MIP classification, attestation requests, POE pack assembly', proofSignals: ['T-7 pre-flight checks', '100% evidence chain integrity'], dependencies: ['SharePoint', 'Purview'] },
-          { id: 'ws-closeout', pillar: 'closeout', title: 'Payment & ACR Closeout', team: 'Finance', riskAdjustedAnnualValueUsd: 120000, monthlyHoursSaved: 4, timeToValueWeeks: 4, paybackWeeks: 5, effortScore: 2, roiScore: 3, currentWork: 'Manual payment tracking, ACR reconciliation', rowanWork: 'Auto-tracked payments, ACR realisation writeback, case archival', proofSignals: ['87% ACR realisation rate', '100% case archival'], dependencies: ['ECIF Ops', 'MSX'] },
-          { id: 'ws-governance', pillar: 'governance', title: 'HITL Governance Framework', team: 'Compliance', riskAdjustedAnnualValueUsd: 80000, monthlyHoursSaved: 4, timeToValueWeeks: 1, paybackWeeks: 1, effortScore: 1, roiScore: 5, currentWork: 'Ad-hoc approval processes, no audit trail', rowanWork: 'L1/L2/L3 gates, full audit trail, Purview retention, zero unapproved sends', proofSignals: ['Zero compliance incidents', '1,247 audited events'], dependencies: ['Teams Adaptive Cards'] },
+          { id: 'ws-intake', pillar: 'intake', title: 'Case Intake Automation', team: 'Sponsor Sellers', riskAdjustedAnnualValueUsd: 180000, monthlyHoursSaved: 8, timeToValueWeeks: 2, paybackWeeks: 2, effortScore: 2, roiScore: 5, currentWork: 'Manual case registration via email and spreadsheets', morganWork: 'Automated intake from Teams, vehicle recommendation, case folder creation', proofSignals: ['14 cases auto-registered', 'Avg intake time: 3 min vs 45 min'], dependencies: ['Teams channel', 'SharePoint'] },
+          { id: 'ws-nomination', pillar: 'nomination', title: 'Nomination Pack Assembly', team: 'ECIF Operations', riskAdjustedAnnualValueUsd: 320000, monthlyHoursSaved: 12, timeToValueWeeks: 3, paybackWeeks: 3, effortScore: 3, roiScore: 5, currentWork: 'Manual ROI calculation, SOW review, narrative drafting', morganWork: 'Auto-generated nomination packs with ROI, SOW validation, AI-drafted justification', proofSignals: ['91/100 narrative quality score', '100% SOW validation rate'], dependencies: ['MSX API', 'Partner registry'] },
+          { id: 'ws-approval', pillar: 'approval', title: 'Approval Chain Orchestration', team: 'Approval Authority', riskAdjustedAnnualValueUsd: 240000, monthlyHoursSaved: 10, timeToValueWeeks: 2, paybackWeeks: 2, effortScore: 2, roiScore: 4, currentWork: 'Manual follow-up emails, lost approvals', morganWork: 'Auto-resolved approver chains, SLA tracking, soft/firm/escalation nudge cadence', proofSignals: ['94% approval rate', 'Avg approval SLA: 3.2 days'], dependencies: ['Approver directory'] },
+          { id: 'ws-poe', pillar: 'poe', title: 'POE Evidence Collection', team: 'Partner Operations', riskAdjustedAnnualValueUsd: 280000, monthlyHoursSaved: 10, timeToValueWeeks: 3, paybackWeeks: 4, effortScore: 3, roiScore: 4, currentWork: 'Manual evidence gathering, email-based attestations', morganWork: 'Automated evidence scanning, MIP classification, attestation requests, POE pack assembly', proofSignals: ['T-7 pre-flight checks', '100% evidence chain integrity'], dependencies: ['SharePoint', 'Purview'] },
+          { id: 'ws-closeout', pillar: 'closeout', title: 'Payment & ACR Closeout', team: 'Finance', riskAdjustedAnnualValueUsd: 120000, monthlyHoursSaved: 4, timeToValueWeeks: 4, paybackWeeks: 5, effortScore: 2, roiScore: 3, currentWork: 'Manual payment tracking, ACR reconciliation', morganWork: 'Auto-tracked payments, ACR realisation writeback, case archival', proofSignals: ['87% ACR realisation rate', '100% case archival'], dependencies: ['ECIF Ops', 'MSX'] },
+          { id: 'ws-governance', pillar: 'governance', title: 'HITL Governance Framework', team: 'Compliance', riskAdjustedAnnualValueUsd: 80000, monthlyHoursSaved: 4, timeToValueWeeks: 1, paybackWeeks: 1, effortScore: 1, roiScore: 5, currentWork: 'Ad-hoc approval processes, no audit trail', morganWork: 'L1/L2/L3 gates, full audit trail, Purview retention, zero unapproved sends', proofSignals: ['Zero compliance incidents', '1,247 audited events'], dependencies: ['Teams Adaptive Cards'] },
         ],
       });
       renderCorpgenDigestDelivery({
@@ -2278,15 +2278,15 @@
         email: { enabled: true, status: 'sent', source: 'Case summary generator', target: 'graham.hosking@microsoft.com' },
         teams: { enabled: true, status: 'sent', source: 'Digest formatter', target: 'ECIF Sponsors channel' },
       });
-      await loadRowanCosts().catch(() => {});
+      await loadMorganCosts().catch(() => {});
       document.getElementById('cognitiveTools').innerHTML = [
-        { title: 'Vehicle Picker Engine', rowanTool: 'vehiclePickerTools', purpose: 'Decision logic for ECIF vs ME3E5 vs ABS+S vs AI Workforce vs Surface', status: 'live', outputs: ['Vehicle recommendation', 'Double-dip check', 'Baseline ACR'] },
-        { title: 'Nomination Pack Generator', rowanTool: 'nominationTools', purpose: 'MSX verification, partner designation, ROI computation, SOW validation, narrative drafting', status: 'live', outputs: ['Nomination pack', 'ROI analysis', 'SOW lint report'] },
-        { title: 'Approval Chain Orchestrator', rowanTool: 'approvalTools', purpose: 'Auto-resolved approver chains, SLA tracking, nudge cadence (soft/firm/escalation)', status: 'live', outputs: ['Approver chain', 'SLA status', 'Nudge history'] },
-        { title: 'POE Evidence Collector', rowanTool: 'poeTools', purpose: 'Evidence scanning, artefact ingestion, attestation requests, invoice reconciliation', status: 'live', outputs: ['POE pack', 'Evidence health', 'Preflight report'] },
-        { title: 'Closeout Manager', rowanTool: 'closeoutTools', purpose: 'POE submission, payment tracking, ACR realisation writeback, case archival', status: 'live', outputs: ['Payment status', 'ACR realisation', 'Case study draft'] },
-        { title: 'HITL Gate Engine', rowanTool: 'hitlTools', purpose: 'L1/L2/L3 human-in-the-loop gates with Adaptive Card approval surfaces', status: 'live', outputs: ['Approval card', 'HITL decision', 'Audit tuple'] },
-      ].map(item => `<div class="compact-item"><span class="status-dot ${item.status}">${item.status}</span><p><b>${item.title}</b> · ${item.rowanTool}</p><p>${item.purpose}</p><p><b>Outputs:</b> ${item.outputs.join(', ')}</p></div>`).join('');
+        { title: 'Vehicle Picker Engine', morganTool: 'vehiclePickerTools', purpose: 'Decision logic for ECIF vs ME3E5 vs ABS+S vs AI Workforce vs Surface', status: 'live', outputs: ['Vehicle recommendation', 'Double-dip check', 'Baseline ACR'] },
+        { title: 'Nomination Pack Generator', morganTool: 'nominationTools', purpose: 'MSX verification, partner designation, ROI computation, SOW validation, narrative drafting', status: 'live', outputs: ['Nomination pack', 'ROI analysis', 'SOW lint report'] },
+        { title: 'Approval Chain Orchestrator', morganTool: 'approvalTools', purpose: 'Auto-resolved approver chains, SLA tracking, nudge cadence (soft/firm/escalation)', status: 'live', outputs: ['Approver chain', 'SLA status', 'Nudge history'] },
+        { title: 'POE Evidence Collector', morganTool: 'poeTools', purpose: 'Evidence scanning, artefact ingestion, attestation requests, invoice reconciliation', status: 'live', outputs: ['POE pack', 'Evidence health', 'Preflight report'] },
+        { title: 'Closeout Manager', morganTool: 'closeoutTools', purpose: 'POE submission, payment tracking, ACR realisation writeback, case archival', status: 'live', outputs: ['Payment status', 'ACR realisation', 'Case study draft'] },
+        { title: 'HITL Gate Engine', morganTool: 'hitlTools', purpose: 'L1/L2/L3 human-in-the-loop gates with Adaptive Card approval surfaces', status: 'live', outputs: ['Approval card', 'HITL decision', 'Audit tuple'] },
+      ].map(item => `<div class="compact-item"><span class="status-dot ${item.status}">${item.status}</span><p><b>${item.title}</b> · ${item.morganTool}</p><p>${item.purpose}</p><p><b>Outputs:</b> ${item.outputs.join(', ')}</p></div>`).join('');
       document.getElementById('cadence').innerHTML = [
         { time: '08:00', activity: 'Daily case monitor tick', output: 'Check all 14 open cases, approval SLAs, evidence scans' },
         { time: '08:15', activity: 'Approval SLA check', output: 'Identify stuck approvals, queue nudge cadence' },
@@ -2334,15 +2334,15 @@
         { verdict: 'candidate', title: 'Approval velocity prediction', score: 78, rationale: 'Nudge cadence effective for L2 approvers. L3 approval prediction needs more training data.' },
       ].map(item => `<div class="compact-item"><span class="status-dot ${item.verdict}">${item.verdict}</span><p><b>${item.title}</b> · ${item.score}/100</p><p>${item.rationale}</p></div>`).join('');
       document.getElementById('paperAlignment').innerHTML = [
-        { paperConcept: 'Wrap-Not-Replace', status: 'live', rowanImplementation: 'Agent 365 MCP wraps existing ECIF systems — no new portals, no parallel workflows', enterpriseControl: 'All actions through existing M365 + ECIF Ops surfaces', proof: ['SharePoint case folders', 'Teams Adaptive Cards', 'MSX writeback'] },
-        { paperConcept: 'Human-in-the-Loop Gates', status: 'live', rowanImplementation: 'L1/L2/L3 gates on all external sends and $-bearing actions', enterpriseControl: 'Sponsor approval required for every external communication', proof: ['Zero unapproved sends', 'HITL decision audit tuples'] },
-        { paperConcept: 'Evidence-First Operations', status: 'live', rowanImplementation: 'MIP classification + Purview retention on every artefact', enterpriseControl: '7-year retention on case evidence, signatory tuples captured', proof: ['96/100 evidence integrity score', '1,247 audited events'] },
-        { paperConcept: 'Autonomous Cycle Management', status: 'live', rowanImplementation: 'Daily case monitor tick, approval SLA checks, evidence scan triggers', enterpriseControl: 'Experiential learning capture, case state consolidation', proof: ['14 cases managed autonomously', '7 completed in FY26'] },
-        { paperConcept: 'CorpGen Digital Worker Model', status: 'production-hardening', rowanImplementation: 'Microsoft Agent 365 + Foundry + GPT-5 ReAct loop', enterpriseControl: 'Enterprise-grade observability, cost model, and compliance controls', proof: ['Mission Control dashboard', 'Cost model: $2.84/day'] },
-      ].map(item => `<div class="alignment ${item.status}"><b>${item.paperConcept}</b><div class="small"><strong>Status:</strong> ${item.status}</div><div class="small"><strong>Rowan:</strong> ${item.rowanImplementation}</div><div class="small"><strong>Enterprise control:</strong> ${item.enterpriseControl}</div><div class="small"><strong>Proof:</strong> ${item.proof.join(', ')}</div></div>`).join('');
+        { paperConcept: 'Wrap-Not-Replace', status: 'live', morganImplementation: 'Agent 365 MCP wraps existing ECIF systems — no new portals, no parallel workflows', enterpriseControl: 'All actions through existing M365 + ECIF Ops surfaces', proof: ['SharePoint case folders', 'Teams Adaptive Cards', 'MSX writeback'] },
+        { paperConcept: 'Human-in-the-Loop Gates', status: 'live', morganImplementation: 'L1/L2/L3 gates on all external sends and $-bearing actions', enterpriseControl: 'Sponsor approval required for every external communication', proof: ['Zero unapproved sends', 'HITL decision audit tuples'] },
+        { paperConcept: 'Evidence-First Operations', status: 'live', morganImplementation: 'MIP classification + Purview retention on every artefact', enterpriseControl: '7-year retention on case evidence, signatory tuples captured', proof: ['96/100 evidence integrity score', '1,247 audited events'] },
+        { paperConcept: 'Autonomous Cycle Management', status: 'live', morganImplementation: 'Daily case monitor tick, approval SLA checks, evidence scan triggers', enterpriseControl: 'Experiential learning capture, case state consolidation', proof: ['14 cases managed autonomously', '7 completed in FY26'] },
+        { paperConcept: 'CorpGen Digital Worker Model', status: 'production-hardening', morganImplementation: 'Microsoft Agent 365 + Foundry + GPT-5 ReAct loop', enterpriseControl: 'Enterprise-grade observability, cost model, and compliance controls', proof: ['Mission Control dashboard', 'Cost model: $2.84/day'] },
+      ].map(item => `<div class="alignment ${item.status}"><b>${item.paperConcept}</b><div class="small"><strong>Status:</strong> ${item.status}</div><div class="small"><strong>Morgan:</strong> ${item.morganImplementation}</div><div class="small"><strong>Enterprise control:</strong> ${item.enterpriseControl}</div><div class="small"><strong>Proof:</strong> ${item.proof.join(', ')}</div></div>`).join('');
       document.getElementById('tasks').innerHTML = [
         { title: 'Chase stuck approvals', priority: 1, cadence: 'continuous', description: 'Monitor approval SLAs, send nudges at 24h(soft)/48h(firm)/72h(escalation)', autonomousTrigger: 'Approval pending > SLA threshold', tools: ['checkApprovalStatus', 'sendNudge'], subAgents: ['Approver Chaser'] },
-        { title: 'Process new case intakes', priority: 1, cadence: 'on-demand', description: 'Register new cases from Teams messages, recommend vehicle, create case folder', autonomousTrigger: '@RowanECIF mention with customer + workload', tools: ['recommendVehicle', 'createCase'], subAgents: ['Vehicle Picker Agent'] },
+        { title: 'Process new case intakes', priority: 1, cadence: 'on-demand', description: 'Register new cases from Teams messages, recommend vehicle, create case folder', autonomousTrigger: '@MorganECIF mention with customer + workload', tools: ['recommendVehicle', 'createCase'], subAgents: ['Vehicle Picker Agent'] },
         { title: 'POE evidence collection', priority: 2, cadence: 'daily', description: 'Scan M365 stores for evidence, ingest artefacts, request missing attestations', autonomousTrigger: 'Case in Execute or POE stage', tools: ['scanForEvidence', 'ingestArtefact', 'requestAttestation'], subAgents: ['POE Collector', 'Evidence Librarian'] },
         { title: 'Weekly sponsor digest', priority: 2, cadence: 'weekly', description: 'Assemble portfolio-level digest: case status, deadlines, evidence health, value metrics', autonomousTrigger: 'Friday 16:00', tools: ['formatCaseStatusReport', 'createWeeklyDigest'], subAgents: ['Comms Specialist'] },
       ].map(task => `<div class="task"><div class="task-title"><b>${task.title}</b><span class="pill ${task.priority <= 2 ? '' : 'amber'}">P${task.priority} ${task.cadence}</span></div><p>${task.description}</p><div class="small"><b>Trigger:</b> ${task.autonomousTrigger}</div><div class="small"><b>Tools:</b> ${task.tools.join(', ')}</div><div class="small"><b>Sub-agents:</b> ${task.subAgents.join(', ')}</div></div>`).join('');
