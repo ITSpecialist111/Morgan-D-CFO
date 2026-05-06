@@ -23,11 +23,11 @@ Morgan isn't a chatbot — she's a **digital worker** with her own Microsoft Ent
 
 ## Repeatable Case — The Sellable Blueprint
 
-Morgan's architecture separates the **role-agnostic harness** (identity, autonomy, HITL gates, audit trail, IQ grounding) from **role-specific configuration** (persona, tools, lifecycle stages). Swap the persona and tools — the harness stays identical.
+Morgan's architecture is built on the **Microsoft CorpGen Autonomous Harness** — a model for digital workers that defines how an agent holds a persistent identity, plans and executes bounded work cycles, escalates through governed approval gates, and preserves auditable evidence of every action. The harness separates the **role-agnostic operating model** (identity, autonomy, HITL gates, audit trail, IQ grounding) from **role-specific configuration** (persona, tools, lifecycle stages). Swap the persona and tools — the harness stays identical.
 
 This means the same construct that runs an ECIF Director can run a **CFO** (month-end close, board packs), a **Procurement Director** (contract lifecycle), an **HR Business Partner** (offer management), or an **IT Service Manager** (incident lifecycle) — for any organisation, in any Microsoft 365 tenant.
 
-The first agent took months to build. The second takes weeks. That's the sellable item: a **repeatable digital worker blueprint** built entirely on Microsoft's platform.
+The first agent took months to build. The second takes hours. That's the sellable item: a **repeatable CorpGen digital worker blueprint** built entirely on Microsoft's platform.
 
 ---
 
@@ -36,7 +36,7 @@ The first agent took months to build. The second takes weeks. That's the sellabl
 - All data stays within the customer's Microsoft 365 tenant — no external storage, no cross-tenant leakage
 - Morgan operates under her own Entra identity with scoped permissions, not a service account with broad access
 - Every external send is gated by human approval and checked by Purview DLP before delivery
-- Every artefact is SHA-256 hashed with timestamps — tamper-evident by design
+- Data sensitivity is governed by Microsoft Information Protection classification labels built into Agent 365 — determining what is Public, Internal, Confidential, or Highly Confidential automatically
 - Full audit trail through Application Insights, Purview audit logs, and Foundry traces — independently reconcilable
 - Morgan operates under the same enterprise security controls as any human employee — Conditional Access, Defender, Information Protection — not around them
 
@@ -51,16 +51,16 @@ Sellers lose 12+ hours per case and forfeit six-figure claims because no system 
 At scale (100–300 cases/year across EMEA), Morgan saves 1,100–3,300 hours and protects $10–50M in investment claims annually — every metric visible in real-time through Mission Control.
 
 **Innovation & Creativity:**
-Morgan combines a persistent Entra identity, GPT-5 reasoning, 7 specialist sub-agents, three-layer Microsoft IQ grounding, and an autonomous work harness with HITL gates — a composable blueprint that was reframed from a generic CFO to a fully-specified ECIF Director in a single weekend.
+Morgan is built on the Microsoft CorpGen Autonomous Harness — combining a persistent Entra identity, GPT-5 reasoning, 7 specialist sub-agents, three-layer Microsoft IQ grounding, and governed HITL gates into a composable blueprint that was reframed from a generic CFO to a fully-specified ECIF Director in hours, not months.
 
 **User Experience:**
 A seller messages "@Morgan, new case for Contoso on Azure AI" in Teams — Morgan handles everything, surfacing decisions as Adaptive Cards with Approve/Edit/Cancel, and exposing all work through an interactive Mission Control dashboard.
 
 **Feasibility & Scalability:**
-Built entirely on GA Microsoft infrastructure (Agent Framework, Foundry, Azure OpenAI, Entra, Teams, Purview) — the second agent deployment takes weeks not months, and scales to any role in any M365 tenant.
+Built entirely on GA Microsoft infrastructure (Agent Framework, Foundry, Azure OpenAI, Entra, Teams, Purview) — the second agent deployment takes hours not months, and scales to any role in any M365 tenant.
 
 **Responsible & Trusted AI:**
-Every external send is human-approved, all data stays in-tenant, every artefact is hash-verified, and the full reasoning chain is auditable through three independent log sources.
+Every external send is human-approved, all data stays in-tenant, sensitivity is governed by Microsoft Information Protection classification labels built into Agent 365, and the full reasoning chain is auditable through three independent log sources.
 
 **Clarity of Pitch:**
 Morgan is a digital worker that owns a job, not a chatbot that answers questions — demonstrated live through Mission Control showing 14 active cases, a 7-stage pipeline, evidence health tracking, and real-time value metrics.

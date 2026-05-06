@@ -290,9 +290,9 @@
       <div class="body">
         <div class="small">
           <p><strong>Morgan — ECIF Director</strong></p>
-          <p>Morgan is an autonomous AI agent that manages the full End Customer Investment Funds (ECIF) lifecycle: from identifying the right investment vehicle, through nomination pack assembly, approval chasing, SOW execution, POE evidence collection, payment processing, and case closeout.</p>
+          <p>Morgan is an autonomous AI agent built on the <strong>Microsoft CorpGen Autonomous Harness</strong> — a blueprint for digital workers that defines how an agent holds a persistent identity, plans and executes bounded work cycles, escalates through governed approval gates, and preserves auditable evidence of every action. Applied here to the full End Customer Investment Funds (ECIF) lifecycle: from identifying the right investment vehicle, through nomination pack assembly, approval chasing, SOW execution, POE evidence collection, payment processing, and case closeout.</p>
           <p>Morgan wraps — not replaces — existing Microsoft systems (MSX, OneAsk, Partner Center, SharePoint) and operates with human-in-the-loop gates on every external communication and dollar-bearing decision. The sponsor seller remains in command; Morgan is the sponsor's hands.</p>
-          <p><strong>Operating model:</strong> Case-driven autonomous cycles with HITL gates at L1 (info send), L2 (external comms), and L3 (dollar-bearing actions). Evidence capture on every state transition. Wrap-not-replace existing Microsoft tooling.</p>
+          <p><strong>Operating model:</strong> Built on the CorpGen Autonomous Harness — case-driven work cycles with HITL gates at L1 (info send), L2 (external comms), and L3 (dollar-bearing actions). The first agent took months to build; the blueprint means the next one takes hours. Evidence capture on every state transition. Wrap-not-replace existing Microsoft tooling.</p>
         </div>
       </div>
     </section>
@@ -303,7 +303,7 @@
       <div class="body">
         <div class="alignment-list">
           <div class="alignment"><b>HITL Gate Framework</b><div class="small"><strong>Status:</strong> Active · L1/L2/L3 gates on all external sends and $-bearing actions<br><strong>Control:</strong> Sponsor approval required before any external communication or fund commitment</div></div>
-          <div class="alignment"><b>Evidence Chain Integrity</b><div class="small"><strong>Status:</strong> Active · SHA-256 hashing + ISO timestamps on all artefacts<br><strong>Control:</strong> Purview retention labels applied; signatory tuples captured for attestations</div></div>
+          <div class="alignment"><b>Evidence Chain Integrity</b><div class="small"><strong>Status:</strong> Active · Microsoft Information Protection classification labels on all artefacts<br><strong>Control:</strong> Agent 365 built-in sensitivity detection; Purview retention labels applied; signatory tuples captured for attestations</div></div>
           <div class="alignment amber"><b>Dataverse Case Store</b><div class="small"><strong>Status:</strong> Configuration in progress · Schema deployed, RBAC pending<br><strong>Control:</strong> All case state persisted to ecif_cases table with full audit trail</div></div>
           <div class="alignment"><b>Purview Audit Integration</b><div class="small"><strong>Status:</strong> Active · All agent actions logged to Log Analytics + Purview<br><strong>Control:</strong> Microsoft 365 user/app activity, Entra sign-ins, Graph/MCP actions audited</div></div>
           <div class="alignment blue"><b>Agent 365 MCP Platform</b><div class="small"><strong>Status:</strong> Connected · WorkIQ, Graph, Fabric MCP tools discovered<br><strong>Control:</strong> Agentic auth OBO flow; scoped to graph.microsoft.com/.default</div></div>
@@ -472,7 +472,7 @@
           <div class="compact-item"><b>POE Collector</b><p>Stage 5 specialist — scans for evidence, requests attestations, reconciles invoices, assembles POE packs</p></div>
           <div class="compact-item"><b>Closeout Reporter</b><p>Stage 6 specialist — submits POE, tracks payment, writes back ACR realisation, archives cases</p></div>
           <div class="compact-item"><b>Comms Specialist</b><p>Cross-cutting — all external sends funnel through HITL gates; Teams/email/OneAsk communications</p></div>
-          <div class="compact-item"><b>Evidence Librarian</b><p>Cross-cutting — hash + timestamp + retention + signatory management; precedent search across cases</p></div>
+          <div class="compact-item"><b>Evidence Librarian</b><p>Cross-cutting — Microsoft Information Protection classification labels, Purview retention, signatory management; precedent search across cases</p></div>
         </div>
       </div>
     </section>
@@ -567,7 +567,7 @@
       { id: 'hub-lifecycle', label: 'ECIF Lifecycle', type: 'mission', group: 'lifecycle', importance: 8, detail: '7-stage case pipeline: Intake → Vehicle → Nominate → Approve → Execute → POE → Close' },
       { id: 'hub-tools', label: 'Tool Catalogue', type: 'tool', group: 'tools', importance: 8, detail: '22 ECIF-specific tools across vehicle selection, nomination, approval, POE, and closeout stages.' },
       { id: 'hub-governance', label: 'Governance', type: 'governance', group: 'governance', importance: 8, detail: 'HITL gates, evidence integrity, audit trails, Purview retention, and compliance controls.' },
-      { id: 'hub-evidence', label: 'Evidence Chain', type: 'evidence', group: 'evidence', importance: 8, detail: 'SHA-256 hashing, ISO timestamps, signatory tuples, Purview retention labels on all artefacts.' },
+      { id: 'hub-evidence', label: 'Evidence Chain', type: 'evidence', group: 'evidence', importance: 8, detail: 'Microsoft Information Protection classification labels, Agent 365 sensitivity detection, Purview retention on all artefacts.' },
       { id: 'hub-stakeholder', label: 'Stakeholders', type: 'stakeholder', group: 'stakeholder', importance: 7, detail: 'Sponsor sellers, partner contacts, approver chains, customer champions, ECIF Ops.' },
       // Lifecycle stages
       { id: 'stage-intake', label: 'Intake', type: 'ecif', group: 'lifecycle', importance: 6, detail: 'New case registration: customer, workload, sponsor assignment, initial triage.' },
@@ -592,7 +592,7 @@
       { id: 'agent-poe', label: 'POE Collector', type: 'agent', group: 'tools', importance: 5, detail: 'Stage 5 specialist for evidence scanning and POE pack assembly.' },
       { id: 'agent-closeout', label: 'Closeout Reporter', type: 'agent', group: 'tools', importance: 5, detail: 'Stage 6 specialist for payment tracking and ACR realisation.' },
       { id: 'agent-comms', label: 'Comms Specialist', type: 'agent', group: 'tools', importance: 5, detail: 'Cross-cutting external sends funnel with HITL gate enforcement.' },
-      { id: 'agent-librarian', label: 'Evidence Librarian', type: 'agent', group: 'evidence', importance: 5, detail: 'Cross-cutting evidence management: hash, retention, signatory, precedent search.' },
+      { id: 'agent-librarian', label: 'Evidence Librarian', type: 'agent', group: 'evidence', importance: 5, detail: 'Cross-cutting evidence management: MIP classification, retention labels, signatory tracking, precedent search.' },
       // Governance
       { id: 'hitl-l1', label: 'L1 — Info Send', type: 'hitl', group: 'governance', importance: 5, detail: 'Informational sends to internal stakeholders. Auto-approved after trust ramp (day 30+).' },
       { id: 'hitl-l2', label: 'L2 — External Comms', type: 'hitl', group: 'governance', importance: 6, detail: 'External communications to partners, customers, ECIF Ops. Sponsor approval required.' },
@@ -600,8 +600,8 @@
       { id: 'gov-audit', label: 'Audit Trail', type: 'audit', group: 'governance', importance: 5, detail: 'Every state transition logged: case.created, stage.transitioned, hitl.requested, evidence.ingested, external.send.' },
       { id: 'gov-purview', label: 'Purview Retention', type: 'governance', group: 'governance', importance: 5, detail: 'Microsoft Purview retention labels on all case artefacts. 7-year retention for financial evidence.' },
       // Evidence
-      { id: 'ev-hash', label: 'SHA-256 Integrity', type: 'evidence', group: 'evidence', importance: 5, detail: 'Every artefact hashed with SHA-256 + ISO timestamp at ingestion.' },
-      { id: 'ev-signatory', label: 'Signatory Tuples', type: 'evidence', group: 'evidence', importance: 5, detail: 'Captures: signatoryId, role, docHash, timestamp for attestations and approvals.' },
+      { id: 'ev-classify', label: 'MIP Classification', type: 'evidence', group: 'evidence', importance: 5, detail: 'Agent 365 built-in classification labels determine sensitivity (Public, Internal, Confidential, Highly Confidential) for every artefact.' },
+      { id: 'ev-signatory', label: 'Signatory Tuples', type: 'evidence', group: 'evidence', importance: 5, detail: 'Captures: signatoryId, role, document reference, timestamp for attestations and approvals.' },
       { id: 'ev-precedent', label: 'Precedent Search', type: 'evidence', group: 'evidence', importance: 4, detail: 'Cross-case semantic search for similar evidence, SOWs, and justification narratives.' },
       // Stakeholders
       { id: 'sh-sponsor', label: 'Sponsor Seller', type: 'stakeholder', group: 'stakeholder', importance: 6, detail: 'Primary human-in-the-loop. Approves all external sends and $-bearing actions.' },
@@ -654,7 +654,7 @@
       { source: 'hub-governance', target: 'gov-audit', type: 'governance', strength: 0.6 },
       { source: 'hub-governance', target: 'gov-purview', type: 'governance', strength: 0.6 },
       // Evidence
-      { source: 'hub-evidence', target: 'ev-hash', type: 'capability', strength: 0.6 },
+      { source: 'hub-evidence', target: 'ev-classify', type: 'capability', strength: 0.6 },
       { source: 'hub-evidence', target: 'ev-signatory', type: 'capability', strength: 0.6 },
       { source: 'hub-evidence', target: 'ev-precedent', type: 'capability', strength: 0.5 },
       { source: 'hub-evidence', target: 'mem-casestate', type: 'memory_recall', strength: 0.6 },
