@@ -393,28 +393,29 @@
 
     <!-- Cost of Morgan -->
     <section class="wide" id="ecifCost">
-      <div class="section-head"><h2>Cost of Morgan</h2><span class="pill" style="background:rgba(52,211,153,.15);color:#34d399">azure actuals</span></div>
+      <div class="section-head"><h2>Cost of Morgan</h2><span class="pill" style="background:rgba(251,191,36,.15);color:#fbbf24">estimated · pre-production</span></div>
       <div class="body">
+        <p class="small" style="color:var(--amber);margin:0 0 12px;font-size:11px;line-height:1.5">⚠ All costs below are <strong>estimates based on Azure published pricing and Morgan D-CFO pilot telemetry</strong>. Actual costs will vary based on case volume, GPT-5 token usage per reasoning loop, voice call duration, and storage growth. These figures assume ~50 cases/year at current complexity. No production ECIF workload has been measured yet.</p>
         <div class="cost-summary">
-          <div class="cost-card"><b>$4.82</b><span>Daily Run-Rate</span></div>
-          <div class="cost-card"><b>$33.74</b><span>Weekly Run-Rate</span></div>
-          <div class="cost-card"><b>12%</b><span>Voice/Avatar Share</span></div>
-          <div class="cost-card"><b>48.6x</b><span>Value to Cost</span></div>
-          <div class="cost-card"><b>$31.20</b><span>Azure Actual / Week</span></div>
+          <div class="cost-card"><b>~$4.82</b><span>Est. Daily Run-Rate</span></div>
+          <div class="cost-card"><b>~$33.74</b><span>Est. Weekly Run-Rate</span></div>
+          <div class="cost-card"><b>~12%</b><span>Voice/Avatar Share</span></div>
+          <div class="cost-card"><b>~48x</b><span>Est. Value to Cost</span></div>
+          <div class="cost-card"><b>TBC</b><span>Azure Actual / Week</span></div>
         </div>
         <div class="cost-body">
           <div class="cost-bars">
-            <div class="cost-bar-row"><b>Azure OpenAI (GPT-5)</b><div class="cost-track"><div class="cost-fill" style="width:100%"></div></div><span>$18.40/wk</span></div>
-            <div class="cost-bar-row"><b>MCP Tool Calls (Graph)</b><div class="cost-track"><div class="cost-fill tools" style="width:38%"></div></div><span>$6.95/wk</span></div>
-            <div class="cost-bar-row"><b>Voice Live + Avatar</b><div class="cost-track"><div class="cost-fill voice" style="width:22%"></div></div><span>$4.05/wk</span></div>
-            <div class="cost-bar-row"><b>Foundry Hosting</b><div class="cost-track"><div class="cost-fill infra" style="width:16%"></div></div><span>$2.90/wk</span></div>
-            <div class="cost-bar-row"><b>Cosmos DB (State)</b><div class="cost-track"><div class="cost-fill infra" style="width:5%"></div></div><span>$0.92/wk</span></div>
-            <div class="cost-bar-row"><b>App Insights + Logs</b><div class="cost-track"><div class="cost-fill infra" style="width:3%"></div></div><span>$0.52/wk</span></div>
+            <div class="cost-bar-row"><b>Azure OpenAI (GPT-5)</b><div class="cost-track"><div class="cost-fill" style="width:100%"></div></div><span>~$18.40/wk</span></div>
+            <div class="cost-bar-row"><b>MCP Tool Calls (Graph)</b><div class="cost-track"><div class="cost-fill tools" style="width:38%"></div></div><span>~$6.95/wk</span></div>
+            <div class="cost-bar-row"><b>Voice Live + Avatar</b><div class="cost-track"><div class="cost-fill voice" style="width:22%"></div></div><span>~$4.05/wk</span></div>
+            <div class="cost-bar-row"><b>Foundry Hosting</b><div class="cost-track"><div class="cost-fill infra" style="width:16%"></div></div><span>~$2.90/wk</span></div>
+            <div class="cost-bar-row"><b>Cosmos DB (State)</b><div class="cost-track"><div class="cost-fill infra" style="width:5%"></div></div><span>~$0.92/wk</span></div>
+            <div class="cost-bar-row"><b>App Insights + Logs</b><div class="cost-track"><div class="cost-fill infra" style="width:3%"></div></div><span>~$0.52/wk</span></div>
           </div>
           <div class="compact-list">
-            <div class="compact-item"><span class="status-dot" style="background:#34d399">Cost Management connected</span><p><b>Weekly value:</b> $1,640 from 13.7 estimated hours saved across 14 active cases.</p></div>
-            <div class="compact-item"><p><b>Realtime avatar:</b> $4.05 this week, currently 12% of Morgan's run-rate. Voice engagement: 3 sponsor calls, 1 partner walkthrough.</p></div>
-            <div class="compact-item"><p><b>Cost per case:</b> $0.42 avg across lifecycle. Peak cost at Stage 3 (nomination pack assembly, GPT-5 reasoning loops). Minimal cost at Stage 1 (vehicle recommendation = single tool call).</p></div>
+            <div class="compact-item"><span class="status-dot" style="background:var(--amber)">estimate mode — no production data yet</span><p><b>Basis:</b> Cost estimates derived from Azure published pricing (May 2026) and observed token consumption patterns from Morgan D-CFO pilot running GPT-5 with 25-minute autonomous cycles.</p></div>
+            <div class="compact-item"><p><b>Key assumptions:</b> ~4 GPT-5 reasoning loops per case stage transition (~2K tokens/loop). ~8 MCP tool calls per case per day. Voice/avatar at ~15 minutes/week sponsor engagement. Foundry hosting on B1 App Service plan.</p></div>
+            <div class="compact-item"><p><b>Cost per case estimate:</b> ~$0.42 avg across full lifecycle. This assumes standard complexity — large nominations with extensive reasoning or frequent voice calls would increase this.</p></div>
           </div>
         </div>
       </div>
@@ -422,36 +423,37 @@
 
     <!-- ECIF Value & ROI -->
     <section class="wide" id="ecifValue">
-      <div class="section-head"><h2>ECIF Director Value</h2><span class="pill">autonomous ROI</span></div>
+      <div class="section-head"><h2>ECIF Director Value</h2><span class="pill" style="background:rgba(251,191,36,.15);color:#fbbf24">projected · assumptions stated</span></div>
       <div class="body">
+        <p class="small" style="color:var(--amber);margin:0 0 12px;font-size:11px;line-height:1.5">⚠ All value figures below are <strong>projections based on stated assumptions</strong>, not measured outcomes. These represent the business case hypothesis that a pilot would validate. Actual results will depend on case complexity, stakeholder responsiveness, and process adoption.</p>
         <div class="cost-summary">
-          <div class="cost-card"><b>$2.4M</b><span>ECIF Approved</span></div>
-          <div class="cost-card"><b>$6.1M</b><span>ACR Forecast</span></div>
-          <div class="cost-card"><b>2.54:1</b><span>Avg Case ROI</span></div>
-          <div class="cost-card"><b>12h → 55min</b><span>Avg Case Cycle</span></div>
-          <div class="cost-card"><b>$0.42</b><span>Agent Cost/Case</span></div>
+          <div class="cost-card"><b>$2.4M</b><span>ECIF Approved (mock)</span></div>
+          <div class="cost-card"><b>$6.1M</b><span>ACR Forecast (mock)</span></div>
+          <div class="cost-card"><b>2.54:1</b><span>Avg Case ROI (mock)</span></div>
+          <div class="cost-card"><b>12h → ~1h</b><span>Target Case Cycle</span></div>
+          <div class="cost-card"><b>~$0.42</b><span>Est. Agent Cost/Case</span></div>
         </div>
         <div class="roi-grid">
-          <div class="roi-card"><b>$85,280</b><span>Risk-Adjusted Annual Value</span><div class="delta positive">+$71,520 net of agent cost</div></div>
-          <div class="roi-card"><b>2w</b><span>Fastest Time to Value</span><div class="delta positive">Vehicle recommendation in &lt;5 min</div></div>
-          <div class="roi-card"><b>$0</b><span>Forfeited Claims</span><div class="delta positive">0 missed POE deadlines</div></div>
-          <div class="roi-card"><b>714 hrs</b><span>Hours Saved Annually</span><div class="delta positive">51 cases × 12h → 55min each</div></div>
+          <div class="roi-card"><b>~$85K</b><span>Projected Annual Value</span><div class="delta positive">assumption: 50 cases/yr</div></div>
+          <div class="roi-card"><b>&lt;5 min</b><span>Vehicle Recommendation</span><div class="delta positive">vs hours of manual research</div></div>
+          <div class="roi-card"><b>Target: 0</b><span>Forfeited Claims</span><div class="delta positive">continuous evidence capture</div></div>
+          <div class="roi-card"><b>~550 hrs</b><span>Projected Hours Saved/Yr</span><div class="delta positive">50 cases × ~11h saved each</div></div>
         </div>
         <div class="cost-body" style="margin-top:12px">
           <div class="compact-list">
-            <div class="compact-item"><b>Value Model Breakdown</b>
-              <p><b>Manual effort eliminated:</b> 12h/case × 51 cases/yr = 612h → now 46.75h = 565h saved @ $150/hr blended = $84,750</p>
-              <p><b>Forfeited claim prevention:</b> 3–5 cases/yr at risk × $180K avg = $540K–$900K protected</p>
-              <p><b>Approval acceleration:</b> 14–24 weeks → 10–18 weeks (25% faster dollar realisation)</p>
-              <p><b>Evidence quality:</b> continuous capture vs deadline crunch = 95% pack completeness at T-7</p>
+            <div class="compact-item"><b>Assumptions &amp; Reasoning</b>
+              <p><b>Manual effort today (assumed):</b> ~12h per ECIF case across the lifecycle — chasing approvers, gathering evidence, assembling packs, tracking deadlines, writing status updates. Based on seller self-reporting, not time-tracked data.</p>
+              <p><b>Agent-assisted effort (target):</b> ~1h per case — sponsor reviews HITL cards, approves sends, reviews digests. The agent handles chasing, evidence capture, pack assembly, and deadline monitoring autonomously.</p>
+              <p><b>Forfeited claim risk (assumed):</b> 3–5 cases/year at risk of missed POE deadlines due to late evidence gathering. At $100K–$500K per case, this represents $300K–$2.5M in preventable loss. Continuous evidence capture is designed to eliminate this.</p>
+              <p><b>Approval acceleration (hypothesis):</b> Automated nudge cadence (soft → firm → escalation → call) should reduce approval wait times by ~25%. Not yet validated.</p>
             </div>
             <div class="compact-list">
-              <div class="compact-item"><b>Agent Cost Breakdown (Annual)</b>
-                <p><b>Azure OpenAI (GPT-5):</b> $956.80 — ReAct reasoning, narrative generation, IQ synthesis</p>
-                <p><b>MCP + Graph API:</b> $361.40 — M365 tool calls (mail, Teams, SharePoint, Calendar)</p>
-                <p><b>Voice Live + Avatar:</b> $210.60 — sponsor calls, partner walkthroughs, attestation guidance</p>
-                <p><b>Foundry + Infra:</b> $225.68 — hosting, Cosmos DB state, App Insights, Log Analytics</p>
-                <p><b>Total annual cost:</b> $1,754.48 — delivering $85K+ in value = <b>48.6x return</b></p>
+              <div class="compact-item"><b>Agent Cost Projection (Annual)</b>
+                <p><b>Azure OpenAI (GPT-5):</b> ~$957 — based on Morgan D-CFO token consumption patterns scaled to ECIF case volume</p>
+                <p><b>MCP + Graph API:</b> ~$361 — M365 tool calls (mail, Teams, SharePoint, Calendar) at ~8 calls/case/day</p>
+                <p><b>Voice Live + Avatar:</b> ~$211 — assumes ~15 min/week sponsor voice engagement</p>
+                <p><b>Foundry + Infra:</b> ~$226 — hosting, Cosmos DB state, App Insights, Log Analytics on B1 plan</p>
+                <p><b>Projected total:</b> ~$1,755/year — if value assumptions hold, this delivers ~48x return. A pilot with 5 cases would validate these numbers at minimal cost (~$170).</p>
               </div>
             </div>
           </div>
