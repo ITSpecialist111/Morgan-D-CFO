@@ -12,25 +12,25 @@ A working, repeatable daily showcase. Two surfaces are live:
 ## 1. Current deployed state (verified 2026-06-12)
 
 - **Hosted agent**: version **17**, image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227` (digest `sha256:46506783…`), protocol `responses/1.0.0`, model `gpt-5-mini`. P0 smoke: **all 4 prompts passed** via direct REST. Verified-minimal env (Azure OpenAI routing only; Graph/MCP/voice/storage intentionally not configured).
-- **App Service**: F1 (Free) tier, **healthy**, running the latest code (SDK upgrade + ECIF→CFO feature-parity port). `AUTONOMOUS_WORKDAY_ENABLED=true`.
+- **App Service**: **Basic B1** tier with **Always On enabled**, **healthy**, running the latest code (SDK upgrade + ECIF→CFO feature-parity port). `AUTONOMOUS_WORKDAY_ENABLED=true`, timezone **Europe/London**, window **09:00–17:00**.
+- Plan `rg-morgan-finance-agent-plan` (Australia East, B1) is shared with `morgan-ecif-director-webapp`; Always On is enabled only on the D-CFO app.
 - Both built from the same repo. The hosted image's Dockerfile uses `npm install` (not `npm ci`) for cross-platform lockfile resilience.
 
 ---
 
-## 2. Make it run every day (one-time setup)
+## 2. How it runs every day (already configured — no action needed)
 
-The App Service is on the **Free tier** (idles after ~20 min, no "Always On"), so a daily external trigger is used. A free GitHub Actions cron is included: `.github/workflows/morgan-daily-workday.yml` (daily 08:00 UTC).
+Because the App Service is on **B1 with Always On**, the app process stays alive permanently and the **in-process autonomous scheduler runs the CFO workday on its own**, every day, during **09:00–17:00 Europe/London** (a cycle every 25 min, with an end-of-day report after close). This was verified live: the scheduler reported `started:true`, `inWindow:true`, and an automatic `lastCycleAt` with no external trigger.
 
-**One-time step** — add two repo secrets (GitHub → repo → Settings → Secrets and variables → Actions):
+You do **not** need to do anything for the daily run — just open Mission Control and the fresh autonomous work is there.
 
-| Secret | Value |
-|---|---|
-| `MORGAN_APP_URL` | `https://morganfinanceagent-webapp.azurewebsites.net` |
-| `MORGAN_SCHEDULED_SECRET` | the `SCHEDULED_SECRET` value configured on the App Service (in `.env` / App Service settings) |
+**Tuning (optional)** — App Service → Configuration → application settings:
+- `AUTONOMOUS_WORKDAY_TIME_ZONE` (default `Europe/London`)
+- `AUTONOMOUS_WORKDAY_START_HOUR` / `AUTONOMOUS_WORKDAY_END_HOUR` (default `9` / `17`)
+- `AUTONOMOUS_WORKDAY_INTERVAL_MINUTES` (default `25`)
+- `AUTONOMOUS_WORKDAY_ENABLED` (default `true`)
 
-Then commit/push the workflow. It will wake the app and run Morgan's autonomous CFO workday daily, populating Mission Control with fresh work. You can also run it on demand from the **Actions** tab → *Run workflow*.
-
-> Optional (paid) alternative: upgrade the App Service plan to **B1** and enable **Always On** + keep `AUTONOMOUS_WORKDAY_ENABLED=true`; the in-process 09:00–17:00 scheduler then runs without an external trigger (~$13/mo).
+**Optional backup trigger** — `.github/workflows/morgan-daily-workday.yml` can force a run on a schedule or on demand regardless of the window. It's not required now that Always On runs the scheduler in-process, but it's handy to force fresh data right before a demo. To use it, add repo secrets `MORGAN_APP_URL` and `MORGAN_SCHEDULED_SECRET` (GitHub → Settings → Secrets and variables → Actions) and run it from the Actions tab.
 
 ---
 
@@ -99,4 +99,4 @@ node scripts/deploy-appservice-zip.cjs --skip-settings --skip-auth --skip-roles
 
 - Financial figures are **deterministic Contoso demo data**; IQ pillars run on demo adapters. Methods/cadence/governance/cost economics are real. Point Morgan at a Fabric/Power BI model, GL/ERP, Agent 365 MCP, and Cosmos to run on live data (contracts are production-shaped).
 - The hosted agent (v17) proves **reachability, Azure OpenAI routing, and bounded behavior** — not Graph/MCP, voice, observability, durable storage, or sub-agent production parity.
-- App Service is **Free tier** — first request after idle cold-starts (~30–90s); the daily cron warms it.
+- App Service runs on **B1 with Always On**, so it stays warm (no cold-start) and the in-process scheduler runs daily. Note durable state is still process-local until Cosmos is wired, so an app restart/redeploy resets the in-memory task ledger.
