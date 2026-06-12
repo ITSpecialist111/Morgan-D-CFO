@@ -119,9 +119,15 @@ environments:
     projectName: ai-project-morgan-hosted-ncus
     location: northcentralus
     agentName: morgan-digital-cfo-hosted
-    agentVersion: "17"
+    agentVersion: "19"
     agentStatus: active
     priorKnownGoodVersion: "10"
+    activeImageNote: Version 19 restores the known-good image 20260612110227 (P0 smoke passed this session). The starfield-avatar + CFO-kanban + Mission Control section fixes are visual/UI changes served by the App Service; the hosted /responses route is functionally unaffected, so the hosted agent intentionally runs the known-good image.
+    hostedResponsesEndpointIncident:
+      observed: 2026-06-12T19:40-20:00Z
+      symptom: Direct REST vNext Responses route returned gateway HTTP 500 (empty body) for v18 (image 20260612193817) AND for v19 (known-good image 20260612110227 that passed P0 smoke earlier the same session).
+      isolation: Local dist/foundryHost.js /responses returned completed for plain and kanban-exercising prompts, so this is image-independent and code-independent - a transient Foundry hosted-agent preview platform issue, consistent with prior agent_invoke internal errors noted for this route.
+      action: Restored agent to the known-good image (v19, active) so it recovers cleanly when the platform endpoint does. Re-run the direct REST P0 smoke to confirm recovery.
     azureContainerRegistry: crbdoregvn6di7y.azurecr.io
     imageRepository: morgan-digital-cfo
     latestBuiltImage: crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227
