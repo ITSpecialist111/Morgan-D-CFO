@@ -22,7 +22,11 @@ A working, repeatable daily showcase. Two surfaces are live:
 
 Because the App Service is on **B1 with Always On**, the app process stays alive permanently and the **in-process autonomous scheduler runs the CFO workday on its own**, every day, during **09:00–17:00 Europe/London** (a cycle every 25 min, with an end-of-day report after close). This was verified live: the scheduler reported `started:true`, `inWindow:true`, and an automatic `lastCycleAt` with no external trigger.
 
-You do **not** need to do anything for the daily run — just open Mission Control and the fresh autonomous work is there.
+**What each cycle actually does:** Morgan advances ~2 concrete cards on the **autonomous CFO Kanban** through `queue → active → review → done` (HITL-gated cards like the board-P&L L2 and the $250k reforecast / vendor-payment L3 hold in **waiting** until approved), records the finance work (budget vs actuals, KPIs, anomaly scan, Microsoft IQ briefing), and **replenishes the queue** so there is always work. The work backlog (concrete CFO cards: board pack, month-end close, marketing overspend, cash/runway, anomaly, headcount, weekly digest, plus the HITL cards) persists to `$HOME/data/morgan-cfo-workcards.json` — on App Service `$HOME` is durable Azure Files, so **progress and history survive restarts and redeploys** (only `/home/site/wwwroot` is replaced on deploy). Each card keeps a timestamped state-transition history.
+
+> Multi-instance / stronger durability is the one remaining production upgrade: wire **Cosmos DB** (`COSMOS_DB_*`; `agentStorage.ts` already supports it). It is not required for the single-instance B1 showcase because the `$HOME/data` file store is already durable there.
+
+You do **not** need to do anything for the daily run — just open Mission Control and the fresh autonomous work (cards mid-flight across the board, with history) is there.
 
 **Tuning (optional)** — App Service → Configuration → application settings:
 - `AUTONOMOUS_WORKDAY_TIME_ZONE` (default `Europe/London`)
