@@ -16,7 +16,9 @@ export type MorganMindmapNodeType =
   | 'governance'
   | 'evaluation'
   | 'communication'
-  | 'audit';
+  | 'audit'
+  | 'workstream'
+  | 'stakeholder';
 
 export interface MorganMindmapNode {
   id: string;
@@ -27,12 +29,16 @@ export interface MorganMindmapNode {
   detail?: string;
   status?: string;
   ts?: string;
+  /** Optional avatar photo URL for human stakeholder nodes (falls back to initials/colour in the UI). */
+  image?: string;
+  /** Optional secondary line (role / team) shown for stakeholder and workstream nodes. */
+  subtitle?: string;
 }
 
 export interface MorganMindmapLink {
   source: string;
   target: string;
-  type: 'core' | 'instruction' | 'tool_use' | 'agent_link' | 'task_flow' | 'memory_recall' | 'voice_link' | 'audit_trace' | 'capability' | 'governance';
+  type: 'core' | 'instruction' | 'tool_use' | 'agent_link' | 'task_flow' | 'memory_recall' | 'voice_link' | 'audit_trace' | 'capability' | 'governance' | 'hitl';
   strength: number;
   label?: string;
 }
@@ -52,6 +58,8 @@ export interface MorganMindmapResponse {
     paperConcepts: number;
     cognitiveTools: number;
     readinessChecks: number;
+    stakeholders: number;
+    workstreams: number;
   };
 }
 
@@ -97,6 +105,7 @@ export function getMissionMindmap(): MorganMindmapResponse {
     { id: 'hub-governance', label: 'Governance', type: 'governance', group: 'governance', importance: 8, detail: 'Human approval boundaries, work-hours gates, escalation rules, caps, and evidence requirements.' },
     { id: 'hub-cognitive', label: 'Cognitive Tools', type: 'evaluation', group: 'evaluation', importance: 8, detail: 'Plan generation, open-task listing, adaptive memory, experiential learning, and artifact judging.' },
     { id: 'hub-voice', label: 'Avatar Voice', type: 'voice', group: 'voice', importance: 7, detail: 'Web avatar, Speech avatar relay, Voice Live, and Teams calling.' },
+    { id: 'hub-stakeholders', label: 'Human Team', type: 'stakeholder', group: 'stakeholder', importance: 8, detail: 'The people Morgan is actively engaging across the CFO operating model: the CFO sponsor, finance function leads, finance contacts, and HITL approval authorities.' },
     { id: 'hub-audit', label: 'Audit Memory', type: 'memory', group: 'memory', importance: 7, detail: 'Recent Morgan audit events and observability trace.' },
   ];
 
@@ -299,6 +308,142 @@ export function getMissionMindmap(): MorganMindmapResponse {
     addLink({ source: 'hub-finance', target: id, type: 'memory_recall', strength: 0.3 });
   }
 
+  // ── CFO workstreams + the human stakeholders Morgan is actively working ──
+  // Surfaces the agent-to-human team behind the CFO operating model (sponsor, finance function
+  // leads, finance contacts, and HITL approval authorities) so the starfield shows who Morgan
+  // is thinking about per workstream. Sourced from the Mission Control CFO impact roadmap.
+  const workstreams = snapshot.cfoImpactRoadmap.workstreams;
+  const personFirstNames = ['Aisha', 'Daniel', 'Priya', 'Marcus', 'Sofia', 'Liam', 'Chen', 'Amara', 'Noah', 'Elena', 'Omar', 'Grace', 'Ravi', 'Hannah', 'Diego', 'Yuki', 'Fatima', 'Theo', 'Nadia', 'Ben', 'Leila', 'Sam', 'Ana', 'Kofi'];
+  const personLastNames = ['Khan', 'Reed', 'Patel', 'Donovan', 'Nguyen', 'Okafor', 'Rossi', 'Garcia', 'Schmidt', 'Ahmed', 'Walsh', 'Bauer', 'Costa', 'Lindqvist', 'Mehta', 'Brooks', 'Haddad', 'Fischer', 'Ivanova', 'Yamamoto'];
+  const contactTitles = ['VP Finance', 'Head of Financial Planning', 'Group Financial Controller', 'Director of FP&A', 'Head of Treasury', 'Finance Transformation Lead', 'Head of Revenue Operations'];
+  const leadTitles = ['Finance Business Partner', 'Controllership Lead', 'FP&A Principal', 'Treasury Lead', 'Risk & Controls Lead'];
+  const approverTitles = ['Audit Committee Chair', 'Group Controller', 'Treasury Committee Lead', 'Investment Council Chair', 'Finance Risk Director'];
+  const approvalOfficeByPillar: Record<string, string> = {
+    controller: 'Group Controller Office',
+    fpa: 'FP&A Review Board',
+    treasury: 'Treasury Committee',
+    risk: 'Audit & Risk Committee',
+    strategy: 'Strategy & Investment Council',
+    transformation: 'Transformation Steering Group',
+  };
+  const hashSeed = (seed: string): number => Array.from(seed).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  const pickFrom = <T,>(pool: T[], seed: string, salt = 0): T => pool[(hashSeed(seed) + salt) % pool.length];
+  const personName = (seed: string): string => `${pickFrom(personFirstNames, seed, 3)} ${pickFrom(personLastNames, seed, 11)}`;
+  // Real professional headshots (randomuser.me), gender matched to the first name. Surfaced as a
+  // node field only; the renderer falls back to colour/initials when images are not drawn.
+  const femaleFirstNames = new Set(['Aisha', 'Priya', 'Sofia', 'Amara', 'Elena', 'Grace', 'Hannah', 'Yuki', 'Fatima', 'Nadia', 'Leila', 'Ana']);
+  const avatarFor = (seed: string, name: string): string => {
+    const firstName = String(name).trim().split(/\s+/)[0] || '';
+    const portraitSet = femaleFirstNames.has(firstName) ? 'women' : 'men';
+    return `https://randomuser.me/api/portraits/${portraitSet}/${hashSeed(seed) % 100}.jpg`;
+  };
+
+  // Shared CFO sponsor: one human linked across the whole portfolio (the L2 HITL approver).
+  const sponsorName = process.env.CFO_DISPLAY_NAME || process.env.MOD_ADMINISTRATOR_DISPLAY_NAME || 'CFO / Finance Approver';
+  const sponsorId = `stakeholder-sponsor-${nodeId(sponsorName)}`;
+  addNode({
+    id: sponsorId,
+    label: sponsorName,
+    type: 'stakeholder',
+    group: 'stakeholder',
+    importance: 7,
+    subtitle: 'CFO \u00b7 L2 approver',
+    image: avatarFor(sponsorId, sponsorName),
+    detail: `${sponsorName} is the CFO sponsor and L2 approval authority Morgan routes finance decisions and HITL approvals to.`,
+    status: 'L2 HITL',
+  });
+  addLink({ source: 'morgan-core', target: sponsorId, type: 'hitl', strength: 0.7, label: 'L2 approvals' });
+  addLink({ source: 'hub-stakeholders', target: sponsorId, type: 'hitl', strength: 0.6, label: 'sponsor' });
+  addLink({ source: 'hub-governance', target: sponsorId, type: 'governance', strength: 0.4, label: 'approval gate' });
+
+  const approverNodeByOffice = new Map<string, string>();
+  const leadNodeByTeam = new Map<string, string>();
+  const signalForConfidence = (pct: number): string => (pct >= 80 ? 'on-track' : pct >= 60 ? 'watch' : 'at-risk');
+
+  for (const workstream of workstreams) {
+    const workstreamNodeId = `workstream-${nodeId(workstream.id)}`;
+    const signal = signalForConfidence(workstream.confidencePct);
+    addNode({
+      id: workstreamNodeId,
+      label: workstream.title,
+      type: 'workstream',
+      group: 'workstream',
+      importance: workstream.roiScore >= 4 ? 7 : workstream.roiScore >= 3 ? 6 : 5,
+      subtitle: `${workstream.cfoTeam} \u00b7 ${workstream.pillar}`,
+      detail: `${workstream.currentWork} Morgan: ${workstream.morganWork} (${workstream.monthlyHoursSaved} hrs/mo saved, ${workstream.confidencePct}% confidence, $${Math.round(workstream.riskAdjustedAnnualValueUsd / 1000)}k risk-adjusted value).`,
+      status: `${workstream.pillar} \u00b7 ${signal}`,
+    });
+    addLink({ source: 'hub-finance', target: workstreamNodeId, type: 'memory_recall', strength: 0.4, label: workstream.pillar });
+    addLink({ source: 'morgan-core', target: workstreamNodeId, type: 'task_flow', strength: 0.3, label: 'active workstream' });
+    addLink({ source: sponsorId, target: workstreamNodeId, type: 'governance', strength: 0.32, label: 'sponsors' });
+
+    // Primary finance contact Morgan is engaging on this workstream.
+    const contactSeed = `contact-${workstream.id}`;
+    const contactId = `stakeholder-${nodeId(contactSeed)}`;
+    const contactName = personName(contactSeed);
+    addNode({
+      id: contactId,
+      label: contactName,
+      type: 'stakeholder',
+      group: 'stakeholder',
+      importance: signal === 'at-risk' ? 6 : 5,
+      subtitle: `${pickFrom(contactTitles, contactSeed)} \u00b7 ${workstream.cfoTeam}`,
+      image: avatarFor(contactSeed, contactName),
+      detail: `${contactName} is Morgan's primary finance contact in ${workstream.cfoTeam} for ${workstream.title}.`,
+      status: 'finance contact',
+    });
+    addLink({ source: workstreamNodeId, target: contactId, type: 'agent_link', strength: 0.55, label: 'primary contact' });
+    addLink({ source: 'hub-stakeholders', target: contactId, type: 'agent_link', strength: 0.3 });
+
+    // Finance function lead (deduplicated per CFO team).
+    let leadId = leadNodeByTeam.get(workstream.cfoTeam);
+    if (!leadId) {
+      const leadSeed = `lead-${workstream.cfoTeam}`;
+      leadId = `stakeholder-${nodeId(leadSeed)}`;
+      const leadName = personName(leadSeed);
+      addNode({
+        id: leadId,
+        label: leadName,
+        type: 'stakeholder',
+        group: 'stakeholder',
+        importance: 4,
+        subtitle: `${pickFrom(leadTitles, leadSeed)} \u00b7 ${workstream.cfoTeam}`,
+        image: avatarFor(leadSeed, leadName),
+        detail: `${leadName} leads ${workstream.cfoTeam} and partners with Morgan across that function's workstreams.`,
+        status: 'function lead',
+      });
+      addLink({ source: 'hub-stakeholders', target: leadId, type: 'agent_link', strength: 0.28 });
+      leadNodeByTeam.set(workstream.cfoTeam, leadId);
+    }
+    addLink({ source: workstreamNodeId, target: leadId, type: 'agent_link', strength: 0.4, label: 'function lead' });
+
+    // Approval authority (HITL gate) for lower-confidence workstreams (deduplicated per office).
+    if (workstream.confidencePct < 80) {
+      const office = approvalOfficeByPillar[workstream.pillar] || 'Finance Governance Board';
+      let approverId = approverNodeByOffice.get(office);
+      if (!approverId) {
+        const approverSeed = `approver-${office}`;
+        approverId = `stakeholder-${nodeId(approverSeed)}`;
+        const approverName = personName(approverSeed);
+        addNode({
+          id: approverId,
+          label: approverName,
+          type: 'stakeholder',
+          group: 'stakeholder',
+          importance: 6,
+          subtitle: `${pickFrom(approverTitles, approverSeed)} \u00b7 ${office}`,
+          image: avatarFor(approverSeed, approverName),
+          detail: `${approverName} is the approval authority at ${office}. Morgan routes HITL approval cards here and tracks the sign-off SLA.`,
+          status: 'HITL approver',
+        });
+        addLink({ source: 'hub-governance', target: approverId, type: 'governance', strength: 0.42, label: 'approval office' });
+        addLink({ source: 'hub-stakeholders', target: approverId, type: 'hitl', strength: 0.4 });
+        approverNodeByOffice.set(office, approverId);
+      }
+      addLink({ source: workstreamNodeId, target: approverId, type: 'hitl', strength: 0.5, label: `${workstream.confidencePct}% confidence` });
+    }
+  }
+
   const voiceNodes = [
     { label: 'Speech Avatar', detail: 'Microsoft Speech avatar relay token and WebRTC media.' },
     { label: 'Voice Live', detail: 'Realtime conversational audio session.' },
@@ -339,6 +484,8 @@ export function getMissionMindmap(): MorganMindmapResponse {
       paperConcepts: snapshot.paperAlignment.length,
       cognitiveTools: snapshot.cognitiveTools.length,
       readinessChecks: snapshot.enterpriseReadiness.length,
+      stakeholders: nodes.filter((node) => node.type === 'stakeholder').length,
+      workstreams: nodes.filter((node) => node.type === 'workstream').length,
     },
   };
 }

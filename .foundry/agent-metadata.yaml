@@ -1,4 +1,6 @@
-defaultEnvironment: dev
+schemaVersion: 1
+agentName: morgan-digital-cfo-hosted
+defaultEnvironment: northCentralHosted
 environments:
   dev:
     projectEndpoint: ${FOUNDRY_PROJECT_ENDPOINT}
@@ -48,6 +50,47 @@ environments:
           task_adherence: 4
           coherence: 4
           groundedness: 4
+  productionAppService:
+    deploymentType: app-service
+    resourceGroup: rg-morgan-finance-agent
+    appName: morganfinanceagent-webapp
+    baseUrl: https://morganfinanceagent-webapp.azurewebsites.net
+    healthEndpoint: https://morganfinanceagent-webapp.azurewebsites.net/api/health
+    responsesHealthEndpoint: https://morganfinanceagent-webapp.azurewebsites.net/responses/health
+    missionControl: https://morganfinanceagent-webapp.azurewebsites.net/mission-control
+  flightdeckHostedCandidate:
+    deploymentType: hosted
+    projectEndpoint: https://ai-flightdeck.services.ai.azure.com/api/projects/flightdeck-project
+    resourceGroup: rg-flightdeck
+    foundryAccount: ai-flightdeck
+    projectName: flightdeck-project
+    agentName: morgan-digital-cfo-hosted
+    azureContainerRegistry: crflightdeck.azurecr.io
+    imageRepository: morgan-digital-cfo
+    latestBuiltImage: crflightdeck.azurecr.io/morgan-digital-cfo:20260507180211
+    latestBuiltImageDigest: sha256:78ee1d27c9111afa7201cc5d5cbc8d1d3ab24f85967e6e4dbfcf63fd1487558c
+    modelDeployment: gpt-5
+    realtimeModelDeployment: gpt-realtime-mini
+    protocol: responses/1.0.0
+    cpu: "1"
+    memory: 2Gi
+    dockerfile: Dockerfile
+    hostedDefinitionTemplate: .deploy/morgan-foundry-hosted-agent-definition.json
+    testCases:
+      - id: morgan-hosted-p0-smoke
+        priority: P0
+        dataset: .foundry/datasets/morgan-digital-cfo-hosted-smoke-v1.jsonl
+        evaluators:
+          - intent_resolution
+          - task_adherence
+          - coherence
+          - violence
+          - self_harm
+          - hate_unfairness
+        thresholds:
+          intent_resolution: 4
+          task_adherence: 4
+          coherence: 4
       - name: morgan-p0-enterprise-runtime
         priority: P0
         dataset: .foundry/datasets/morgan-digital-cfo-dev-test-v1.jsonl
@@ -61,3 +104,135 @@ environments:
           task_adherence: 4
           coherence: 4
           groundedness: 4
+    remainingBlockers:
+      - Flightdeck is in uksouth, which is not currently supported for Foundry hosted agents preview.
+      - Create or select a Foundry project in a supported hosted-agent region before agent_update can create Morgan.
+      - Hosted-agent environment variables must be confirmed before including values in the Foundry payload.
+      - The hosted container must be started and verified with agent_container_status_get before claiming production readiness.
+  northCentralHosted:
+    deploymentType: hosted
+    projectEndpoint: https://ai-account-bdoregvn6di7y.services.ai.azure.com/api/projects/ai-project-morgan-hosted-ncus
+    subscriptionId: 260948a4-1d5e-42c8-b095-33a6641ad189
+    tenantId: e4ccbd32-1a13-4cb6-8fda-c392e7ea359f
+    resourceGroup: rg-morgan-hosted-ncus
+    foundryAccount: ai-account-bdoregvn6di7y
+    projectName: ai-project-morgan-hosted-ncus
+    location: northcentralus
+    agentName: morgan-digital-cfo-hosted
+    agentVersion: "17"
+    agentStatus: active
+    priorKnownGoodVersion: "10"
+    azureContainerRegistry: crbdoregvn6di7y.azurecr.io
+    imageRepository: morgan-digital-cfo
+    latestBuiltImage: crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227
+    latestBuiltImageDigest: sha256:46506783a7036fd7d5337cd749fb51650df6f195beeb4546d00e40d5104a7064
+    latestAcrRunId: cpq
+    priorBuiltImage: crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507204912
+    v17Notes: SDK upgrade (agents-a365-tooling 1.0.0, agents-hosting 1.5.2, agents-activity 1.5.1) + ECIF->CFO feature-parity port (D-ID avatar, HITL approvals, agentic kanban, retrospectives, governance observability, WorkIQ status). Dockerfile switched npm ci->npm install for cross-platform lockfile resilience. P0 smoke v17 passed all 4 cases via direct REST.
+    protocol: responses/1.0.0
+    cpu: "1"
+    memory: 2Gi
+    dockerfile: Dockerfile
+    hostedEntrypoint: dist/foundryHost.js
+    readinessEndpoint: /readiness
+    responsesEndpoint: /responses
+    smokeMode: false
+    modelDeployment: gpt-5-mini
+    modelDeploymentVersion: "2025-08-07"
+    azureOpenAIEndpoint: https://ai-account-bdoregvn6di7y.cognitiveservices.azure.com/
+    hostedInstanceIdentity:
+      principalId: 4f0bb8b4-4ebd-497b-bc7c-a20cb72a8663
+      clientId: 4f0bb8b4-4ebd-497b-bc7c-a20cb72a8663
+      requiredEnvVar: AZURE_CLIENT_ID
+      roles:
+        - Azure AI User
+        - Cognitive Services OpenAI User
+    hostedBlueprintIdentity:
+      principalId: e2eb1b6d-705e-42ee-9272-ffaa7428a23f
+      clientId: d9232174-9225-4ee9-8bdc-0a1b23f21cd7
+      roles:
+        - Azure AI User
+        - Cognitive Services OpenAI User
+    smokeInvocation:
+      status: succeeded
+      requestId: a3e93a531857d3293afb0a72b1147247
+      sessionId: morganhostedv4smoke000001
+      output: Morgan is running as a hosted-agent container, but AZURE_OPENAI_ENDPOINT is not configured. Mission Control, health, and audit endpoints are available for setup verification.
+    liveInvocation:
+      status: succeeded-direct-rest
+      agentVersion: "7"
+      sessionId: morganhostedv7rest000001x
+      responseId: resp_1778184291367
+      correlationId: 26661326-b246-4d31-b296-ea6f3e815d91
+      model: gpt-5-mini
+      route: /agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1
+      output: Morgan direct REST check completed; hosted endpoint returned a completed gpt-5-mini response. The model text mentioned Agent 365 MCP endpoints, but Graph/MCP connector proof is still not configured.
+    p0Smoke:
+      status: passed-direct-rest
+      agentVersion: "10"
+      resultFile: .foundry/results/morgan-hosted-p0-smoke-v10.json
+      route: /agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1
+      cloudShellResultPath: ~/morgan-v10-p0-smoke.json
+      cases:
+        - id: status
+          sessionId: morganhostedv10p00100000000x
+          responseId: resp_1778187198884
+          status: completed
+          passContent: true
+        - id: cfo-brief
+          sessionId: morganhostedv10p00200000000x
+          responseId: resp_1778187274037
+          status: completed
+          passContent: true
+        - id: integration-settings
+          sessionId: morganhostedv10p00300000000x
+          responseId: resp_1778187350105
+          status: completed
+          passContent: true
+        - id: eod-demo
+          sessionId: morganhostedv10p00400000000x
+          responseId: resp_1778187425350
+          status: completed
+          passContent: true
+    behaviorHardening:
+      - version: "8"
+        status: incomplete-fix
+        note: Added hosted readiness/configuration guard, but the showcase shortcut still intercepted Microsoft IQ settings prompts first.
+      - version: "9"
+        status: partial-fix
+        note: Moved hosted readiness/configuration guard before showcase shortcuts; integration-settings P0 prompt passed, but the demo end-of-day prompt needed an explicit deterministic context label.
+      - version: "10"
+        status: passed-p0-smoke
+        note: Added explicit demo/deterministic labeling for end-of-day digest shortcut; all four direct REST P0 smoke prompts passed.
+    failedLiveAttempts:
+      - agentVersion: "5"
+        status: failed-agent-invoke
+        correlationId: 6ac551ad597271addf4371edccf5ec26
+        cause: Missing hosted identity RBAC and no AZURE_CLIENT_ID in payload.
+      - agentVersion: "6"
+        status: failed-agent-invoke
+        correlationId: b4c36c0192360ac1e28af57c2849e80c
+        cause: RBAC was assigned, but AZURE_CLIENT_ID was still missing for the user-assigned hosted identity.
+      - agentVersion: "7"
+        status: failed-mcp-helper-invoke
+        correlationId: 7b8952ae6f51f8862dcb2181b7b7f811
+        cause: Foundry MCP agent_invoke helper returned an internal error, while direct REST to the hosted Responses endpoint succeeded.
+    testCases:
+      - id: morgan-hosted-p0-smoke
+        priority: P0
+        dataset: .foundry/datasets/morgan-digital-cfo-hosted-smoke-v1.jsonl
+        evaluators:
+          - intent_resolution
+          - task_adherence
+          - coherence
+          - violence
+          - self_harm
+          - hate_unfairness
+        thresholds:
+          intent_resolution: 4
+          task_adherence: 4
+          coherence: 4
+    remainingBlockers:
+      - Direct REST live-model invocation and P0 smoke succeeded for version 10; the MCP agent_invoke helper previously returned an internal error for this vNext hosted route.
+      - Graph/MCP, ACS/Teams voice, observability, and durable storage values were intentionally not included in the live hosted payload.
+      - Run Foundry batch evaluation and configure verified Graph/MCP, voice, observability, storage, scheduler, and sub-agent settings before claiming production parity with the App Service Morgan.

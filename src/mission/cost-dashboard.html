@@ -34,6 +34,9 @@
     .body { padding: 14px 16px; }
     .grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 10px; }
     .metric { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-height: 78px; }
+    .metric.positive { border-color: rgba(54, 194, 180, .45); }
+    .metric.watch { border-color: rgba(240, 180, 41, .45); }
+    .metric.negative { border-color: rgba(224, 88, 88, .5); }
     .metric b { display: block; font-size: 22px; margin-bottom: 5px; overflow-wrap: anywhere; }
     .metric span { color: var(--muted); font-size: 12px; line-height: 1.35; }
     .split { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; }
@@ -57,6 +60,7 @@
     .status-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px rgba(240,180,41,.5); }
     .status-dot.actual::before, .status-dot.mixed::before, .status-dot.ready::before { background: var(--teal); box-shadow: 0 0 10px rgba(54,194,180,.55); }
     .status-dot.estimated::before { background: var(--amber); }
+    .status-dot.blocked::before { background: var(--red); box-shadow: 0 0 10px rgba(224,88,88,.5); }
     .compact-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: #151922; }
     .compact-item b { font-size: 13px; }
     .trend { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; min-height: 160px; }
@@ -110,6 +114,22 @@
           <div class="metric"><b id="monthlyProjected">$0</b><span>monthly projection</span></div>
           <div class="metric"><b id="avatarShare">0%</b><span>avatar and Teams voice share</span></div>
           <div class="metric"><b id="valueRatio">0x</b><span>estimated value to cost</span></div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Agent Unit Economics</h2><span class="status-dot estimated" id="economicsBadge">loading</span></div>
+      <div class="body">
+        <div class="grid">
+          <div class="metric" id="economicsVerdictMetric"><b id="economicsVerdict">Checking</b><span>cost effectiveness verdict</span></div>
+          <div class="metric"><b id="economicsWeeklyNet">$0</b><span>weekly observed net value</span></div>
+          <div class="metric"><b id="economicsWeeklyRatio">0x</b><span>observed value/cost</span></div>
+          <div class="metric"><b id="economicsAnnualNet">$0</b><span>annual business-case net value</span></div>
+          <div class="metric"><b id="economicsBreakEven">0</b><span>break-even workstreams/month</span></div>
+        </div>
+        <div class="split" style="margin-top:12px;">
+          <div class="compact-list" id="economicsFormulae"></div>
+          <div class="compact-list" id="economicsCostMix"></div>
         </div>
       </div>
     </section>
@@ -189,6 +209,10 @@
     function number(value, digits = 0) {
       return new Intl.NumberFormat([], { maximumFractionDigits: digits }).format(Number(value || 0));
     }
+    function multiplier(value) {
+      const numeric = Number(value || 0);
+      return `${numeric >= 10 ? numeric.toFixed(0) : numeric.toFixed(1)}x`;
+    }
     function escapeHtml(value) {
       return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
@@ -243,6 +267,37 @@
       const rows = (azure.serviceBreakdown || []).slice(0, 20).map((item) => `<tr><td>${escapeHtml(item.serviceName)}<div class="resource">${escapeHtml(item.resourceId || 'resource-group level')}</div></td><td>${escapeHtml(item.category)}</td><td class="amount">${money(item.dailyCost, currency)}</td><td class="amount">${money(item.weeklyCost, currency)}</td></tr>`).join('');
       document.getElementById('azureDetail').innerHTML = `<div class="compact-item"><b>${money(azure.total, currency)} actual Azure spend this week</b><p>${escapeHtml(azure.scope || '')}</p></div><table><thead><tr><th>Service / Resource</th><th>Category</th><th>Today</th><th>Week</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No Azure Cost Management rows returned yet.</td></tr>'}</tbody></table>`;
     }
+    function renderEconomics(data) {
+      const economics = data.economics;
+      const badge = document.getElementById('economicsBadge');
+      if (!economics) {
+        badge.className = 'status-dot estimated';
+        badge.textContent = 'pending';
+        document.getElementById('economicsFormulae').innerHTML = compactItem('Unit economics pending', 'The cost API has not returned an economics block yet.');
+        return;
+      }
+      const currency = economics.currency || data.currency || 'USD';
+      const positive = economics.verdict === 'cost-effective' || economics.verdict === 'business-case-positive';
+      const watch = economics.verdict === 'watch';
+      badge.className = `status-dot ${positive ? 'ready' : watch ? 'estimated' : 'blocked'}`;
+      badge.textContent = economics.verdictLabel || 'calculated';
+      const verdictMetric = document.getElementById('economicsVerdictMetric');
+      verdictMetric.className = `metric ${positive ? 'positive' : watch ? 'watch' : 'negative'}`;
+      document.getElementById('economicsVerdict').textContent = economics.verdictLabel || 'Calculated';
+      document.getElementById('economicsWeeklyNet').textContent = money(economics.weekly?.netValue, currency);
+      document.getElementById('economicsWeeklyRatio').textContent = multiplier(economics.weekly?.benefitCostRatio);
+      document.getElementById('economicsAnnualNet').textContent = money(economics.annualBusinessCase?.netValue, currency);
+      document.getElementById('economicsBreakEven').textContent = number(economics.unit?.breakEvenWorkstreamsPerMonth, 2);
+      document.getElementById('economicsFormulae').innerHTML = [
+        `<div class="compact-item"><b>Observed weekly economics</b><p>${money(economics.weekly?.observedValue, currency)} observed value - ${money(economics.weekly?.operatingCost, currency)} cost = ${money(economics.weekly?.netValue, currency)} net, at ${multiplier(economics.weekly?.benefitCostRatio)} value/cost.</p><p>${escapeHtml(economics.weekly?.formula || '')}</p></div>`,
+        `<div class="compact-item"><b>Annual business-case economics</b><p>${money(economics.annualBusinessCase?.riskAdjustedValue, currency)} risk-adjusted value - ${money(economics.annualBusinessCase?.operatingCost, currency)} annualized cost = ${money(economics.annualBusinessCase?.netValue, currency)} net, at ${multiplier(economics.annualBusinessCase?.benefitCostRatio)} value/cost.</p><p>${escapeHtml(economics.annualBusinessCase?.formula || '')}</p></div>`,
+        `<div class="compact-item"><b>Break-even basis</b><p>${number(economics.unit?.breakEvenWorkstreamsPerMonth, 2)} CFO workstreams/month pays for Morgan at the current run-rate, equal to ${number(economics.unit?.breakEvenPctOfCurrentPortfolio, 2)}% of ${number(economics.unit?.activeWorkstreams)} tracked workstreams.</p><p>Cost per workstream/month: ${money(economics.unit?.costPerWorkstreamMonthly, currency)}. Monthly value per workstream: ${money(economics.unit?.valuePerWorkstreamMonthly, currency)}.</p></div>`,
+      ].join('');
+      document.getElementById('economicsCostMix').innerHTML = [
+        `<div class="compact-item"><b>Value source</b><p>${escapeHtml(economics.annualBusinessCase?.valueSource || 'Mission Control CFO impact roadmap')}</p></div>`,
+        ...(economics.costMix || []).slice(0, 6).map((item) => `<div class="compact-item"><b>${escapeHtml(item.label)}</b><p>${money(item.weeklyCost, currency)} weekly, ${number(item.sharePct, 1)}% of current run-rate. Source: ${escapeHtml(item.source)}.</p></div>`),
+      ].join('');
+    }
     function renderLists(data) {
       document.getElementById('assumptions').innerHTML = (data.assumptions || []).map((item, index) => compactItem(`Assumption ${index + 1}`, item)).join('');
       document.getElementById('recommendations').innerHTML = (data.recommendations || []).map((item, index) => compactItem(`Control ${index + 1}`, item)).join('');
@@ -260,6 +315,7 @@
       document.getElementById('monthlyProjected').textContent = money(data.summary?.monthlyProjected, currency);
       document.getElementById('avatarShare').textContent = `${data.summary?.avatarSharePct || 0}%`;
       document.getElementById('valueRatio').textContent = `${number(data.value?.valueToCostRatio, 1)}x`;
+      renderEconomics(data);
       document.getElementById('valueToday').textContent = money(data.value?.estimatedValueToday, currency);
       document.getElementById('valueWeek').textContent = money(data.value?.estimatedValueWeekly, currency);
       document.getElementById('hoursToday').textContent = `${number(data.value?.estimatedHoursSavedToday, 1)}h`;

@@ -1,0 +1,82 @@
+{
+  "date": "2026-05-07",
+  "status": "hosted-v10-p0-smoke-passed-direct-rest",
+  "projectEndpoint": "https://ai-account-bdoregvn6di7y.services.ai.azure.com/api/projects/ai-project-morgan-hosted-ncus",
+  "targetAgentName": "morgan-digital-cfo-hosted",
+  "agentVersion": "10",
+  "acr": "crbdoregvn6di7y.azurecr.io",
+  "imageRepository": "morgan-digital-cfo",
+  "latestBuiltImage": "crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507204912",
+  "latestBuiltImageDigest": "sha256:675d09bee0e7880d927a7f810f3e1c0f6ecb613eb3c35ad3e991e17937ae6b04",
+  "evidence": [
+    "Dockerfile exposes 8088 and starts dist/foundryHost.js.",
+    "src/foundryHost.ts starts a dedicated Foundry Responses host.",
+    "src/foundry/responsesAdapter.ts implements GET /readiness, GET /responses/health, and POST /responses.",
+    "Integrated Cloud Shell completed npm run build after the dedicated host was added.",
+    "Local Cloud Shell production probe returned HTTP 200 from /readiness and completed POST /responses.",
+    "ACR build pushed crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507193551 with run ID cp4.",
+    "ACR build pushed crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507204912 with run ID cp7.",
+    "Foundry agent_get reported morgan-digital-cfo-hosted:4 active.",
+    "Foundry agent_invoke succeeded with request ID a3e93a531857d3293afb0a72b1147247.",
+    "Foundry agent_get reported morgan-digital-cfo-hosted:10 active.",
+    "Direct REST P0 smoke passed for version 10 with all four prompts completed and content gates passing."
+  ],
+  "smokeInvocation": {
+    "sessionId": "morganhostedv4smoke000001",
+    "requestId": "a3e93a531857d3293afb0a72b1147247",
+    "outputText": "Morgan is running as a hosted-agent container, but AZURE_OPENAI_ENDPOINT is not configured. Mission Control, health, and audit endpoints are available for setup verification."
+  },
+  "liveInvocation": {
+    "status": "succeeded-direct-rest",
+    "agentVersion": "7",
+    "sessionId": "morganhostedv7rest000001x",
+    "responseId": "resp_1778184291367",
+    "correlationId": "26661326-b246-4d31-b296-ea6f3e815d91",
+    "model": "gpt-5-mini",
+    "route": "/agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1"
+  },
+  "p0Smoke": {
+    "status": "passed-direct-rest",
+    "agentVersion": "10",
+    "resultFile": ".foundry/results/morgan-hosted-p0-smoke-v10.json",
+    "cloudShellResultPath": "~/morgan-v10-p0-smoke.json",
+    "cases": [
+      {
+        "id": "status",
+        "responseId": "resp_1778187198884",
+        "status": "completed",
+        "passContent": true
+      },
+      {
+        "id": "cfo-brief",
+        "responseId": "resp_1778187274037",
+        "status": "completed",
+        "passContent": true
+      },
+      {
+        "id": "integration-settings",
+        "responseId": "resp_1778187350105",
+        "status": "completed",
+        "passContent": true
+      },
+      {
+        "id": "eod-demo",
+        "responseId": "resp_1778187425350",
+        "status": "completed",
+        "passContent": true
+      }
+    ]
+  },
+  "remainingGates": [
+    "Graph/MCP, ACS/Teams voice, observability, and storage values were intentionally not included in the live payload.",
+    "Run managed Foundry batch evaluation and live connector verification before claiming production parity."
+  ],
+  "previousFailures": [
+    "Flightdeck uksouth hosted-agent creation failed because the region is unsupported for hosted-agent preview.",
+    "Versions 1-3 in North Central US failed with session_not_ready until the dedicated Foundry host replaced the full Teams/App Service entry point for Docker.",
+    "Versions 5-6 failed live MCP helper invocation before AZURE_CLIENT_ID was added for the hosted user-assigned identity.",
+    "Version 7 still fails through MCP agent_invoke, but direct REST to the hosted Responses endpoint succeeds.",
+    "Version 8 added a readiness guard but showcase shortcuts intercepted the settings prompt first.",
+    "Version 9 fixed the settings prompt but needed an explicit demo label for the deterministic end-of-day shortcut."
+  ]
+}

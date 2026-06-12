@@ -4,8 +4,10 @@
 // ---------------------------------------------------------------------------
 
 import { TurnContext, CloudAdapter } from '@microsoft/agents-hosting';
-import { ConversationReference } from '@microsoft/agents-activity';
+import { Activity, ConversationReference } from '@microsoft/agents-activity';
 import { generatePnlUpdate, resetPnlState } from './pnlMessages';
+import fs from 'fs';
+import path from 'path';
 
 const INTERVAL_MS = 25 * 60 * 1000; // 25 minutes
 
@@ -16,10 +18,58 @@ interface MonitorSession {
   enabled: boolean;
   messagesSent: number;
   startedAt: Date | null;
+  lastSeenAt: number;
 }
 
 // Store sessions keyed by conversation ID
 const sessions = new Map<string, MonitorSession>();
+
+// Persist conversation references to disk so proactive Teams delivery (e.g. the
+// L2 HITL Adaptive Card) survives App Service restarts. Only the reference and
+// last-seen timestamp are persisted; live intervals/state are runtime-only.
+const CONVERSATION_REF_PATH = path.resolve(process.cwd(), process.env.MORGAN_CONVERSATION_REF_FILE || '.data/morgan-conversation-refs.json');
+
+interface PersistedConversationRef {
+  conversationId: string;
+  conversationRef: ConversationReference;
+  lastSeenAt: number;
+}
+
+function loadPersistedSessions(): void {
+  try {
+    if (!fs.existsSync(CONVERSATION_REF_PATH)) return;
+    const parsed = JSON.parse(fs.readFileSync(CONVERSATION_REF_PATH, 'utf8'));
+    if (!Array.isArray(parsed)) return;
+    for (const entry of parsed as PersistedConversationRef[]) {
+      if (!entry?.conversationId || !entry?.conversationRef) continue;
+      sessions.set(entry.conversationId, {
+        conversationRef: entry.conversationRef,
+        intervalId: null,
+        enabled: false,
+        messagesSent: 0,
+        startedAt: null,
+        lastSeenAt: typeof entry.lastSeenAt === 'number' ? entry.lastSeenAt : Date.now(),
+      });
+    }
+  } catch {
+    // Ignore corrupt/unreadable persistence; capture will rebuild it.
+  }
+}
+
+function persistSessions(): void {
+  try {
+    const snapshot: PersistedConversationRef[] = Array.from(sessions.entries())
+      .map(([conversationId, session]) => ({ conversationId, conversationRef: session.conversationRef, lastSeenAt: session.lastSeenAt }))
+      .sort((a, b) => b.lastSeenAt - a.lastSeenAt)
+      .slice(0, 50);
+    fs.mkdirSync(path.dirname(CONVERSATION_REF_PATH), { recursive: true });
+    fs.writeFileSync(CONVERSATION_REF_PATH, JSON.stringify(snapshot, null, 2), 'utf8');
+  } catch {
+    // Persistence is best-effort; in-memory sessions remain authoritative.
+  }
+}
+
+loadPersistedSessions();
 
 // Reference to the adapter — set once from index.ts
 let _adapter: CloudAdapter | null = null;
@@ -48,11 +98,15 @@ export function captureConversationReference(context: TurnContext): void {
       enabled: false,
       messagesSent: 0,
       startedAt: null,
+      lastSeenAt: Date.now(),
     });
   } else {
     // Update the reference (tokens/serviceUrl may change)
-    sessions.get(convId)!.conversationRef = ref;
+    const session = sessions.get(convId)!;
+    session.conversationRef = ref;
+    session.lastSeenAt = Date.now();
   }
+  persistSessions();
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +164,46 @@ export function getMonitoringStatus(conversationId: string): { enabled: boolean;
   const session = sessions.get(conversationId);
   if (!session) return { enabled: false, messagesSent: 0, startedAt: null };
   return { enabled: session.enabled, messagesSent: session.messagesSent, startedAt: session.startedAt };
+}
+
+// ---------------------------------------------------------------------------
+// Proactive delivery to the most recently active Teams conversation
+// Persona-neutral: lets other modules (e.g. HITL approval cards) reach the
+// latest captured conversation without owning their own conversation state.
+// ---------------------------------------------------------------------------
+
+export async function sendProactiveMessageToLatestConversation(message: string, label = 'proactive-message'): Promise<{ success: boolean; messageId?: string; target?: string; source: string; error?: string }> {
+  const activity = new Activity('message');
+  activity.text = message;
+  return sendProactiveActivityToLatestConversation(activity, label);
+}
+
+export async function sendProactiveActivityToLatestConversation(activity: Activity, label = 'proactive-activity'): Promise<{ success: boolean; messageId?: string; target?: string; source: string; error?: string }> {
+  if (!_adapter) {
+    return { success: false, source: 'bot-proactive', error: 'Teams adapter is not initialized yet.' };
+  }
+
+  const latest = Array.from(sessions.entries()).sort((a, b) => b[1].lastSeenAt - a[1].lastSeenAt)[0];
+  if (!latest) {
+    return { success: false, source: 'bot-proactive', error: 'No Teams conversation reference has been captured yet. Message Morgan in Teams once to enable proactive updates.' };
+  }
+
+  const [conversationId, session] = latest;
+  try {
+    await _adapter.continueConversation(
+      _botAppId,
+      session.conversationRef,
+      async (turnContext: TurnContext) => {
+        await turnContext.sendActivity(activity);
+      },
+    );
+    session.messagesSent++;
+    return { success: true, messageId: `${label}-${Date.now()}`, target: conversationId, source: 'bot-proactive-latest-conversation' };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[Monitor] Failed to send ${label}: ${msg}`);
+    return { success: false, target: conversationId, source: 'bot-proactive-latest-conversation', error: msg };
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -63,6 +63,113 @@ function toolName(tool: ChatCompletionTool): string {
   return tool.type === 'function' ? tool.function.name : '';
 }
 
+interface EnterpriseReadinessCheckSummary {
+  id?: string;
+  area?: string;
+  status?: string;
+  signal?: string;
+  control?: string;
+  evidence?: string[];
+}
+
+interface WorkIQStatusSummary {
+  available?: boolean;
+  endpoint?: string;
+  serverCount?: number;
+  toolCount?: number;
+  cassidyParity?: { matched?: string[]; missing?: string[]; optional?: string[] };
+  notes?: string[];
+}
+
+function parseToolJson<T>(value: string, fallback: T): T {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function isConfigured(value: string | undefined): boolean {
+  return Boolean(value && !/^<.*>$/.test(value) && !/your-|example|\.\.\.|optional-/i.test(value));
+}
+
+function envStatus(required: string[]): string {
+  const missing = required.filter((name) => !isConfigured(process.env[name]));
+  return missing.length ? `needs ${missing.join(', ')}` : 'configured';
+}
+
+function readinessLine(checks: EnterpriseReadinessCheckSummary[], id: string, fallbackArea: string): string {
+  const check = checks.find((item) => item.id === id);
+  if (!check) return `- **${fallbackArea}**: not reported by readiness tool.`;
+  return `- **${check.area || fallbackArea}**: ${check.status || 'unknown'} — ${check.signal || 'no signal reported'}`;
+}
+
+function isHostedConfigurationQuestion(inputText: string): boolean {
+  return /\b(required settings|settings required|fully live|full(y)? configured|production parity|production readiness|integration settings|what.*configured|which.*configured|readiness|Graph\/MCP|MCP|WorkIQ|Fabric\/Power BI|Application Insights|durable storage|ACS voice)\b/i.test(inputText);
+}
+
+async function tryHandleHostedConfigurationQuestion(inputText: string, correlationId: string): Promise<string | null> {
+  if (!isHostedConfigurationQuestion(inputText)) return null;
+
+  const readiness = parseToolJson<EnterpriseReadinessCheckSummary[]>(await executeTool('getEnterpriseReadiness', {}), []);
+  const workIq = parseToolJson<WorkIQStatusSummary>(await executeTool('getWorkIQStatus', {}), {});
+  recordAgentEvent({
+    kind: 'agent.reply',
+    label: 'Foundry hosted readiness/configuration answer generated deterministically',
+    status: 'ok',
+    correlationId,
+    data: {
+      responsePreview: inputText.slice(0, 300),
+      reasoningSummary: 'Morgan used readiness/status tools for a hosted configuration question instead of the Microsoft IQ briefing demo path.',
+    },
+  });
+
+  const graphMcpStatus = workIq.available
+    ? `${workIq.serverCount || 0} server(s), ${workIq.toolCount || 0} tool(s) discovered`
+    : 'not configured in this hosted payload';
+  const missingPillars = workIq.cassidyParity?.missing?.length ? workIq.cassidyParity.missing.join(', ') : 'none reported';
+
+  return [
+    '**Morgan hosted readiness and required settings**',
+    '',
+    'Current hosted proof: Foundry Responses routing is active and Azure OpenAI is configured for this hosted version. Do not treat this as proof that Microsoft 365, Graph/MCP, Fabric, voice, observability, or durable storage are live unless the readiness lines below say configured or ready.',
+    '',
+    '**Configured in the hosted model path**',
+    `- **Azure OpenAI text model**: ${envStatus(['AZURE_OPENAI_ENDPOINT', 'AZURE_OPENAI_DEPLOYMENT', 'AZURE_CLIENT_ID'])}`,
+    `- **Hosted identity hint**: ${isConfigured(process.env.AZURE_CLIENT_ID) ? 'AZURE_CLIENT_ID present for user-assigned managed identity auth' : 'AZURE_CLIENT_ID missing'}`,
+    `- **Foundry Responses host**: ready on /responses and /readiness inside the container`,
+    '',
+    '**Still required before full production parity**',
+    `- **WorkIQ / Graph / Agent 365 MCP**: ${graphMcpStatus}; missing expected pillars: ${missingPillars}. Required env includes MCP_PLATFORM_ENDPOINT, MicrosoftAppId, MicrosoftAppTenantId, and the Agent 365 auth connection/permissions.`,
+    `- **Fabric / Power BI**: ${envStatus(['FABRIC_WORKSPACE_ID'])} for workspace; also review FABRIC_LAKEHOUSE_ID, FABRIC_SEMANTIC_MODEL_ID, and POWERBI_SEMANTIC_MODEL_ID.`,
+    `- **ACS voice / Teams federation**: ${envStatus(['ACS_CONNECTION_STRING', 'ACS_SOURCE_USER_ID'])}; also needs BASE_URL or PUBLIC_HOSTNAME, realtime model settings, CFO_TEAMS_USER_AAD_OID, and tenant federation policy.`,
+    `- **Observability**: ${envStatus(['APPLICATIONINSIGHTS_CONNECTION_STRING'])}; also review APPLICATIONINSIGHTS_RESOURCE_ID, LOG_ANALYTICS_WORKSPACE_ID, PURVIEW_AUDIT_WORKSPACE_ID, and PURVIEW_AUDIT_ENABLED.`,
+    `- **Durable storage and work records**: ${envStatus(['COSMOS_DB_ENDPOINT', 'COSMOS_DB_DATABASE', 'COSMOS_DB_CONTAINER'])}; for App Service demos preserve MORGAN_MISSION_STATE_FILE on mounted storage.`,
+    `- **Autonomous scheduler safety**: ${envStatus(['SCHEDULED_SECRET'])}; review AUTONOMOUS_WORKDAY_* settings before enabling unattended cycles.`,
+    `- **Sub-agent mesh**: review AI_KANBAN_AGENT_ENDPOINT, CASSIDY_AGENT_ENDPOINT, AVATAR_AGENT_ENDPOINT, bearer tokens, and shared secrets before claiming worker-agent collaboration.`,
+    '',
+    '**Readiness tool signals**',
+    readinessLine(readiness, 'mcp-tooling', 'Agent 365 MCP tooling'),
+    readinessLine(readiness, 'foundry-iq', 'Foundry IQ'),
+    readinessLine(readiness, 'fabric-iq', 'Fabric IQ'),
+    readinessLine(readiness, 'avatar-presence', 'Avatar and Voice Live'),
+    readinessLine(readiness, 'teams-federation-calling', 'Teams federation calling'),
+    readinessLine(readiness, 'observability', 'Application Insights and Log Analytics'),
+    readinessLine(readiness, 'durable-memory', 'Durable memory and work records'),
+    readinessLine(readiness, 'scheduler-safety', 'Autonomous scheduling and safety gates'),
+    '',
+    'Next action: configure one connector group at a time, create a new immutable hosted-agent version with reviewed env values, then rerun the P0 smoke dataset through the direct Foundry Responses endpoint.',
+  ].join('\n');
+}
+
+const HOSTED_EVIDENCE_BOUNDARY = [
+  'Hosted-agent evidence boundary:',
+  '- If the user asks what is required, what is configured, what is fully live, or what still blocks production parity, answer from getEnterpriseReadiness and getWorkIQStatus; do not call synthesizeMicrosoftIQBriefing for that intent.',
+  '- Never claim Mail, Calendar, Teams, SharePoint, Graph/MCP, Fabric, Power BI, ACS voice, Application Insights, Purview, durable storage, or sub-agent calls succeeded unless a tool result or readiness status says configured/ready for that specific surface.',
+  '- The Microsoft IQ, WorkIQ, Foundry IQ, and Fabric IQ demo adapters are deterministic showcase data until tenant connectors and env values are present. Label demo data clearly.',
+  '- For hosted Foundry smoke tests, separate three facts: container reachable, Azure OpenAI reachable, and enterprise connectors configured. Do not collapse them into one claim.',
+].join('\n');
+
 async function runMorganCompletion(inputText: string, requestMetadata?: Record<string, unknown>): Promise<string> {
   const client = createOpenAiClient();
   if (!client) {
@@ -80,6 +187,9 @@ async function runMorganCompletion(inputText: string, requestMetadata?: Record<s
       reasoningSummary: 'Morgan received a Foundry hosted-agent request and is preparing the tool-enabled CFO response loop.',
     },
   });
+
+  const hostedConfigurationReply = await tryHandleHostedConfigurationQuestion(inputText, correlationId);
+  if (hostedConfigurationReply) return hostedConfigurationReply;
 
   const showcaseReply = await tryHandleShowcaseShortcut(inputText, undefined, { allowVoiceActions: false });
   if (showcaseReply) {
@@ -102,7 +212,8 @@ async function runMorganCompletion(inputText: string, requestMetadata?: Record<s
       role: 'system',
       content:
         MORGAN_SYSTEM_PROMPT +
-        '\n\nYou are being invoked through Microsoft Foundry Hosted Agent Responses protocol. Keep responses concise, record meaningful autonomous work, and include completed actions where relevant.',
+        '\n\nYou are being invoked through Microsoft Foundry Hosted Agent Responses protocol. Keep responses concise, record meaningful autonomous work, and include completed actions where relevant.\n' +
+        HOSTED_EVIDENCE_BOUNDARY,
     },
     { role: 'user', content: inputText || 'Give a short Morgan status update.' },
   ];
@@ -187,7 +298,7 @@ async function runMorganCompletion(inputText: string, requestMetadata?: Record<s
 }
 
 export function registerFoundryResponsesRoutes(server: express.Express): void {
-  server.get('/responses/health', (_req, res: Response) => {
+  const readinessHandler = (_req: express.Request, res: Response) => {
     res.status(200).json({
       status: 'ready',
       protocol: 'responses',
@@ -195,7 +306,10 @@ export function registerFoundryResponsesRoutes(server: express.Express): void {
       foundryProjectEndpoint: process.env.FOUNDRY_PROJECT_ENDPOINT || null,
       timestamp: new Date().toISOString(),
     });
-  });
+  };
+
+  server.get('/responses/health', readinessHandler);
+  server.get('/readiness', readinessHandler);
 
   server.post('/responses', async (req: express.Request, res: Response) => {
     const body = req.body as FoundryResponsesRequest;

@@ -1,0 +1,3359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Morgan – D-ID Avatar</title>
+  <style>
+    :root {
+      --bg: #0f1216;
+      --surface: #181c23;
+      --surface-2: #222733;
+      --border: #313846;
+      --text: #f4f6f8;
+      --muted: #9aa4b2;
+      --teal: #35c2b4;
+      --amber: #f0b429;
+      --red: #e05a5a;
+      --blue: #6698f0;
+      --green: #45d6a2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Segoe UI, system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+    }
+    body.large-type { font-size: 17px; }
+    body.xlarge-type { font-size: 19px; }
+    body.high-contrast {
+      --bg: #000;
+      --surface: #050505;
+      --surface-2: #111;
+      --border: #f4f6f8;
+      --text: #fff;
+      --muted: #e7edf5;
+      --teal: #7fffe8;
+      --amber: #ffe066;
+      --blue: #9cc2ff;
+    }
+    body.accessible-mode .stage { display: none; }
+    body.accessible-mode .shell { grid-template-columns: 1fr; }
+    body.accessible-mode .side { border-left: 0; }
+    header {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      background: #151922;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mark {
+      width: 38px; height: 38px; border-radius: 8px;
+      display: grid; place-items: center;
+      background: var(--teal); color: #061412; font-weight: 800;
+    }
+    h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .status-pill {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--surface);
+      white-space: nowrap;
+    }
+    .status-pill.live { color: #051412; background: var(--teal); border-color: var(--teal); }
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+    }
+    .shell { height: calc(100vh - 64px); display: grid; grid-template-columns: minmax(0, 1fr) 390px; }
+    .stage {
+      position: relative;
+      min-width: 0;
+      background: #000;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .avatar-frame {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background-color: #FFF;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      isolation: isolate;
+    }
+    .avatar-frame::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 38%, rgba(53, 194, 180, 0.07), transparent 34%);
+    }
+    .starfield {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: auto;
+      z-index: 1;
+      opacity: .86;
+      mix-blend-mode: normal;
+      filter: drop-shadow(0 0 8px rgba(53, 194, 180, 0.28));
+      transition: opacity .24s ease;
+      cursor: grab;
+      touch-action: none;
+    }
+    .starfield.is-dragging { cursor: grabbing; }
+    .starfield:focus-visible { outline: 2px solid var(--teal); outline-offset: -4px; }
+    /* Experience Centre photo backdrop. It lives on its own layer (behind the orbs at z-index 1)
+       and is revealed from loading onward (connecting + live) while staying hidden before the
+       session starts, so the pre-start stage remains dark. Because it is plain CSS it loads
+       independently of the avatar compositor, and it shows through the keyed avatar so Morgan
+       stands on the Microsoft Visitor Center. */
+    .stage-photo-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      opacity: 0;
+      transition: opacity .45s ease;
+      pointer-events: none;
+    }
+    .stage.is-connecting .stage-photo-bg,
+    .stage.is-live .stage-photo-bg {
+      opacity: 1;
+    }
+    /* Keep the floating-orb starfield as a live backdrop behind Morgan while she is connecting
+       and live; just dim it slightly and make it non-interactive so it stays decorative. */
+    .stage.is-connecting .starfield,
+    .stage.is-live .starfield,
+    .stage.is-tool .starfield {
+      opacity: .6;
+      pointer-events: none;
+    }
+    /* Hide the orbs only while Morgan is actively speaking so the Experience Centre reads cleanly. */
+    .stage.avatar-speaking .starfield,
+    .stage.is-speaking .starfield {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .starfield-tools {
+      position: absolute;
+      top: 74px;
+      right: 18px;
+      z-index: 7;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(12, 15, 20, 0.78);
+      backdrop-filter: blur(14px);
+      border-radius: 8px;
+    }
+    .starfield-tools button {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-size: 15px;
+      font-weight: 750;
+    }
+    .starfield-tools .hint {
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.72;
+      font-style: italic;
+      letter-spacing: 0.02em;
+      transition: opacity 0.24s ease;
+      margin-left: 6px;
+      pointer-events: none;
+    }
+    .starfield-tools .hint.hidden { opacity: 0; }
+    .starfield-tools .readout {
+      min-width: 48px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .did-badge {
+      position: absolute;
+      left: 16px;
+      bottom: 78px;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+      opacity: 0.96;
+    }
+    .did-badge span {
+      font-size: 10px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #4a5160;
+      font-weight: 600;
+    }
+    .did-badge img {
+      height: 22px;
+      width: auto;
+      display: block;
+    }
+    video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+      opacity: 0;
+      transition: opacity .2s ease;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .avatar-composite {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 3;
+      opacity: 0;
+      pointer-events: none;
+      object-fit: cover;
+      object-position: center;
+      transition: opacity .2s ease;
+    }
+    .avatar-composite.active { opacity: 1; }
+    .avatar-frame.raw-video video.active { opacity: 1; z-index: 3; }
+    .avatar-aura {
+      position: absolute;
+      inset: 5%;
+      border-radius: 14px;
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0;
+      transition: opacity .24s ease, box-shadow .24s ease;
+    }
+    .stage.is-live .avatar-aura { opacity: 1; }
+    .avatar-aura.aura-idle {
+      box-shadow: inset 0 0 30px rgba(53, 194, 180, 0.08), 0 0 70px rgba(53, 194, 180, 0.16);
+      animation: aura-breathe 4s ease-in-out infinite;
+    }
+    .avatar-aura.aura-listening {
+      box-shadow: inset 0 0 34px rgba(69, 214, 162, 0.16), 0 0 80px rgba(69, 214, 162, 0.28);
+      animation: aura-breathe 2.4s ease-in-out infinite;
+    }
+    .avatar-aura.aura-speaking {
+      box-shadow: inset 0 0 34px rgba(102, 152, 240, 0.18), 0 0 90px rgba(102, 152, 240, 0.28);
+      animation: aura-breathe 1.8s ease-in-out infinite;
+    }
+    .avatar-aura.aura-thinking {
+      box-shadow: inset 0 0 34px rgba(240, 180, 41, 0.18), 0 0 90px rgba(240, 180, 41, 0.32);
+      animation: aura-spin 3.2s linear infinite;
+    }
+    @keyframes aura-breathe {
+      0%, 100% { transform: scale(0.995); opacity: .78; }
+      50% { transform: scale(1.01); opacity: 1; }
+    }
+    @keyframes aura-spin {
+      from { filter: hue-rotate(0deg); transform: scale(1); }
+      to { filter: hue-rotate(35deg); transform: scale(1.012); }
+    }
+    .idle {
+      width: min(620px, 86vw);
+      text-align: center;
+      display: grid;
+      gap: 18px;
+      place-items: center;
+      padding: 32px;
+      position: relative;
+      z-index: 4;
+    }
+    .portrait {
+      width: 150px; height: 150px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: radial-gradient(circle at 35% 30%, #7bd8cf, #35c2b4 50%, #1d6d68 100%);
+      color: #061412;
+      font-size: 64px;
+      font-weight: 800;
+      box-shadow: 0 20px 70px rgba(53, 194, 180, 0.22);
+    }
+    .idle h2 { margin: 0; font-size: 24px; }
+    .idle p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .avatar-standby {
+      width: min(360px, 70vw);
+      aspect-ratio: 1 / 1;
+      position: relative;
+      display: grid;
+      place-items: center;
+      filter: drop-shadow(0 24px 52px rgba(0,0,0,0.38));
+    }
+    .avatar-orb {
+      width: min(170px, 45vw);
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 35% 30%, #7bd8cf, #35c2b4 48%, #165c57 100%);
+      color: #061412;
+      font-size: 66px;
+      font-weight: 850;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 24px 80px rgba(53, 194, 180, 0.24);
+    }
+    .avatar-signal {
+      position: absolute;
+      left: 50%;
+      bottom: 8%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 5px;
+      z-index: 4;
+    }
+    .avatar-signal span {
+      width: 5px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--teal);
+      opacity: .45;
+      animation: signal-pulse 1.1s ease-in-out infinite;
+    }
+    .avatar-signal span:nth-child(2) { animation-delay: .15s; }
+    .avatar-signal span:nth-child(3) { animation-delay: .3s; }
+    .avatar-signal span:nth-child(4) { animation-delay: .45s; }
+    @keyframes signal-pulse {
+      0%, 100% { transform: scaleY(.45); opacity: .34; }
+      50% { transform: scaleY(1.25); opacity: .95; }
+    }
+    .stage-bar {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(12, 15, 20, 0.78);
+      backdrop-filter: blur(14px);
+      border-radius: 8px;
+      z-index: 5;
+    }
+    .quick-launch {
+      position: absolute;
+      left: 18px;
+      bottom: 92px;
+      z-index: 5;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: min(760px, calc(100% - 36px));
+    }
+    .quick-launch button {
+      background: rgba(12, 15, 20, 0.72);
+      border-color: rgba(255,255,255,0.13);
+      backdrop-filter: blur(14px);
+    }
+    .tool-overlay {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 92px;
+      z-index: 6;
+      border: 1px solid rgba(240,180,41,0.32);
+      background: linear-gradient(135deg, rgba(42,31,12,0.86), rgba(12,15,20,0.86));
+      backdrop-filter: blur(16px);
+      border-radius: 8px;
+      padding: 12px;
+      transform: translateY(18px);
+      opacity: 0;
+      transition: transform .22s ease, opacity .22s ease;
+    }
+    .tool-overlay.active { transform: translateY(0); opacity: 1; }
+    .tool-overlay-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .tool-overlay-title { color: #f8d986; font-weight: 700; font-size: 13px; }
+    .tool-overlay-subtitle { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .tool-dots { display: flex; gap: 5px; }
+    .tool-dots span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--amber);
+      animation: tool-dot 1s ease-in-out infinite;
+    }
+    .tool-dots span:nth-child(2) { animation-delay: .12s; }
+    .tool-dots span:nth-child(3) { animation-delay: .24s; }
+    @keyframes tool-dot {
+      0%, 100% { transform: translateY(0); opacity: .45; }
+      50% { transform: translateY(-4px); opacity: 1; }
+    }
+    .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    button, a.button {
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 13px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    button.primary { background: var(--teal); border-color: var(--teal); color: #061412; font-weight: 700; }
+    button.danger { border-color: rgba(224,90,90,0.7); color: #ffb8b8; }
+    button.warn { border-color: rgba(240,180,41,0.75); color: #f8d986; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button:focus-visible, a.button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    .side {
+      min-width: 0;
+      border-left: 1px solid var(--border);
+      background: var(--surface);
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+    }
+    .side-head { padding: 16px; border-bottom: 1px solid var(--border); }
+    .side-head h2 { margin: 0 0 4px; font-size: 15px; }
+    .side-head p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .tabs {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid var(--border);
+      background: rgba(20, 25, 34, 0.72);
+    }
+    .tabs::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 50%;
+      height: 2px;
+      background: var(--teal);
+      transform: translateX(var(--tab-offset, 0));
+      transition: transform .2s ease;
+    }
+    .tabs button {
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 12px;
+      color: var(--muted);
+    }
+    .tabs button.active { color: var(--text); }
+    .panel-stack { min-height: 0; position: relative; }
+    .panel { position: absolute; inset: 0; display: none; min-height: 0; }
+    .panel.active { display: flex; flex-direction: column; }
+    .transcript { overflow: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: #141922; line-height: 1.45; font-size: 13px; }
+    .msg.user { border-color: rgba(102,152,240,0.55); }
+    .msg.assistant { border-color: rgba(53,194,180,0.55); }
+    .label { color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+    .empty-chat { margin: auto; text-align: center; color: var(--muted); display: grid; gap: 14px; padding: 28px; }
+    .prompt-chips { display: grid; gap: 8px; }
+    .prompt-chips button { width: 100%; text-align: left; }
+    .composer { padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: rgba(20,25,34,0.72); }
+    .composer input {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0f131a;
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 13px;
+    }
+    .activity { overflow: auto; padding: 14px; display: grid; gap: 10px; align-content: start; }
+    .activity-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #141922;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .activity-card.running { border-color: rgba(240,180,41,0.55); }
+    .activity-card.completed { border-color: rgba(69,214,162,0.48); }
+    .activity-card.failed { border-color: rgba(224,90,90,0.55); }
+    .activity-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 700; }
+    .activity-status { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .activity-preview { color: var(--muted); line-height: 1.45; word-break: break-word; }
+    .quick { padding: 14px; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+    .quick button { width: 100%; text-align: left; }
+    .config-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 28;
+      display: grid;
+      place-items: center;
+      background: rgba(0,0,0,0.62);
+      backdrop-filter: blur(8px);
+      padding: 18px;
+    }
+    .config-card {
+      width: min(560px, 100%);
+      max-height: min(760px, 92vh);
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 18px;
+      display: grid;
+      gap: 18px;
+    }
+    .config-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .config-head h2 { margin: 0; font-size: 18px; }
+    .config-section { display: grid; gap: 10px; }
+    .config-section h3 { margin: 0; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .preset-grid button { text-align: left; }
+    .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+    .swatch {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border-width: 2px;
+    }
+    .swatch.active, .preset-grid button.active { border-color: var(--teal); color: var(--text); }
+    .field-row { display: grid; gap: 6px; }
+    .field-row label { color: var(--muted); font-size: 12px; }
+    .field-row select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0f131a;
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+    }
+    .offline {
+      position: absolute;
+      top: 18px; left: 18px; right: 18px; z-index: 8;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid rgba(240,180,41,0.42);
+      background: rgba(24, 28, 35, 0.82);
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #f8d986;
+    }
+    .auth-overlay {
+      position: fixed; inset: 0; z-index: 30;
+      display: grid; place-items: center;
+      background:
+        linear-gradient(rgba(8, 11, 16, 0.58), rgba(8, 11, 16, 0.72)),
+        url('/voice/assets/visitor-center.jpg') center / cover no-repeat;
+      padding: 24px;
+    }
+    .auth-card {
+      width: min(440px, 100%);
+      border: 1px solid var(--border);
+      background: rgba(24, 28, 35, 0.84);
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 24px;
+      display: grid;
+      gap: 14px;
+      text-align: center;
+    }
+    .auth-card h2 { margin: 0; font-size: 20px; }
+    .auth-card p { color: var(--muted); margin: 0; line-height: 1.5; }
+    [hidden] { display: none !important; }
+    .offline b { color: #f8d986; font-size: 13px; }
+    .offline span { color: var(--muted); font-size: 12px; line-height: 1.4; }
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      .shell { height: auto; min-height: calc(100vh - 64px); grid-template-columns: 1fr; }
+      .stage { min-height: min(720px, calc(100vh - 64px)); }
+      .idle { transform: translateY(-56px); }
+      .idle h2, .idle p { display: none; }
+      .avatar-standby { width: min(320px, 56vw); }
+      .side { border-left: 0; border-top: 1px solid var(--border); min-height: 42vh; }
+      .stage-bar { position: static; margin: 12px; align-self: end; }
+      .starfield-tools { top: 70px; right: 12px; }
+    }
+  </style>
+  <style>
+    :root {
+      --bg: #05070a;
+      --surface: rgba(13, 17, 24, 0.82);
+      --surface-2: rgba(20, 27, 38, 0.86);
+      --surface-glass: rgba(255, 255, 255, 0.045);
+      --border: rgba(255, 255, 255, 0.09);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text: #f8fafc;
+      --muted: #9ca8b8;
+      --teal: #35c2b4;
+      --amber: #f0b429;
+      --red: #e05a5a;
+      --blue: #6ea8fe;
+      --green: #45d6a2;
+      --violet: #a78bfa;
+      --shell-top: 92px;
+    }
+    body {
+      background:
+        radial-gradient(circle at 18% 14%, rgba(53, 194, 180, 0.13), transparent 28%),
+        radial-gradient(circle at 82% 18%, rgba(110, 168, 254, 0.12), transparent 30%),
+        linear-gradient(135deg, #05070a 0%, #11151d 48%, #061312 100%);
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 46px 46px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0));
+    }
+    header {
+      position: relative;
+      height: 58px;
+      padding: 0 22px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+      background: rgba(8, 12, 18, 0.76);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 18px 60px rgba(0, 0, 0, 0.2);
+    }
+    header::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -1px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(53, 194, 180, 0.72), rgba(110, 168, 254, 0.58), transparent);
+      opacity: 0.72;
+    }
+    .brand { gap: 10px; }
+    .mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--teal), var(--blue));
+      color: #031412;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.22), 0 12px 34px rgba(53, 194, 180, 0.24);
+    }
+    h1 {
+      font-size: 17px;
+      letter-spacing: 0;
+      background: linear-gradient(90deg, #ffffff, #9af6eb 52%, #bcd7ff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .meta { color: var(--muted); }
+    .header-actions { gap: 10px; }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 32px;
+      border-color: rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: #cbd5e1;
+      backdrop-filter: blur(14px);
+    }
+    .status-pill::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #64748b;
+      box-shadow: 0 0 0 4px rgba(100, 116, 139, 0.12);
+    }
+    .status-pill.live {
+      color: #c9fff4;
+      background: rgba(53, 194, 180, 0.16);
+      border-color: rgba(53, 194, 180, 0.32);
+    }
+    .status-pill.live::before {
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(69, 214, 162, 0.16), 0 0 20px rgba(69, 214, 162, 0.55);
+    }
+    .icon-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border-color: transparent;
+      background: rgba(255,255,255,0.035);
+      color: #cbd5e1;
+      transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease;
+    }
+    .icon-btn:hover {
+      color: #fff;
+      border-color: rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.075);
+      transform: translateY(-1px);
+    }
+    .icon-btn.active {
+      color: #c9fff4;
+      border-color: rgba(53, 194, 180, 0.32);
+      background: rgba(53, 194, 180, 0.16);
+    }
+    .icon-btn svg,
+    .starfield-tools button svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      pointer-events: none;
+    }
+    .ticker-bar {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 18px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+      background: rgba(8, 12, 18, 0.56);
+      backdrop-filter: blur(18px);
+      color: #cbd5e1;
+      font-size: 12px;
+      white-space: nowrap;
+      scrollbar-width: none;
+    }
+    .ticker-bar::-webkit-scrollbar { display: none; }
+    .ticker-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      color: #cbd5e1;
+    }
+    .ticker-item.risk { color: #f8d986; }
+    .ticker-muted { color: #7d8796; }
+    .ticker-label { color: #8d98aa; }
+    .ticker-value {
+      color: #f8fafc;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+    .ticker-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--teal);
+      box-shadow: 0 0 14px rgba(53, 194, 180, 0.65);
+      flex: 0 0 auto;
+    }
+    .ticker-separator {
+      width: 1px;
+      height: 14px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.16), transparent);
+      flex: 0 0 auto;
+    }
+    .ticker-note {
+      margin-left: auto;
+      color: #7d8796;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .shell {
+      height: calc(100vh - var(--shell-top));
+      grid-template-columns: minmax(0, 1fr) clamp(390px, 30vw, 480px);
+      background: transparent;
+    }
+    .stage {
+      display: block;
+      position: relative;
+      padding: 12px;
+      background: transparent;
+    }
+    .avatar-frame {
+      inset: 12px 12px 104px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 18px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.035), 0 28px 90px rgba(0,0,0,0.36);
+    }
+    .avatar-frame::before {
+      z-index: 1;
+      background:
+        radial-gradient(circle at 50% 36%, rgba(53, 194, 180, 0.08), transparent 34%),
+        linear-gradient(180deg, rgba(2, 6, 23, 0.1), rgba(2, 6, 23, 0.22));
+    }
+    .avatar-frame::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      box-shadow: inset 0 0 80px rgba(0,0,0,0.28);
+    }
+    video { border-radius: 18px; }
+    .avatar-composite { border-radius: 18px; }
+    .starfield {
+      z-index: 2;
+      opacity: 0.72;
+      filter: drop-shadow(0 0 10px rgba(53, 194, 180, 0.2));
+    }
+    .starfield-tools {
+      top: 24px;
+      right: 24px;
+      border-radius: 999px;
+      background: rgba(8, 12, 18, 0.64);
+      border-color: rgba(255,255,255,0.1);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.24);
+    }
+    .starfield-tools button {
+      border-radius: 999px;
+      background: rgba(255,255,255,0.055);
+      border-color: rgba(255,255,255,0.08);
+    }
+    .avatar-aura {
+      inset: 2%;
+      border-radius: 18px;
+      z-index: 5;
+      transition: opacity .24s ease, box-shadow .24s ease, filter .24s ease;
+    }
+    .avatar-aura.aura-idle {
+      box-shadow: inset 0 0 34px rgba(53, 194, 180, 0.1), 0 0 56px rgba(53, 194, 180, 0.18), 0 0 120px rgba(110, 168, 254, 0.08);
+    }
+    .avatar-aura.aura-listening {
+      box-shadow: inset 0 0 34px rgba(69, 214, 162, 0.16), 0 0 72px rgba(69, 214, 162, 0.3), 0 0 120px rgba(53, 194, 180, 0.12);
+    }
+    .avatar-aura.aura-speaking {
+      box-shadow: inset 0 0 34px rgba(110, 168, 254, 0.2), 0 0 76px rgba(110, 168, 254, 0.32), 0 0 130px rgba(53, 194, 180, 0.12);
+    }
+    .avatar-aura.aura-thinking {
+      background: conic-gradient(from 0deg, rgba(240, 180, 41, 0.28), transparent 30%, rgba(53, 194, 180, 0.16), transparent 68%, rgba(240, 180, 41, 0.28));
+      box-shadow: inset 0 0 34px rgba(240, 180, 41, 0.14), 0 0 86px rgba(240, 180, 41, 0.26);
+      animation: aura-spin 3.2s linear infinite;
+    }
+    .idle {
+      width: min(560px, 84vw);
+      gap: 14px;
+      padding: 28px;
+      text-shadow: 0 2px 16px rgba(0,0,0,0.38);
+      transform: translateY(-42px);
+    }
+    .avatar-standby {
+      width: min(340px, 62vw);
+      filter: drop-shadow(0 28px 74px rgba(0,0,0,0.45));
+      transition: opacity .28s ease, transform .28s ease, filter .28s ease;
+    }
+    .avatar-orb {
+      width: min(164px, 42vw);
+      font-size: 62px;
+      background: radial-gradient(circle at 32% 28%, #bffaf3, #35c2b4 48%, #174f68 100%);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.2), 0 26px 88px rgba(53, 194, 180, 0.28), 0 0 120px rgba(110, 168, 254, 0.14);
+    }
+    .idle h2 { font-size: 28px; }
+    .idle p { color: #b8c4d3; }
+    .stage-bar {
+      left: 50%;
+      right: auto;
+      bottom: 22px;
+      width: min(850px, calc(100% - 34px));
+      transform: translateX(-50%);
+      justify-content: space-between;
+      padding: 10px 12px 10px 14px;
+      border-radius: 999px;
+      border-color: rgba(255,255,255,0.1);
+      background: rgba(8, 12, 18, 0.68);
+      box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+    }
+    .stage-bar .meta {
+      min-width: 130px;
+      color: #cbd5e1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .controls { gap: 8px; flex-wrap: nowrap; }
+    button, a.button {
+      border-color: rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.055);
+      color: #eef4fb;
+      border-radius: 999px;
+      transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, opacity .18s ease;
+    }
+    button:hover:not(:disabled), a.button:hover {
+      border-color: rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.095);
+      transform: translateY(-1px);
+    }
+    button.primary {
+      background: linear-gradient(135deg, var(--teal), #62d7ff);
+      border-color: rgba(154, 246, 235, 0.42);
+      color: #031412;
+      box-shadow: 0 10px 30px rgba(53, 194, 180, 0.22);
+    }
+    button.primary:hover:not(:disabled) { background: linear-gradient(135deg, #61e5d8, #8cdfff); }
+    button.warn {
+      border-color: rgba(240,180,41,0.35);
+      color: #ffe6a3;
+      background: rgba(240,180,41,0.11);
+    }
+    button.danger {
+      border-color: rgba(224,90,90,0.38);
+      color: #ffc4c4;
+      background: rgba(224,90,90,0.11);
+    }
+    .quick-launch {
+      left: 50%;
+      bottom: 122px;
+      transform: translateX(-50%);
+      justify-content: center;
+      max-width: min(900px, calc(100% - 44px));
+      z-index: 8;
+    }
+    .quick-launch button {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(8, 12, 18, 0.66);
+      border-color: rgba(255,255,255,0.11);
+      backdrop-filter: blur(18px);
+      color: #d7e1ee;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.2);
+    }
+    .quick-launch button:hover {
+      background: rgba(53, 194, 180, 0.14);
+      border-color: rgba(53, 194, 180, 0.28);
+    }
+    .tool-overlay {
+      left: 50%;
+      right: auto;
+      bottom: 112px;
+      width: min(650px, calc(100% - 46px));
+      transform: translate(-50%, 22px);
+      border-radius: 14px;
+      border-color: rgba(240,180,41,0.28);
+      background: linear-gradient(135deg, rgba(38,29,11,0.86), rgba(8,12,18,0.86));
+      box-shadow: 0 18px 50px rgba(0,0,0,0.3);
+      padding: 12px 14px;
+    }
+    .tool-overlay.active { transform: translate(-50%, 0); }
+    .tool-overlay::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(240, 180, 41, 0.08), transparent);
+      animation: shimmer 1.8s linear infinite;
+    }
+    .tool-overlay-row { position: relative; z-index: 1; }
+    .offline {
+      top: 24px;
+      left: 24px;
+      right: 24px;
+      border-radius: 14px;
+      background: rgba(16, 20, 28, 0.78);
+      border-color: rgba(240,180,41,0.28);
+      box-shadow: 0 14px 42px rgba(0,0,0,0.24);
+    }
+    .side {
+      border-left: 1px solid rgba(255,255,255,0.075);
+      background: rgba(8, 12, 18, 0.72);
+      backdrop-filter: blur(20px);
+      box-shadow: -18px 0 60px rgba(0,0,0,0.22);
+    }
+    .side-head {
+      padding: 15px 18px 13px;
+      border-bottom-color: rgba(255,255,255,0.055);
+    }
+    .side-head h2 {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+      color: #f8fafc;
+    }
+    .side-head p { margin-top: 5px; color: #7d8796; }
+    .tabs {
+      border-bottom-color: rgba(255,255,255,0.055);
+      background: rgba(255,255,255,0.025);
+    }
+    .tabs::after {
+      height: 2px;
+      background: linear-gradient(90deg, var(--teal), var(--blue));
+      box-shadow: 0 0 18px rgba(53,194,180,0.5);
+    }
+    .tabs button {
+      padding: 13px 12px;
+      color: #7d8796;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .tabs button.active { color: #fff; }
+    .transcript {
+      padding: 16px;
+      gap: 12px;
+    }
+    .msg {
+      width: fit-content;
+      max-width: 86%;
+      padding: 11px 13px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.045);
+      border-color: rgba(255,255,255,0.09);
+      color: #f1f5f9;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.16);
+    }
+    .msg.user {
+      margin-left: auto;
+      border-color: rgba(110,168,254,0.32);
+      border-bottom-right-radius: 6px;
+      background: linear-gradient(135deg, rgba(62, 131, 244, 0.92), rgba(53, 194, 180, 0.72));
+      color: #fff;
+    }
+    .msg.assistant {
+      margin-right: auto;
+      border-color: rgba(53,194,180,0.22);
+      border-bottom-left-radius: 6px;
+      background: rgba(255,255,255,0.052);
+      backdrop-filter: blur(12px);
+    }
+    .label {
+      margin-bottom: 6px;
+      color: rgba(226, 232, 240, 0.62);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+    }
+    .empty-chat {
+      gap: 18px;
+      color: #98a5b6;
+      padding: 32px 22px;
+    }
+    .empty-chat > div:first-child {
+      font-size: 14px;
+      color: #d7e1ee;
+    }
+    .prompt-chips {
+      width: min(280px, 100%);
+      margin: 0 auto;
+    }
+    .prompt-chips button {
+      border-radius: 12px;
+      background: rgba(255,255,255,0.042);
+      border-color: rgba(255,255,255,0.085);
+      color: #cbd5e1;
+    }
+    .prompt-chips button:hover {
+      background: rgba(53,194,180,0.12);
+      border-color: rgba(53,194,180,0.24);
+    }
+    .composer {
+      padding: 12px;
+      border-top-color: rgba(255,255,255,0.055);
+      background: rgba(255,255,255,0.025);
+    }
+    .composer input {
+      border-radius: 12px;
+      border-color: rgba(255,255,255,0.09);
+      background: rgba(255,255,255,0.045);
+      color: #fff;
+      outline: none;
+      transition: border-color .18s ease, background .18s ease;
+    }
+    .composer input:focus {
+      border-color: rgba(53,194,180,0.42);
+      background: rgba(255,255,255,0.062);
+    }
+    .activity {
+      padding: 16px;
+      gap: 12px;
+    }
+    .activity-card {
+      border-radius: 14px;
+      background: rgba(255,255,255,0.045);
+      border-color: rgba(255,255,255,0.09);
+      box-shadow: 0 10px 26px rgba(0,0,0,0.16);
+    }
+    .activity-card.running { border-color: rgba(240,180,41,0.34); }
+    .activity-card.completed { border-color: rgba(69,214,162,0.26); }
+    .activity-card.failed { border-color: rgba(224,90,90,0.3); }
+    .config-overlay { background: rgba(0,0,0,0.66); backdrop-filter: blur(12px); }
+    .config-card {
+      border-radius: 18px;
+      background: rgba(8, 12, 18, 0.88);
+      border-color: rgba(255,255,255,0.1);
+      box-shadow: 0 26px 90px rgba(0,0,0,0.42);
+    }
+    .config-section h3 { color: #93a1b4; }
+    .auth-overlay {
+      background:
+        linear-gradient(rgba(3, 7, 12, 0.54), rgba(3, 7, 12, 0.78)),
+        url('/voice/assets/visitor-center.jpg') center / cover no-repeat;
+    }
+    .auth-card {
+      border-radius: 18px;
+      background: rgba(8, 12, 18, 0.76);
+      border-color: rgba(255,255,255,0.1);
+      box-shadow: 0 26px 90px rgba(0,0,0,0.44);
+    }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.38); }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.56); }
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    @media (max-width: 1040px) {
+      .shell { grid-template-columns: minmax(0, 1fr) 380px; }
+      .stage-bar { align-items: stretch; border-radius: 18px; }
+      .stage-bar .meta { display: none; }
+      .controls { width: 100%; justify-content: center; flex-wrap: wrap; }
+    }
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      header { height: auto; min-height: 58px; padding: 10px 14px; gap: 10px; }
+      .brand { min-width: 0; }
+      .header-actions { flex-wrap: wrap; justify-content: flex-end; }
+      .ticker-bar { height: auto; min-height: 36px; flex-wrap: wrap; align-content: center; padding: 8px 14px; }
+      .ticker-link { margin-left: 0; }
+      .shell { height: auto; min-height: calc(100vh - var(--shell-top)); grid-template-columns: 1fr; }
+      .stage { display: flex; flex-direction: column; min-height: min(760px, calc(100vh - 92px)); padding: 10px; }
+      .avatar-frame { position: relative; inset: auto; min-height: 450px; flex: 1 1 auto; }
+      .idle { transform: translateY(-36px); }
+      .starfield-tools { top: 18px; right: 18px; }
+      .stage-bar { position: relative; left: auto; bottom: auto; width: auto; transform: none; margin-top: 10px; }
+      .quick-launch { position: relative; left: auto; bottom: auto; transform: none; max-width: 100%; margin: 10px auto 0; order: 2; }
+      .tool-overlay { left: 18px; right: 18px; bottom: 98px; width: auto; transform: translateY(22px); }
+      .tool-overlay.active { transform: translateY(0); }
+      .side { border-left: 0; border-top: 1px solid rgba(255,255,255,0.075); min-height: 50vh; }
+    }
+    @media (max-width: 560px) {
+      .mark { width: 32px; height: 32px; }
+      h1 { font-size: 16px; }
+      .meta { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ticker-separator { display: none; }
+      .avatar-frame { min-height: 390px; border-radius: 14px; }
+      .avatar-aura, video, .avatar-composite { border-radius: 14px; }
+      .avatar-orb { width: 138px; font-size: 54px; }
+      .idle h2 { font-size: 22px; }
+      .idle p { display: block; }
+      .idle { transform: translateY(-26px); }
+      .controls a.button, .controls button { flex: 1 1 140px; text-align: center; }
+      .msg { max-width: 92%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+  <!-- D-ID Agent SDK loader (ES module). Exposes the SDK on window.__didSdk and fires the 'did-sdk-ready' event. -->
+  <script type="module">
+    try {
+      const sdk = await import('https://cdn.jsdelivr.net/npm/@d-id/client-sdk@latest/+esm');
+      window.__didSdk = sdk;
+      window.__didSdkError = null;
+    } catch (err) {
+      console.error('[did] failed to load D-ID client SDK', err);
+      window.__didSdk = null;
+      window.__didSdkError = err && err.message ? err.message : String(err);
+    } finally {
+      window.dispatchEvent(new CustomEvent('did-sdk-ready'));
+    }
+  </script>
+</head>
+<body>
+  <div class="auth-overlay" id="authOverlay" hidden>
+    <div class="auth-card">
+      <div class="portrait" style="margin:0 auto;">M</div>
+      <h2>Sign in to Morgan</h2>
+      <p>Use your Microsoft work account to start the avatar, access Mission Control, and use live CFO tools.</p>
+      <a class="button primary" id="signInButton" href="/auth/login?returnTo=/voice/did">Sign in with Microsoft</a>
+    </div>
+  </div>
+
+  <header>
+    <div class="brand">
+      <div class="mark">M</div>
+      <div>
+        <h1>Morgan</h1>
+        <div class="meta" id="avatarMeta">Digital CFO</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="status-pill" id="statusPill" role="status" aria-live="polite">Disconnected</div>
+      <button class="icon-btn" id="btnAccessible" type="button" title="Accessible mode" aria-label="Toggle accessible mode">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4" r="2"></circle><path d="M4 9h16"></path><path d="M12 6v14"></path><path d="M8 20l4-8 4 8"></path></svg>
+      </button>
+      <button class="icon-btn" id="btnConfig" type="button" title="Avatar and camera settings" aria-label="Open avatar and camera settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-.5 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 .5-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 .5 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1H20a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-.5 1Z"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="ticker-bar" role="status" aria-label="CFO portfolio metrics" aria-live="polite">
+    <span class="ticker-item"><span class="ticker-dot" aria-hidden="true"></span><span class="ticker-label">Open items</span> <strong class="ticker-value" id="tickerOpenCases">--</strong></span>
+    <span class="ticker-separator" aria-hidden="true"></span>
+    <span class="ticker-item risk"><span class="ticker-label">Risks</span> <strong class="ticker-value" id="tickerRiskCount">--</strong></span>
+    <span class="ticker-separator" aria-hidden="true"></span>
+    <span class="ticker-item"><span class="ticker-label">Completed last 30 days</span> <strong class="ticker-value" id="tickerCompleted30">--</strong></span>
+    <span class="ticker-note" id="tickerMetricSource">Syncing Mission Control</span>
+  </div>
+
+  <div class="shell">
+    <main class="stage" id="stage">
+      <div class="offline" id="offlineOverlay">
+        <b>Voice paused</b>
+        <span>The avatar is visible. Ask Morgan in Teams to enable live voice when you want the full spoken session.</span>
+      </div>
+      <div class="avatar-frame">
+        <div class="stage-photo-bg" id="stagePhotoBg" aria-hidden="true"></div>
+        <canvas class="starfield" id="starfieldCanvas" tabindex="0" aria-label="Interactive starfield"></canvas>
+        <div class="avatar-aura aura-idle" id="avatarAura" aria-hidden="true"></div>
+        <canvas class="avatar-composite" id="avatarCompositeCanvas" aria-hidden="true"></canvas>
+        <video id="avatarVideo" autoplay playsinline></video>
+        <audio id="avatarAudio" autoplay></audio>
+        <div class="idle" id="idlePanel">
+          <div class="avatar-standby" id="avatarStandby">
+            <div class="avatar-orb">M</div>
+            <div class="avatar-signal"><span></span><span></span><span></span><span></span></div>
+          </div>
+          <h2>Morgan</h2>
+          <p>Live HD avatar session</p>
+        </div>
+      </div>
+      <div class="tool-overlay" id="toolOverlay" hidden role="status" aria-live="polite">
+        <div class="tool-overlay-row">
+          <div>
+            <div class="tool-overlay-title" id="toolOverlayTitle">Morgan is working</div>
+            <div class="tool-overlay-subtitle" id="toolOverlaySubtitle">Preparing the next financial step.</div>
+          </div>
+          <div class="tool-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <div class="quick-launch" id="quickLaunch" aria-label="Quick launch prompts">
+        <button type="button" data-prompt="Give me a morning CFO briefing with risks, cash, and actions.">Morning briefing</button>
+        <button type="button" data-prompt="Run your autonomous CFO workday checks and tell me what you completed.">Run CFO checks</button>
+        <button type="button" data-prompt="Prove your WorkIQ, Microsoft Graph, mailbox, calendar, Teams, SharePoint, Planner, and People access for this tenant.">WorkIQ proof</button>
+        <button type="button" data-prompt="Prepare the end-of-day CFO wrap-up.">End-of-day wrap-up</button>
+        <button type="button" data-prompt="Show me enterprise readiness and governance gaps.">Readiness check</button>
+      </div>
+      <div class="did-badge" aria-label="Avatar powered by D-ID">
+        <span>Avatar by</span>
+        <img src="/voice/assets/studio.d-id.com.png" alt="D-ID" />
+      </div>
+      <div class="stage-bar">
+        <div class="meta" id="statusText">Ready to connect</div>
+        <div class="controls">
+          <a class="button" href="/mission-control">Mission Control</a>
+          <button class="primary" id="btnConnect" onclick="connect()">Start Avatar</button>
+          <button class="warn" id="btnMute" onclick="toggleMute()" disabled>Mute</button>
+          <button class="danger" id="btnDisconnect" onclick="disconnect()" disabled>End</button>
+        </div>
+      </div>
+    </main>
+
+    <aside class="side">
+      <div class="side-head">
+        <h2>Conversation</h2>
+        <p>Digital CFO</p>
+      </div>
+      <div class="tabs" id="tabs" role="tablist" aria-label="Conversation and activity tabs">
+        <button class="active" id="tabChat" type="button" role="tab" aria-selected="true" aria-controls="chatPanel">Chat</button>
+        <button id="tabActivity" type="button" role="tab" aria-selected="false" aria-controls="activityPanel">Activity</button>
+      </div>
+      <div class="panel-stack">
+        <section class="panel active" id="chatPanel" role="tabpanel" aria-labelledby="tabChat">
+          <div class="transcript" id="transcript" role="log" aria-label="Conversation messages" aria-live="polite">
+            <div class="empty-chat" id="emptyChat">
+              <div>Start a conversation with Morgan</div>
+              <div class="prompt-chips">
+                <button type="button" data-prompt="What should I pay attention to financially today?">What should I watch today?</button>
+                <button type="button" data-prompt="Show me your job description and the key tasks you follow autonomously.">Show job description</button>
+                <button type="button" data-prompt="Run your autonomous CFO workday checks and tell me what you completed.">Run CFO checks</button>
+                <button type="button" data-prompt="Give me a Microsoft IQ briefing across WorkIQ, Foundry IQ, and Fabric IQ. Be clear which parts are live WorkIQ/Graph and which parts are deterministic demo data.">Microsoft IQ briefing</button>
+                <button type="button" data-prompt="Give me an end-of-day breakdown of what you completed today.">End-of-day breakdown</button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="panel" id="activityPanel" role="tabpanel" aria-labelledby="tabActivity">
+          <div class="activity" id="activityLog" aria-label="Tool call and workflow activity" aria-live="polite"></div>
+        </section>
+      </div>
+      <div class="composer">
+        <input id="chatInput" type="text" aria-label="Message Morgan" placeholder="Message Morgan..." autocomplete="off">
+        <button class="primary" id="btnSendText" type="button">Send</button>
+      </div>
+    </aside>
+  </div>
+
+  <div class="config-overlay" id="configOverlay" hidden>
+    <div class="config-card" role="dialog" aria-modal="true" aria-labelledby="configTitle">
+      <div class="config-head">
+        <h2 id="configTitle">Avatar and Camera</h2>
+        <button class="icon-btn" id="btnCloseConfig" type="button" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+      </div>
+      <section class="config-section">
+        <h3>Avatar preset</h3>
+        <div class="preset-grid" id="avatarPresetGrid"></div>
+      </section>
+      <section class="config-section">
+        <h3>Background</h3>
+        <div class="swatches" id="backgroundSwatches"></div>
+      </section>
+      <section class="config-section">
+        <h3>Camera framing</h3>
+        <div class="field-row">
+          <label for="videoFitSelect">Video fit</label>
+          <select id="videoFitSelect">
+            <option value="cover">Fill frame</option>
+            <option value="contain">Full body</option>
+          </select>
+        </div>
+      </section>
+      <section class="config-section">
+        <h3>Voice style</h3>
+        <div class="preset-grid" id="voiceStyleGrid"></div>
+      </section>
+      <section class="config-section">
+        <h3>Accessibility</h3>
+        <div class="preset-grid">
+          <button type="button" id="btnFontNormal">Normal text</button>
+          <button type="button" id="btnFontLarge">Large text</button>
+          <button type="button" id="btnFontXLarge">Extra large text</button>
+          <button type="button" id="btnHighContrast">High contrast</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const statusPill = document.getElementById('statusPill');
+    const statusText = document.getElementById('statusText');
+    const transcript = document.getElementById('transcript');
+    const btnConnect = document.getElementById('btnConnect');
+    const btnMute = document.getElementById('btnMute');
+    const btnDisconnect = document.getElementById('btnDisconnect');
+    const offlineOverlay = document.getElementById('offlineOverlay');
+    const authOverlay = document.getElementById('authOverlay');
+    const signInButton = document.getElementById('signInButton');
+    const stageEl = document.getElementById('stage');
+    const videoEl = document.getElementById('avatarVideo');
+    const avatarFrame = document.querySelector('.avatar-frame');
+    const stagePhotoBg = document.getElementById('stagePhotoBg');
+    const avatarCompositeCanvas = document.getElementById('avatarCompositeCanvas');
+    const avatarCompositeContext = avatarCompositeCanvas.getContext('2d', { willReadFrequently: true });
+    const audioEl = document.getElementById('avatarAudio');
+    const idlePanel = document.getElementById('idlePanel');
+    const avatarStandby = document.getElementById('avatarStandby');
+    const avatarMeta = document.getElementById('avatarMeta');
+    const starfieldCanvas = document.getElementById('starfieldCanvas');
+    const starfieldContext = starfieldCanvas.getContext('2d');
+    const starZoomIn = document.getElementById('starZoomIn');
+    const starZoomOut = document.getElementById('starZoomOut');
+    const starReset = document.getElementById('starReset');
+    const starZoomReadout = document.getElementById('starZoomReadout');
+    const avatarAura = document.getElementById('avatarAura');
+    const toolOverlay = document.getElementById('toolOverlay');
+    const toolOverlayTitle = document.getElementById('toolOverlayTitle');
+    const toolOverlaySubtitle = document.getElementById('toolOverlaySubtitle');
+    const quickLaunch = document.getElementById('quickLaunch');
+    const tabs = document.getElementById('tabs');
+    const tabChat = document.getElementById('tabChat');
+    const tabActivity = document.getElementById('tabActivity');
+    const chatPanel = document.getElementById('chatPanel');
+    const activityPanel = document.getElementById('activityPanel');
+    const activityLog = document.getElementById('activityLog');
+    const emptyChat = document.getElementById('emptyChat');
+    const chatInput = document.getElementById('chatInput');
+    const btnSendText = document.getElementById('btnSendText');
+    const kanbanLink = document.getElementById('kanbanLink');
+    const btnAccessible = document.getElementById('btnAccessible');
+    const btnConfig = document.getElementById('btnConfig');
+    const configOverlay = document.getElementById('configOverlay');
+    const btnCloseConfig = document.getElementById('btnCloseConfig');
+    const avatarPresetGrid = document.getElementById('avatarPresetGrid');
+    const backgroundSwatches = document.getElementById('backgroundSwatches');
+    const voiceStyleGrid = document.getElementById('voiceStyleGrid');
+    const videoFitSelect = document.getElementById('videoFitSelect');
+    const btnFontNormal = document.getElementById('btnFontNormal');
+    const btnFontLarge = document.getElementById('btnFontLarge');
+    const btnFontXLarge = document.getElementById('btnFontXLarge');
+    const btnHighContrast = document.getElementById('btnHighContrast');
+    const tickerOpenCases = document.getElementById('tickerOpenCases');
+    const tickerRiskCount = document.getElementById('tickerRiskCount');
+    const tickerCompleted30 = document.getElementById('tickerCompleted30');
+    const tickerMetricSource = document.getElementById('tickerMetricSource');
+
+    let ws = null;
+    let pc = null;
+    let micStream = null;
+    let audioContext = null;
+    let processor = null;
+    let micCaptureStarting = false;
+    let micSource = null;
+    let micSilentGain = null;
+    let micWorkletUrl = null;
+    let playbackContext = null;
+    let nextPlaybackTime = 0;
+    let activeSources = [];
+    let isMuted = false;
+    let avatarHasVideo = false;
+    let avatarHasRemoteAudio = false;
+    let activeResponseText = '';
+    let greetingSent = false;
+    let lastTranscribedResponseId = null;
+    let avatarStartRequested = false;
+    let starfieldFrame = 0;
+    let starfieldLastTs = 0;
+    let starfieldParticles = [];
+    let authPromptVisible = false;
+    let starfieldZoom = 1;
+    let starfieldPanX = 0;
+    let starfieldPanY = 0;
+    let starfieldDragging = false;
+    let starfieldLastPointer = null;
+    let starfieldPointer = { x: 0.5, y: 0.5, active: false };
+    let avatarCompositeFrame = 0;
+    let avatarCompositeLastDraw = 0;
+    let activeTab = 'chat';
+    let activePresence = 'idle';
+    let lastVoiceError = '';
+    let visualDemoMode = false;
+    let visualDemoReason = '';
+    let visualDemoAnnounced = false;
+    let activityItems = [];
+    const VISITOR_CENTER_BACKGROUND_IMAGE = '/voice/assets/visitor-center.jpg';
+    let avatarConfig = {
+      character: 'meg',
+      style: 'business',
+      voice: 'en-US-Ava3:DragonHDLatestNeural',
+      voiceStyle: 'neutral',
+      // Dark solid key colour for the avatar-frame itself; the Experience Centre photo is shown on
+      // a separate layer (#stagePhotoBg) from loading onward, so the pre-start stage stays dark.
+      // The compositor still keys out the avatar's white ship-backdrop so the photo + orbs show
+      // through behind her.
+      backgroundColor: '#0b0e12',
+      backgroundImage: VISITOR_CENTER_BACKGROUND_IMAGE,
+      videoFit: 'cover',
+    };
+    let accessibilityPrefs = loadAccessibilityPrefs();
+
+    const AVATAR_PRESETS = [
+      { character: 'meg', style: 'business', label: 'Meg Business' },
+      { character: 'meg', style: 'formal', label: 'Meg Formal' },
+      { character: 'meg', style: 'casual', label: 'Meg Casual' },
+      { character: 'max', style: 'business', label: 'Max Business' },
+      { character: 'max', style: 'casual', label: 'Max Casual' },
+      { character: 'lisa', style: 'business', label: 'Lisa Business' },
+    ];
+    const BG_PRESETS = [
+      { color: '#FFFFFF', image: VISITOR_CENTER_BACKGROUND_IMAGE, label: 'Microsoft Visitor Center' },
+      { color: '#FFFFFF', image: '', label: 'White' },
+      { color: '#000000', image: '', label: 'Black' },
+      { color: '#0d1117', image: '', label: 'GitHub Dark' },
+      { color: '#0b0e12', image: '', label: 'Blank Dark' },
+      { color: '#0f172a', image: '', label: 'Dark Navy' },
+      { color: '#172554', image: '', label: 'Brand Blue' },
+      { color: '#1a1a2e', image: '', label: 'Deep Purple' },
+      { color: '#111827', image: '', label: 'Slate Black' },
+    ];
+    const VOICE_STYLE_PRESETS = [
+      ['neutral', 'Neutral'],
+      ['generalconversation', 'Conversation'],
+      ['narration', 'Narration'],
+      ['happiness', 'Happiness'],
+      ['joy', 'Joy'],
+      ['excitement', 'Excitement'],
+      ['hope', 'Hope'],
+      ['determination', 'Determination'],
+      ['relief', 'Relief'],
+      ['softvoice', 'Soft voice'],
+      ['whispering', 'Whispering'],
+      ['surprise', 'Surprise'],
+      ['confusion', 'Confusion'],
+      ['regret', 'Regret'],
+      ['sadness', 'Sadness'],
+      ['fear', 'Fear'],
+      ['anger', 'Anger'],
+      ['disgust', 'Disgust'],
+      ['embarrassment', 'Embarrassment'],
+      ['jealousy', 'Jealousy'],
+      ['shouting', 'Shouting'],
+    ];
+
+    const voiceLoginUrl = '/auth/login?returnTo=/voice';
+    const AVATAR_COMPOSITE_MAX_EDGE = 720;
+    // Re-key the avatar at ~30fps (matches the D-ID stream) so motion stays fluid against the
+    // photo backdrop. The old 20fps cap read as jagged once a detailed background was visible.
+    const AVATAR_COMPOSITE_FRAME_INTERVAL_MS = 33;
+
+    function loadAccessibilityPrefs() {
+      try {
+        return JSON.parse(localStorage.getItem('morgan-avatar-accessibility') || '{}');
+      } catch {
+        return {};
+      }
+    }
+
+    function saveAccessibilityPrefs() {
+      localStorage.setItem('morgan-avatar-accessibility', JSON.stringify(accessibilityPrefs));
+    }
+
+    function applyAccessibilityPrefs() {
+      document.body.classList.toggle('large-type', accessibilityPrefs.fontSize === 'large');
+      document.body.classList.toggle('xlarge-type', accessibilityPrefs.fontSize === 'x-large');
+      document.body.classList.toggle('high-contrast', Boolean(accessibilityPrefs.highContrast));
+      document.body.classList.toggle('accessible-mode', Boolean(accessibilityPrefs.accessibleMode));
+      btnAccessible.classList.toggle('active', Boolean(accessibilityPrefs.accessibleMode));
+      btnAccessible.setAttribute('title', accessibilityPrefs.accessibleMode ? 'Exit accessible mode' : 'Accessible mode');
+      btnAccessible.setAttribute('aria-pressed', String(Boolean(accessibilityPrefs.accessibleMode)));
+      btnHighContrast?.classList.toggle('active', Boolean(accessibilityPrefs.highContrast));
+      btnFontNormal?.classList.toggle('active', !accessibilityPrefs.fontSize || accessibilityPrefs.fontSize === 'normal');
+      btnFontLarge?.classList.toggle('active', accessibilityPrefs.fontSize === 'large');
+      btnFontXLarge?.classList.toggle('active', accessibilityPrefs.fontSize === 'x-large');
+    }
+
+    function formatMetric(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number.toLocaleString('en-US') : '--';
+    }
+
+    function missionTickerMetrics(snapshot) {
+      const portfolio = snapshot?.portfolioSummary || {};
+      const fabricMetrics = snapshot?.microsoftIQ?.pillars?.fabricIQ?.metrics || {};
+      const rolling30 = snapshot?.rolling30 || {};
+      const openCases = portfolio.activeCases ?? fabricMetrics.activeCases;
+      const redCases = Number(portfolio.redCases || 0);
+      const amberCases = Number(portfolio.amberCases || 0);
+      const risks = Number.isFinite(redCases + amberCases) ? redCases + amberCases : undefined;
+      const completed30 = rolling30.tasksCompleted ?? snapshot?.today?.tasksCompleted;
+      return { openCases, risks, completed30 };
+    }
+
+    function setTickerMetrics(metrics, generatedAt) {
+      tickerOpenCases.textContent = formatMetric(metrics.openCases);
+      tickerRiskCount.textContent = formatMetric(metrics.risks);
+      tickerCompleted30.textContent = formatMetric(metrics.completed30);
+      const label = generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Mission Control live';
+      tickerMetricSource.textContent = label;
+    }
+
+    async function loadMissionTickerMetrics() {
+      try {
+        const response = await fetch('/api/mission-control', { credentials: 'include' });
+        if (response.status === 401) {
+          tickerMetricSource.textContent = 'Sign in for live metrics';
+          return;
+        }
+        if (!response.ok) throw new Error(`Mission Control returned ${response.status}`);
+        const snapshot = await response.json();
+        setTickerMetrics(missionTickerMetrics(snapshot), snapshot?.microsoftIQ?.generatedAt || snapshot?.agent?.generatedAt);
+      } catch {
+        tickerMetricSource.textContent = 'Mission Control metrics unavailable';
+      }
+    }
+
+    function setTab(tab) {
+      activeTab = tab;
+      const showActivity = tab === 'activity';
+      tabs.style.setProperty('--tab-offset', showActivity ? '100%' : '0');
+      tabChat.classList.toggle('active', !showActivity);
+      tabActivity.classList.toggle('active', showActivity);
+      tabChat.setAttribute('aria-selected', String(!showActivity));
+      tabActivity.setAttribute('aria-selected', String(showActivity));
+      chatPanel.classList.toggle('active', !showActivity);
+      activityPanel.classList.toggle('active', showActivity);
+    }
+
+    function setPresence(nextPresence) {
+      activePresence = nextPresence;
+      stageEl.classList.toggle('is-speaking', nextPresence === 'speaking');
+      stageEl.classList.toggle('is-listening', nextPresence === 'listening');
+      stageEl.classList.toggle('is-tool', nextPresence === 'thinking');
+      avatarAura.className = `avatar-aura aura-${nextPresence}`;
+    }
+
+    function applyAvatarVisuals() {
+      const backgroundColor = avatarConfig.backgroundColor || '#FFFFFF';
+      const backgroundImage = avatarConfig.backgroundImage || '';
+      avatarFrame.style.backgroundColor = backgroundColor;
+      // The background photo lives on the dedicated #stagePhotoBg layer (revealed from loading
+      // onward) rather than on the avatar-frame itself. This keeps the pre-start stage dark and
+      // lets the Experience Centre photo load independently of the avatar compositor, which fixes
+      // the photo not rendering correctly while the avatar is still connecting.
+      avatarFrame.style.backgroundImage = 'none';
+      if (stagePhotoBg) {
+        stagePhotoBg.style.backgroundImage = backgroundImage ? `url("${backgroundImage}")` : 'none';
+      }
+      stageEl.style.background = '#000';
+      videoEl.style.objectFit = avatarConfig.videoFit || 'cover';
+      videoFitSelect.value = avatarConfig.videoFit || 'cover';
+      for (const button of avatarPresetGrid.querySelectorAll('button')) {
+        button.classList.toggle('active', button.dataset.character === avatarConfig.character && button.dataset.style === avatarConfig.style);
+      }
+      for (const button of backgroundSwatches.querySelectorAll('button')) {
+        const matchesColor = button.dataset.color === avatarConfig.backgroundColor;
+        const matchesImage = (button.dataset.image || '') === (avatarConfig.backgroundImage || '');
+        button.classList.toggle('active', matchesColor && matchesImage);
+      }
+      for (const button of voiceStyleGrid.querySelectorAll('button')) {
+        button.classList.toggle('active', button.dataset.voiceStyle === avatarConfig.voiceStyle);
+      }
+      // If the compositor is already running we may need to re-evaluate (e.g. user just
+      // switched from a solid white background to a photo-backed white).
+      if (avatarHasVideo) {
+        if (avatarBackgroundNeedsKeying()) {
+          avatarFrame.classList.remove('raw-video');
+          startAvatarComposite();
+        } else {
+          stopAvatarComposite();
+          avatarFrame.classList.add('raw-video');
+        }
+      }
+    }
+
+    function renderConfigControls() {
+      avatarPresetGrid.innerHTML = '';
+      for (const preset of AVATAR_PRESETS) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = preset.label;
+        button.dataset.character = preset.character;
+        button.dataset.style = preset.style;
+        button.addEventListener('click', () => {
+          avatarConfig.character = preset.character;
+          avatarConfig.style = preset.style;
+          applyAvatarVisuals();
+        });
+        avatarPresetGrid.appendChild(button);
+      }
+      backgroundSwatches.innerHTML = '';
+      for (const preset of BG_PRESETS) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'swatch';
+        button.title = preset.label;
+        button.setAttribute('aria-label', preset.label);
+        button.dataset.color = preset.color;
+        button.dataset.image = preset.image || '';
+        if (preset.image) {
+          button.style.background = 'linear-gradient(135deg, #f8fafc 0%, #dbeafe 48%, #0f766e 100%)';
+        } else {
+          button.style.backgroundColor = preset.color;
+        }
+        button.addEventListener('click', () => {
+          avatarConfig.backgroundColor = preset.color;
+          avatarConfig.backgroundImage = preset.image || '';
+          applyAvatarVisuals();
+        });
+        backgroundSwatches.appendChild(button);
+      }
+      voiceStyleGrid.innerHTML = '';
+      for (const [value, label] of VOICE_STYLE_PRESETS) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        button.dataset.voiceStyle = value;
+        button.addEventListener('click', () => {
+          avatarConfig.voiceStyle = value;
+          applyAvatarVisuals();
+        });
+        voiceStyleGrid.appendChild(button);
+      }
+      applyAvatarVisuals();
+    }
+
+    function renderActivityLog() {
+      activityLog.innerHTML = '';
+      if (!activityItems.length) {
+        const empty = document.createElement('div');
+        empty.className = 'activity-card';
+        empty.innerHTML = '<div class="activity-title">No tool activity yet</div><div class="activity-preview">Morgan tool calls, approvals, and finance workflow steps will appear here.</div>';
+        activityLog.appendChild(empty);
+        return;
+      }
+      for (const item of activityItems.slice().reverse()) {
+        const card = document.createElement('div');
+        card.className = `activity-card ${item.status}`;
+        const title = document.createElement('div');
+        title.className = 'activity-title';
+        const name = document.createElement('span');
+        name.textContent = item.name;
+        const status = document.createElement('span');
+        status.className = 'activity-status';
+        status.textContent = item.status;
+        title.appendChild(name);
+        title.appendChild(status);
+        const preview = document.createElement('div');
+        preview.className = 'activity-preview';
+        preview.textContent = item.preview || 'Waiting for Morgan to complete this step.';
+        card.appendChild(title);
+        card.appendChild(preview);
+        activityLog.appendChild(card);
+      }
+    }
+
+    function setToolOverlay(item) {
+      const running = item && item.status === 'running';
+      toolOverlay.hidden = !running;
+      toolOverlay.classList.toggle('active', running);
+      if (!running) return;
+      toolOverlayTitle.textContent = `${item.name} running`;
+      toolOverlaySubtitle.textContent = item.preview || 'Morgan is using a finance tool.';
+    }
+
+    function upsertActivity(item) {
+      const existing = activityItems.find((entry) => entry.id === item.id);
+      if (existing) Object.assign(existing, item);
+      else activityItems.push(item);
+      activityItems = activityItems.slice(-12);
+      renderActivityLog();
+      const runningItem = activityItems.find((entry) => entry.status === 'running');
+      setToolOverlay(runningItem || null);
+      setPresence(runningItem ? 'thinking' : activePresence === 'thinking' ? 'idle' : activePresence);
+    }
+
+    function showSignIn() {
+      authPromptVisible = true;
+      signInButton.href = voiceLoginUrl;
+      authOverlay.hidden = false;
+      offlineOverlay.style.display = 'none';
+    }
+
+    async function requireSignedIn() {
+      if (authPromptVisible && !authOverlay.hidden) return false;
+      try {
+        const response = await fetch('/api/web-auth/me', { credentials: 'include' });
+        if (response.status === 401) {
+          await response.json().catch(() => ({}));
+          showSignIn();
+          return false;
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        authPromptVisible = false;
+        authOverlay.hidden = true;
+        return true;
+      } catch {
+        showSignIn();
+        return false;
+      }
+    }
+
+    function setStatus(text, live = false) {
+      statusText.textContent = text;
+      statusPill.textContent = text;
+      statusPill.className = live ? 'status-pill live' : 'status-pill';
+      stageEl.classList.toggle('is-live', live);
+      if (/thinking|working|using/i.test(text)) setPresence('thinking');
+      else if (/listening/i.test(text)) setPresence('listening');
+      else if (/speaking/i.test(text)) setPresence('speaking');
+      else setPresence(live ? 'idle' : 'idle');
+    }
+
+    function createStarParticle(label) {
+      return {
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 2.6 + 0.8,
+        speed: Math.random() * 0.58 + 0.18,
+        opacity: Math.random() * 0.46 + 0.34,
+        drift: (Math.random() - 0.5) * 0.34,
+        twinkle: Math.random() * Math.PI * 2,
+        depth: Math.random() * 0.88 + 0.22,
+        hue: Math.random() > 0.42 ? 'teal' : 'blue',
+        label: label || null,
+      };
+    }
+
+    // Morgan brain anchor labels - real capabilities the agent actually has
+    // (J.A.R.V.I.S.-style: hidden by default, fade in as user zooms / hovers)
+    const MORGAN_BRAIN_LABELS = [
+      'Finance', 'Approvals', 'WorkIQ', 'FabricIQ', 'FoundryIQ',
+      'Graph', 'Teams', 'Planner', 'Callback', 'Audit',
+      'Mission', 'CorpGen', 'Forecast', 'Mail',
+    ];
+    const MORGAN_BRAIN_LABEL_INDICES = [7, 18, 31, 45, 62, 79, 98, 119, 142, 156, 168, 175, 182, 188];
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function updateStarfieldReadout() {
+      if (!starZoomReadout) return;
+      starZoomReadout.textContent = `${Math.round(starfieldZoom * 100)}%`;
+      const hint = document.getElementById('starZoomHint');
+      if (hint) hint.classList.toggle('hidden', starfieldZoom >= 1.2);
+    }
+
+    function clampStarfieldPan() {
+      const rect = starfieldCanvas.getBoundingClientRect();
+      const limitX = rect.width * Math.max(0.35, starfieldZoom - 0.35);
+      const limitY = rect.height * Math.max(0.35, starfieldZoom - 0.35);
+      starfieldPanX = clamp(starfieldPanX, -limitX, limitX);
+      starfieldPanY = clamp(starfieldPanY, -limitY, limitY);
+    }
+
+    function setStarfieldZoom(nextZoom, origin) {
+      const rect = starfieldCanvas.getBoundingClientRect();
+      const previousZoom = starfieldZoom;
+      const zoom = clamp(nextZoom, 0.55, 3.2);
+      if (Math.abs(zoom - previousZoom) < 0.001) return;
+      const originX = origin?.x ?? rect.width / 2;
+      const originY = origin?.y ?? rect.height / 2;
+      const worldX = (originX - rect.width / 2 - starfieldPanX) / previousZoom;
+      const worldY = (originY - rect.height / 2 - starfieldPanY) / previousZoom;
+      starfieldZoom = zoom;
+      starfieldPanX = originX - rect.width / 2 - worldX * starfieldZoom;
+      starfieldPanY = originY - rect.height / 2 - worldY * starfieldZoom;
+      clampStarfieldPan();
+      updateStarfieldReadout();
+    }
+
+    function resetStarfieldView() {
+      starfieldZoom = 1;
+      starfieldPanX = 0;
+      starfieldPanY = 0;
+      updateStarfieldReadout();
+    }
+
+    function relativePointer(event) {
+      const rect = starfieldCanvas.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+
+    function setupStarfieldInteractions() {
+      starZoomIn?.addEventListener('click', () => setStarfieldZoom(starfieldZoom * 1.18));
+      starZoomOut?.addEventListener('click', () => setStarfieldZoom(starfieldZoom / 1.18));
+      starReset?.addEventListener('click', resetStarfieldView);
+      starfieldCanvas.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const point = relativePointer(event);
+        setStarfieldZoom(starfieldZoom * (event.deltaY < 0 ? 1.12 : 0.88), point);
+      }, { passive: false });
+      starfieldCanvas.addEventListener('pointerdown', (event) => {
+        starfieldDragging = true;
+        starfieldLastPointer = { x: event.clientX, y: event.clientY };
+        starfieldCanvas.classList.add('is-dragging');
+        starfieldCanvas.setPointerCapture(event.pointerId);
+      });
+      starfieldCanvas.addEventListener('pointermove', (event) => {
+        const point = relativePointer(event);
+        starfieldPointer = { x: point.x / point.width, y: point.y / point.height, active: true };
+        if (starfieldDragging && starfieldLastPointer) {
+          starfieldPanX += event.clientX - starfieldLastPointer.x;
+          starfieldPanY += event.clientY - starfieldLastPointer.y;
+          starfieldLastPointer = { x: event.clientX, y: event.clientY };
+          clampStarfieldPan();
+        }
+      });
+      const endDrag = (event) => {
+        starfieldDragging = false;
+        starfieldLastPointer = null;
+        starfieldCanvas.classList.remove('is-dragging');
+        try { starfieldCanvas.releasePointerCapture(event.pointerId); } catch {}
+      };
+      starfieldCanvas.addEventListener('pointerup', endDrag);
+      starfieldCanvas.addEventListener('pointercancel', endDrag);
+      starfieldCanvas.addEventListener('pointerleave', () => { starfieldPointer.active = false; });
+      starfieldCanvas.addEventListener('dblclick', resetStarfieldView);
+      starfieldCanvas.addEventListener('keydown', (event) => {
+        if (event.key === '+' || event.key === '=') {
+          event.preventDefault();
+          setStarfieldZoom(starfieldZoom * 1.18);
+        } else if (event.key === '-' || event.key === '_') {
+          event.preventDefault();
+          setStarfieldZoom(starfieldZoom / 1.18);
+        } else if (event.key === '0') {
+          event.preventDefault();
+          resetStarfieldView();
+        }
+      });
+      updateStarfieldReadout();
+    }
+
+    function resizeStarfield() {
+      if (!starfieldCanvas || !starfieldContext) return;
+      const rect = starfieldCanvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      starfieldCanvas.width = Math.max(1, Math.floor(rect.width * ratio));
+      starfieldCanvas.height = Math.max(1, Math.floor(rect.height * ratio));
+      starfieldContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+      clampStarfieldPan();
+    }
+
+    function startStarfield() {
+      if (!starfieldCanvas || !starfieldContext || starfieldFrame) return;
+      starfieldParticles = Array.from({ length: 190 }, (_, i) => {
+        const labelSlot = MORGAN_BRAIN_LABEL_INDICES.indexOf(i);
+        const label = labelSlot >= 0 ? MORGAN_BRAIN_LABELS[labelSlot] : null;
+        const particle = createStarParticle(label);
+        if (label) {
+          // Anchor nodes: slightly bigger and brighter so they read as 'real' brain nodes
+          particle.size *= 1.4;
+          particle.opacity = Math.max(particle.opacity, 0.55);
+        }
+        return particle;
+      });
+      resizeStarfield();
+      window.addEventListener('resize', resizeStarfield);
+      const draw = (timestamp) => {
+        const rect = starfieldCanvas.getBoundingClientRect();
+        const delta = starfieldLastTs ? Math.min(48, timestamp - starfieldLastTs) / 16.67 : 1;
+        starfieldLastTs = timestamp;
+        const live = stageEl.classList.contains('is-live');
+        const speaking = stageEl.classList.contains('is-speaking');
+        const speedMultiplier = speaking ? 2 : live ? 1.45 : 0.78;
+        const opacityMultiplier = speaking ? 1.18 : live ? 1.06 : 0.74;
+        const centerX = rect.width / 2 + starfieldPanX;
+        const centerY = rect.height / 2 + starfieldPanY;
+        const pointerX = starfieldPointer.x * rect.width;
+        const pointerY = starfieldPointer.y * rect.height;
+        const parallaxX = starfieldPointer.active ? (starfieldPointer.x - 0.5) * 28 : 0;
+        const parallaxY = starfieldPointer.active ? (starfieldPointer.y - 0.5) * 22 : 0;
+
+        starfieldContext.clearRect(0, 0, rect.width, rect.height);
+        starfieldContext.globalCompositeOperation = 'source-over';
+        for (const particle of starfieldParticles) {
+          particle.y -= particle.speed * speedMultiplier * delta * 0.0016;
+          particle.x += particle.drift * delta * 0.001;
+          if (particle.y < -0.05) {
+            particle.y = 1.05;
+            particle.x = Math.random();
+          }
+          if (particle.x < -0.05) particle.x = 1.05;
+          if (particle.x > 1.05) particle.x = -0.05;
+
+          const depthScale = 0.52 + particle.depth * 0.9;
+          const x = centerX + ((particle.x - 0.5) * rect.width * starfieldZoom * depthScale) + parallaxX * particle.depth;
+          const y = centerY + ((particle.y - 0.5) * rect.height * starfieldZoom * depthScale) + parallaxY * particle.depth;
+          if (x < -80 || x > rect.width + 80 || y < -80 || y > rect.height + 80) continue;
+          const pointerDistance = starfieldPointer.active ? Math.hypot(x - pointerX, y - pointerY) : Infinity;
+          const pointerBoost = Math.max(0, 1 - pointerDistance / 155);
+          const twinkle = 0.72 + Math.sin(timestamp * 0.0015 + particle.twinkle) * 0.28;
+          const alpha = Math.min(particle.opacity * opacityMultiplier * twinkle + pointerBoost * 0.42, 0.98);
+          const tealShift = speaking || particle.hue === 'teal' || pointerBoost > 0.2;
+          const size = particle.size * (0.72 + particle.depth * 0.45) * Math.min(1.55, 0.82 + starfieldZoom * 0.22);
+
+          starfieldContext.beginPath();
+          starfieldContext.arc(x, y, size * (3.2 + pointerBoost * 2.4), 0, Math.PI * 2);
+          starfieldContext.fillStyle = tealShift
+            ? `rgba(20, 184, 166, ${alpha * 0.12})`
+            : `rgba(37, 99, 235, ${alpha * 0.1})`;
+          starfieldContext.fill();
+
+          starfieldContext.beginPath();
+          starfieldContext.arc(x, y, size, 0, Math.PI * 2);
+          starfieldContext.fillStyle = tealShift
+            ? `rgba(13, 148, 136, ${alpha})`
+            : `rgba(30, 64, 175, ${alpha})`;
+          starfieldContext.shadowColor = tealShift ? 'rgba(20, 184, 166, 0.54)' : 'rgba(37, 99, 235, 0.48)';
+          starfieldContext.shadowBlur = size * (3.2 + pointerBoost * 3.2);
+          starfieldContext.fill();
+
+          if (size > 2.2) {
+            starfieldContext.beginPath();
+            starfieldContext.moveTo(x - size * 2.2, y);
+            starfieldContext.lineTo(x + size * 2.2, y);
+            starfieldContext.moveTo(x, y - size * 2.2);
+            starfieldContext.lineTo(x, y + size * 2.2);
+            starfieldContext.strokeStyle = tealShift
+              ? `rgba(20, 184, 166, ${alpha * 0.42})`
+              : `rgba(30, 64, 175, ${alpha * 0.38})`;
+            starfieldContext.lineWidth = 0.7;
+            starfieldContext.stroke();
+          }
+
+          if (pointerBoost > 0.12) {
+            starfieldContext.beginPath();
+            starfieldContext.moveTo(pointerX, pointerY);
+            starfieldContext.lineTo(x, y);
+            starfieldContext.strokeStyle = `rgba(53, 194, 180, ${pointerBoost * 0.22})`;
+            starfieldContext.lineWidth = 0.8;
+            starfieldContext.stroke();
+          }
+        }
+        starfieldContext.shadowBlur = 0;
+
+        // Second pass: J.A.R.V.I.S.-style anchor labels.
+        // Hidden at default zoom; fade in linearly between zoom 1.2 and 1.8;
+        // any anchor within 60px of the cursor reveals at near-full opacity even
+        // at default zoom (so judges can hover-discover before zooming in).
+        const zoomFade = starfieldZoom <= 1.2 ? 0 : starfieldZoom >= 1.8 ? 1 : (starfieldZoom - 1.2) / 0.6;
+        for (const particle of starfieldParticles) {
+          if (!particle.label) continue;
+          const depthScale = 0.52 + particle.depth * 0.9;
+          const screenX = centerX + ((particle.x - 0.5) * rect.width * starfieldZoom * depthScale) + parallaxX * particle.depth;
+          const screenY = centerY + ((particle.y - 0.5) * rect.height * starfieldZoom * depthScale) + parallaxY * particle.depth;
+          if (screenX < -120 || screenX > rect.width + 160 || screenY < -40 || screenY > rect.height + 40) continue;
+
+          let labelOpacity = zoomFade;
+          if (starfieldPointer.active) {
+            const hoverDistance = Math.hypot(screenX - pointerX, screenY - pointerY);
+            if (hoverDistance < 60) {
+              labelOpacity = Math.max(labelOpacity, 0.95 * (1 - hoverDistance / 90));
+            }
+          }
+          if (labelOpacity < 0.02) continue;
+
+          const labelX = screenX + 10;
+          const labelY = screenY;
+          starfieldContext.font = '11px system-ui, -apple-system, "Segoe UI", Inter, sans-serif';
+          starfieldContext.textBaseline = 'middle';
+          starfieldContext.lineWidth = 2.4;
+          starfieldContext.strokeStyle = `rgba(0, 0, 0, ${0.7 * labelOpacity})`;
+          starfieldContext.strokeText(particle.label, labelX, labelY);
+          starfieldContext.fillStyle = particle.hue === 'teal'
+            ? `rgba(95, 232, 220, ${labelOpacity})`
+            : `rgba(168, 224, 255, ${labelOpacity})`;
+          starfieldContext.fillText(particle.label, labelX, labelY);
+        }
+
+        starfieldFrame = requestAnimationFrame(draw);
+      };
+      starfieldFrame = requestAnimationFrame(draw);
+    }
+
+    function getObjectFitRect(sourceWidth, sourceHeight, targetWidth, targetHeight, fitMode) {
+      const sourceRatio = sourceWidth / sourceHeight;
+      const targetRatio = targetWidth / targetHeight;
+      const useContain = fitMode === 'contain';
+      const scaleByWidth = useContain ? sourceRatio > targetRatio : sourceRatio < targetRatio;
+      const drawWidth = scaleByWidth ? targetWidth : targetHeight * sourceRatio;
+      const drawHeight = scaleByWidth ? targetWidth / sourceRatio : targetHeight;
+      return {
+        x: (targetWidth - drawWidth) / 2,
+        y: (targetHeight - drawHeight) / 2,
+        width: drawWidth,
+        height: drawHeight,
+      };
+    }
+
+    function parseHexColor(color) {
+      const match = /^#?([0-9a-f]{6})$/i.exec(String(color || '').trim());
+      if (!match) return null;
+      const value = parseInt(match[1], 16);
+      return {
+        red: (value >> 16) & 255,
+        green: (value >> 8) & 255,
+        blue: value & 255,
+      };
+    }
+
+    function colorDistance(first, second) {
+      if (!first || !second) return Number.POSITIVE_INFINITY;
+      return Math.hypot(first.red - second.red, first.green - second.green, first.blue - second.blue);
+    }
+
+    function selectAvatarKeyColor(configuredKey, detectedKey) {
+      if (!configuredKey) return detectedKey;
+      if (!detectedKey) return configuredKey;
+      return colorDistance(configuredKey, detectedKey) > 54 ? detectedKey : configuredKey;
+    }
+
+    function averageSample(imageData, canvasWidth, centerX, centerY, radius) {
+      const data = imageData.data;
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      let count = 0;
+      const startX = Math.max(0, Math.floor(centerX - radius));
+      const endX = Math.min(canvasWidth - 1, Math.floor(centerX + radius));
+      const startY = Math.max(0, Math.floor(centerY - radius));
+      const endY = Math.min(imageData.height - 1, Math.floor(centerY + radius));
+      for (let sampleY = startY; sampleY <= endY; sampleY += 1) {
+        for (let sampleX = startX; sampleX <= endX; sampleX += 1) {
+          const sampleIndex = (sampleY * canvasWidth + sampleX) * 4;
+          red += data[sampleIndex];
+          green += data[sampleIndex + 1];
+          blue += data[sampleIndex + 2];
+          count += 1;
+        }
+      }
+      return count ? { red: red / count, green: green / count, blue: blue / count } : null;
+    }
+
+    function detectAvatarKeyColor(imageData, canvasWidth, drawRect) {
+      const insetX = Math.max(8, drawRect.width * 0.035);
+      const insetY = Math.max(8, drawRect.height * 0.035);
+      const samples = [
+        averageSample(imageData, canvasWidth, drawRect.x + insetX, drawRect.y + insetY, 5),
+        averageSample(imageData, canvasWidth, drawRect.x + drawRect.width - insetX, drawRect.y + insetY, 5),
+        averageSample(imageData, canvasWidth, drawRect.x + insetX, drawRect.y + drawRect.height - insetY, 5),
+        averageSample(imageData, canvasWidth, drawRect.x + drawRect.width - insetX, drawRect.y + drawRect.height - insetY, 5),
+      ].filter(Boolean);
+      if (!samples.length) return null;
+      const key = samples.reduce((total, sample) => ({
+        red: total.red + sample.red / samples.length,
+        green: total.green + sample.green / samples.length,
+        blue: total.blue + sample.blue / samples.length,
+      }), { red: 0, green: 0, blue: 0 });
+      const brightness = (key.red + key.green + key.blue) / 3;
+      const channelSpread = Math.max(key.red, key.green, key.blue) - Math.min(key.red, key.green, key.blue);
+      if (brightness > 205 || brightness < 55 || channelSpread < 28) return key;
+      return null;
+    }
+
+    function avatarKeyDistance(data, pixelOffset, keyColor, isLightKey, softDistance) {
+      const red = data[pixelOffset];
+      const green = data[pixelOffset + 1];
+      const blue = data[pixelOffset + 2];
+      const pixelBrightness = (red + green + blue) / 3;
+      const channelSpread = Math.max(red, green, blue) - Math.min(red, green, blue);
+      const distance = Math.hypot(red - keyColor.red, green - keyColor.green, blue - keyColor.blue);
+      if (distance >= softDistance) return -1;
+      const lightCandidate = isLightKey && pixelBrightness > 218 && channelSpread < 42;
+      const darkCandidate = !isLightKey && pixelBrightness < 70 && channelSpread < 40;
+      return lightCandidate || darkCandidate ? distance : -1;
+    }
+
+    // Reusable scratch buffers for the keying flood-fill. Allocating ~1.7MB of typed arrays
+    // every frame caused GC churn that stuttered the avatar; we now reuse them and only
+    // reallocate when the frame's pixel count changes.
+    const avatarKeyScratch = { pixelCount: 0, connected: null, queue: null, onEdge: null };
+    function ensureAvatarKeyScratch(pixelCount) {
+      if (avatarKeyScratch.pixelCount !== pixelCount) {
+        avatarKeyScratch.connected = new Uint8Array(pixelCount);
+        avatarKeyScratch.queue = new Uint32Array(pixelCount);
+        avatarKeyScratch.onEdge = new Uint8Array(pixelCount);
+        avatarKeyScratch.pixelCount = pixelCount;
+      } else {
+        avatarKeyScratch.connected.fill(0);
+        avatarKeyScratch.onEdge.fill(0);
+      }
+      return avatarKeyScratch;
+    }
+
+    function applyAvatarBackgroundKey(imageData, keyColor) {
+      if (!keyColor) return;
+      const brightness = (keyColor.red + keyColor.green + keyColor.blue) / 3;
+      const isLightKey = brightness > 170;
+      // Widen the hard-cut radius for light (white) backdrops. The avatar ships on a
+      // bright backdrop whose anti-aliased rim sits a fair distance from pure white, so
+      // a small hard radius leaves a thin white halo. A larger radius fully removes that
+      // rim instead of only partially fading it.
+      const hardDistance = isLightKey ? 42 : 14;
+      // Widen the soft feather band for light (white) backdrops so more of the
+      // anti-aliased rim is caught and gradually faded instead of leaving a hard
+      // bright edge. The flood-fill below only touches pixels connected to the
+      // border, so interior light areas (e.g. a white blouse) stay untouched.
+      const softDistance = isLightKey ? 104 : 46;
+      const data = imageData.data;
+      const width = imageData.width;
+      const height = imageData.height;
+      const pixelCount = width * height;
+      const scratch = ensureAvatarKeyScratch(pixelCount);
+      const connected = scratch.connected;
+      const queue = scratch.queue;
+      let head = 0;
+      let tail = 0;
+      const enqueue = (x, y) => {
+        if (x < 0 || y < 0 || x >= width || y >= height) return;
+        const pixelNumber = y * width + x;
+        if (connected[pixelNumber]) return;
+        const pixelOffset = pixelNumber * 4;
+        if (avatarKeyDistance(data, pixelOffset, keyColor, isLightKey, softDistance) < 0) return;
+        connected[pixelNumber] = 1;
+        queue[tail] = pixelNumber;
+        tail += 1;
+      };
+      for (let x = 0; x < width; x += 1) {
+        enqueue(x, 0);
+        enqueue(x, height - 1);
+      }
+      for (let y = 1; y < height - 1; y += 1) {
+        enqueue(0, y);
+        enqueue(width - 1, y);
+      }
+      while (head < tail) {
+        const pixelNumber = queue[head];
+        head += 1;
+        const x = pixelNumber % width;
+        const y = Math.floor(pixelNumber / width);
+        enqueue(x - 1, y);
+        enqueue(x + 1, y);
+        enqueue(x, y - 1);
+        enqueue(x, y + 1);
+      }
+      for (let queueIndex = 0; queueIndex < tail; queueIndex += 1) {
+        const pixelOffset = queue[queueIndex] * 4;
+        const distance = avatarKeyDistance(data, pixelOffset, keyColor, isLightKey, softDistance);
+        if (distance < 0) continue;
+        if (distance <= hardDistance) {
+          data[pixelOffset + 3] = 0;
+        } else if (distance < softDistance) {
+          const alphaScale = (distance - hardDistance) / (softDistance - hardDistance);
+          data[pixelOffset + 3] = Math.round(data[pixelOffset + 3] * alphaScale);
+          // Decontaminate the feathered rim: the edge pixel is a blend of the
+          // avatar and the (white) backdrop, so it still carries key-color spill.
+          // Un-mix the backdrop contribution — foreground = (observed - (1-a)*key)/a —
+          // so the rim reads as the avatar's true edge colour rather than a bright halo.
+          if (alphaScale > 0.12) {
+            const inverse = 1 - alphaScale;
+            const decontaminatedRed = (data[pixelOffset] - inverse * keyColor.red) / alphaScale;
+            const decontaminatedGreen = (data[pixelOffset + 1] - inverse * keyColor.green) / alphaScale;
+            const decontaminatedBlue = (data[pixelOffset + 2] - inverse * keyColor.blue) / alphaScale;
+            data[pixelOffset] = Math.max(0, Math.min(255, decontaminatedRed));
+            data[pixelOffset + 1] = Math.max(0, Math.min(255, decontaminatedGreen));
+            data[pixelOffset + 2] = Math.max(0, Math.min(255, decontaminatedBlue));
+          }
+        }
+      }
+
+      // Boundary erosion + spill suppression. The feather pass above only catches
+      // pixels close enough to the key colour. A bright fringe (white halo) can
+      // still survive on darker avatar edges (e.g. hair) where the pixel is a
+      // blend of dark foreground + white backdrop but sits too far from the key
+      // to be matted. For each still-opaque pixel that borders the matted-out
+      // background, fade its alpha and pull any lingering bright spill down toward
+      // the neighbouring interior colour so the edge reads clean against the dark
+      // stage instead of glowing white.
+      const edgePixels = [];
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const pixelNumber = y * width + x;
+          if (connected[pixelNumber]) continue;
+          const pixelOffset = pixelNumber * 4;
+          if (data[pixelOffset + 3] === 0) continue;
+          const leftConnected = x > 0 && connected[pixelNumber - 1];
+          const rightConnected = x < width - 1 && connected[pixelNumber + 1];
+          const upConnected = y > 0 && connected[pixelNumber - width];
+          const downConnected = y < height - 1 && connected[pixelNumber + width];
+          if (!leftConnected && !rightConnected && !upConnected && !downConnected) continue;
+          edgePixels.push(pixelNumber);
+        }
+      }
+      // Mark which pixels are the matted boundary ring so the second feather ring
+      // can be detected without re-scanning the (now mutated) alpha channel.
+      const onEdge = scratch.onEdge;
+      for (let edgeIndex = 0; edgeIndex < edgePixels.length; edgeIndex += 1) {
+        onEdge[edgePixels[edgeIndex]] = 1;
+      }
+      // Ring 1 — the pixels sitting directly on the cut line. Choke the matte
+      // hard for light backdrops (near-fully transparent) so the residual white
+      // rim disappears instead of being left at ~45% alpha as a thin halo.
+      const edgeAlphaScale = isLightKey ? 0.12 : 0.45;
+      for (let edgeIndex = 0; edgeIndex < edgePixels.length; edgeIndex += 1) {
+        const pixelOffset = edgePixels[edgeIndex] * 4;
+        data[pixelOffset + 3] = Math.round(data[pixelOffset + 3] * edgeAlphaScale);
+        // Spill suppression: clamp each channel so the edge can't read brighter
+        // than the key colour, then nudge it darker to kill the residual glow.
+        if (isLightKey) {
+          data[pixelOffset] = Math.round(Math.min(data[pixelOffset], keyColor.red) * 0.82);
+          data[pixelOffset + 1] = Math.round(Math.min(data[pixelOffset + 1], keyColor.green) * 0.82);
+          data[pixelOffset + 2] = Math.round(Math.min(data[pixelOffset + 2], keyColor.blue) * 0.82);
+        }
+      }
+      // Ring 2 — the next pixels inward. Without this the hard ring-1 choke leaves
+      // a slightly jagged cut, so feather these one step less aggressively to blend
+      // the new matte edge smoothly into the avatar.
+      if (isLightKey) {
+        for (let edgeIndex = 0; edgeIndex < edgePixels.length; edgeIndex += 1) {
+          const pixelNumber = edgePixels[edgeIndex];
+          const x = pixelNumber % width;
+          const y = Math.floor(pixelNumber / width);
+          const neighbours = [
+            x > 0 ? pixelNumber - 1 : -1,
+            x < width - 1 ? pixelNumber + 1 : -1,
+            y > 0 ? pixelNumber - width : -1,
+            y < height - 1 ? pixelNumber + width : -1,
+          ];
+          for (let n = 0; n < neighbours.length; n += 1) {
+            const neighbour = neighbours[n];
+            if (neighbour < 0) continue;
+            if (connected[neighbour] || onEdge[neighbour]) continue;
+            const neighbourOffset = neighbour * 4;
+            if (data[neighbourOffset + 3] === 0) continue;
+            data[neighbourOffset + 3] = Math.round(data[neighbourOffset + 3] * 0.6);
+          }
+        }
+      }
+    }
+
+    function resizeAvatarComposite() {
+      if (!avatarCompositeCanvas || !avatarCompositeContext) return false;
+      // Size the composite bitmap to the avatar's NATIVE video frame (capped to a max edge),
+      // not the on-screen box. The canvas is cover-fitted to the stage via CSS (object-fit: cover),
+      // so window resizes are handled entirely by the GPU with no per-frame bitmap reallocation —
+      // which previously made the keyed avatar glitch against the photo backdrop while dragging
+      // the window. The bitmap now only changes if the source video resolution changes.
+      const sourceWidth = videoEl.videoWidth || 0;
+      const sourceHeight = videoEl.videoHeight || 0;
+      if (!sourceWidth || !sourceHeight) {
+        if (!avatarCompositeCanvas.width || !avatarCompositeCanvas.height) {
+          avatarCompositeCanvas.width = AVATAR_COMPOSITE_MAX_EDGE;
+          avatarCompositeCanvas.height = Math.round((AVATAR_COMPOSITE_MAX_EDGE * 9) / 16);
+        }
+        return true;
+      }
+      const longestEdge = Math.max(sourceWidth, sourceHeight);
+      const scale = Math.min(1, AVATAR_COMPOSITE_MAX_EDGE / Math.max(1, longestEdge));
+      const width = Math.max(1, Math.round(sourceWidth * scale));
+      const height = Math.max(1, Math.round(sourceHeight * scale));
+      if (avatarCompositeCanvas.width !== width || avatarCompositeCanvas.height !== height) {
+        avatarCompositeCanvas.width = width;
+        avatarCompositeCanvas.height = height;
+      }
+      return true;
+    }
+
+    function drawAvatarComposite() {
+      if (!avatarHasVideo || !avatarCompositeContext || !resizeAvatarComposite()) return;
+      const canvasWidth = avatarCompositeCanvas.width;
+      const canvasHeight = avatarCompositeCanvas.height;
+      const sourceWidth = videoEl.videoWidth || canvasWidth;
+      const sourceHeight = videoEl.videoHeight || canvasHeight;
+      if (!sourceWidth || !sourceHeight || videoEl.readyState < 2) return;
+      // Draw the full frame edge-to-edge; CSS object-fit: cover maps the bitmap to the stage
+      // exactly like the raw video, so no letterbox maths are needed here.
+      const drawRect = { x: 0, y: 0, width: canvasWidth, height: canvasHeight };
+      try {
+        avatarCompositeContext.clearRect(0, 0, canvasWidth, canvasHeight);
+        avatarCompositeContext.drawImage(videoEl, 0, 0, canvasWidth, canvasHeight);
+        const imageData = avatarCompositeContext.getImageData(0, 0, canvasWidth, canvasHeight);
+        const configuredKey = parseHexColor(avatarConfig.backgroundColor);
+        const detectedKey = detectAvatarKeyColor(imageData, canvasWidth, drawRect);
+        const keyColor = selectAvatarKeyColor(configuredKey, detectedKey);
+        applyAvatarBackgroundKey(imageData, keyColor);
+        avatarCompositeContext.putImageData(imageData, 0, 0);
+        avatarCompositeCanvas.classList.add('active');
+      } catch (error) {
+        console.warn('[avatar] Falling back to raw avatar video:', error);
+        avatarFrame.classList.add('raw-video');
+        avatarCompositeCanvas.classList.remove('active');
+      }
+    }
+
+    function avatarBackgroundNeedsKeying() {
+      // When a background photo is shown behind the avatar we always need the
+      // keying compositor so the avatar's solid backdrop is matted out and the
+      // photo shows through.
+      if (avatarConfig.backgroundImage) return true;
+      const key = parseHexColor(avatarConfig.backgroundColor);
+      if (!key) return false;
+      // Skip the keying compositor for light backgrounds (e.g. white). The Voice Live
+      // avatar already ships on a white backdrop, so no per-frame canvas work is needed
+      // and we can render the raw HD video at full resolution instead of the throttled
+      // 720px composite.
+      const luminance = (0.2126 * key.red + 0.7152 * key.green + 0.0722 * key.blue) / 255;
+      return luminance < 0.85;
+    }
+
+    function startAvatarComposite() {
+      if (!avatarCompositeContext || !avatarBackgroundNeedsKeying()) {
+        avatarFrame.classList.add('raw-video');
+        return;
+      }
+      if (avatarCompositeFrame) return;
+      const draw = (timestamp) => {
+        if (!avatarCompositeLastDraw || timestamp - avatarCompositeLastDraw >= AVATAR_COMPOSITE_FRAME_INTERVAL_MS) {
+          drawAvatarComposite();
+          avatarCompositeLastDraw = timestamp;
+        }
+        avatarCompositeFrame = requestAnimationFrame(draw);
+      };
+      avatarCompositeFrame = requestAnimationFrame(draw);
+    }
+
+    function stopAvatarComposite() {
+      if (avatarCompositeFrame) cancelAnimationFrame(avatarCompositeFrame);
+      avatarCompositeFrame = 0;
+      avatarCompositeLastDraw = 0;
+      avatarCompositeCanvas.classList.remove('active');
+      avatarFrame.classList.remove('raw-video');
+      avatarCompositeContext?.clearRect(0, 0, avatarCompositeCanvas.width, avatarCompositeCanvas.height);
+    }
+
+    function addTranscript(role, text) {
+      if (!text || !text.trim()) return;
+      const trimmed = text.trim();
+      const msgs = transcript.querySelectorAll('.msg.' + role);
+      const recent = Array.from(msgs).slice(-5);
+      for (const m of recent) {
+        const b = m.querySelector('div:not(.label)');
+        if (b && b.textContent.trim() === trimmed) return;
+      }
+      emptyChat.hidden = true;
+      const entry = document.createElement('div');
+      entry.className = 'msg ' + role;
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = role === 'user' ? 'You' : 'Morgan';
+      const body = document.createElement('div');
+      body.textContent = text;
+      entry.appendChild(label);
+      entry.appendChild(body);
+      transcript.appendChild(entry);
+      transcript.scrollTop = transcript.scrollHeight;
+    }
+
+    function voiceErrorText(value) {
+      if (!value) return '';
+      if (typeof value === 'string') return value;
+      try { return JSON.stringify(value); } catch { return String(value); }
+    }
+
+    function isRecoverableVoiceCapacityError(message) {
+      return /resource exhausted|avatar_service_resource_exhausted|quota|capacity|throttl|rate limit|too many requests|temporarily unavailable|429/i.test(voiceErrorText(message));
+    }
+
+    function friendlyVoiceFallbackReason(message) {
+      if (isRecoverableVoiceCapacityError(message)) {
+        return 'Avatar capacity is temporarily exhausted. Morgan is running in visual demo mode; Mission Control, text prompts, Teams calling, and finance proof workflows remain available.';
+      }
+      return voiceErrorText(message) || 'Live voice is not connected. Morgan is using Mission Control visual response mode.';
+    }
+
+    function setVisualDemoBanner(reason) {
+      const title = offlineOverlay.querySelector('b');
+      const detail = offlineOverlay.querySelector('span');
+      if (title) title.textContent = 'Visual demo mode';
+      if (detail) {
+        detail.textContent = reason || 'Voice Live capacity is temporarily unavailable. Morgan remains available for finance text, Mission Control, and proof workflows.';
+      }
+      offlineOverlay.style.display = 'flex';
+    }
+
+    function enableVisualDemoMode(reason) {
+      visualDemoMode = true;
+      visualDemoReason = friendlyVoiceFallbackReason(reason || 'Voice Live capacity is temporarily unavailable.');
+      btnConnect.disabled = false;
+      btnDisconnect.disabled = true;
+      btnMute.disabled = true;
+      setVisualDemoBanner(visualDemoReason);
+      setStatus('Morgan ready in visual mode', true);
+      upsertActivity({
+        id: 'visual-demo-mode',
+        name: 'Avatar visual mode',
+        status: 'completed',
+        preview: visualDemoReason,
+      });
+      if (!visualDemoAnnounced) {
+        visualDemoAnnounced = true;
+        addTranscript('assistant', 'Live avatar capacity is temporarily unavailable, so I am running in visual mode. Ask me for CFO checks, Microsoft IQ, WorkIQ proof, or a client-ready briefing.');
+      }
+    }
+
+    async function fetchMissionSnapshot() {
+      const response = await fetch('/api/mission-control', { credentials: 'include' });
+      if (!response.ok) throw new Error(`Mission Control returned HTTP ${response.status}`);
+      return response.json();
+    }
+
+    function sentenceList(items, maxItems = 3) {
+      return (Array.isArray(items) ? items : []).filter(Boolean).slice(0, maxItems).join(' ');
+    }
+
+    function summarizeMicrosoftIq(snapshot) {
+      const iq = snapshot.microsoftIQ || {};
+      const pillars = iq.pillars || {};
+      const work = pillars.workIQ || {};
+      const foundry = pillars.foundryIQ || {};
+      const fabric = pillars.fabricIQ || {};
+      const metrics = iq.metrics || {};
+      const headline = iq.headline || 'Morgan is monitoring the finance portfolio with WorkIQ, Foundry IQ, and Fabric IQ.';
+      const activeCases = metrics.activeCases ?? snapshot.today?.activeCases ?? 'the active';
+      const requestedFunding = metrics.requestedFunding ? `$${Number(metrics.requestedFunding).toLocaleString()}` : 'the requested';
+      return [
+        headline,
+        `WorkIQ: ${sentenceList(work.topSignals)}`,
+        `Foundry IQ: ${sentenceList(foundry.modelInsights || foundry.evaluationSignals)}`,
+        `Fabric IQ: ${sentenceList(fabric.businessSignals || fabric.semanticSignals)}`,
+        `Portfolio readout: ${activeCases} items, ${requestedFunding} budget under review, and all external sends remain HITL-gated.`,
+      ].filter((item) => item && !/: $/.test(item)).join(' ');
+    }
+
+    function summarizeRole(snapshot) {
+      const job = snapshot.jobDescription || {};
+      return [
+        job.purpose || 'Morgan operates as the Digital CFO for budgeting, forecasting, approvals, cash management, reporting, evidence, and audit.',
+        `Mandate: ${sentenceList(job.mandate)}`,
+        `Hard controls: ${sentenceList(job.escalationRules)}`,
+      ].join(' ');
+    }
+
+    function summarizeDefault(snapshot) {
+      const today = snapshot.today || {};
+      const digest = snapshot.corpgenDigestDelivery || {};
+      const completed = today.completedTasks ?? today.completed ?? 0;
+      return [
+        `Morgan is ready. Today I show ${completed} completed CFO tasks and digest status ${digest.status || 'waiting'}.`,
+        summarizeMicrosoftIq(snapshot),
+      ].join(' ');
+    }
+
+    async function createDemoResponse(text) {
+      const lower = text.toLowerCase();
+      if (/run|check|workday|cfo checks/.test(lower)) {
+        const response = await fetch('/api/mission-control/run-workday', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trigger: 'voice-visual-demo' }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Workday run returned HTTP ${response.status}`);
+        const result = data.result || {};
+        const summary = result.summary || result.message || result.statusSummary;
+        const digest = result.digest?.summary || result.digestSummary || 'Digest prepared for HITL review. External delivery remains gated.';
+        return summary || `I completed the autonomous CFO checks. ${digest}`;
+      }
+      const snapshot = await fetchMissionSnapshot();
+      if (/microsoft iq|workiq|work iq|foundry|fabric|briefing|readiness/.test(lower)) return summarizeMicrosoftIq(snapshot);
+      if (/job description|role|mandate|what do you do/.test(lower)) return summarizeRole(snapshot);
+      if (/wrap|end of day|eod/.test(lower)) {
+        const response = await fetch('/api/mission-control/end-of-day', { credentials: 'include' });
+        const data = await response.json().catch(() => ({}));
+        return data.summary || data.headline || summarizeDefault(snapshot);
+      }
+      return summarizeDefault(snapshot);
+    }
+
+    async function sendDemoText(text) {
+      addTranscript('user', text);
+      setTab('chat');
+      const activityId = `visual-demo-${Date.now()}`;
+      upsertActivity({
+        id: activityId,
+        name: 'Morgan visual response',
+        status: 'running',
+        preview: 'Using Mission Control and CFO IQ snapshot.',
+      });
+      setStatus('Working with CFO tools', true);
+      try {
+        const response = await createDemoResponse(text);
+        addTranscript('assistant', response);
+        upsertActivity({
+          id: activityId,
+          name: 'Morgan visual response',
+          status: 'completed',
+          preview: response.slice(0, 220),
+        });
+        setStatus('Morgan ready in visual mode', true);
+      } catch (error) {
+        const message = error?.message || 'Morgan could not complete that visual response.';
+        addTranscript('assistant', message);
+        upsertActivity({
+          id: activityId,
+          name: 'Morgan visual response',
+          status: 'failed',
+          preview: message,
+        });
+        setStatus('Visual response needs attention');
+      }
+    }
+
+    async function loadAvatarConfig() {
+      try {
+        const response = await fetch('/api/avatar/config', { credentials: 'include' });
+        if (response.status === 401) {
+          await response.json().catch(() => ({}));
+          showSignIn();
+          return;
+        }
+        const config = await response.json();
+        const configuredBackgroundImage = typeof config.backgroundImageUrl === 'string'
+          ? config.backgroundImageUrl
+          : typeof config.backgroundImage === 'string'
+            ? config.backgroundImage
+            : avatarConfig.backgroundImage;
+        avatarConfig = {
+          ...avatarConfig,
+          character: config.character || avatarConfig.character,
+          style: config.style || avatarConfig.style,
+          voice: config.voice || avatarConfig.voice,
+          voiceStyle: config.voiceStyle || avatarConfig.voiceStyle,
+          backgroundColor: config.backgroundColor || avatarConfig.backgroundColor || '#FFFFFF',
+          backgroundImage: configuredBackgroundImage,
+        };
+        applyAvatarVisuals();
+        applyAgenticKanbanLink(config.agenticKanban);
+        avatarMeta.textContent = config.role || 'Digital CFO';
+      } catch {
+        avatarMeta.textContent = 'Digital CFO';
+      }
+    }
+
+    function applyAgenticKanbanLink(link) {
+      if (!kanbanLink) return;
+      const url = typeof link?.url === 'string' && link.url ? link.url : '/agentic-kanban';
+      const label = typeof link?.label === 'string' && link.label ? link.label : 'Live Kanban';
+      const provider = typeof link?.provider === 'string' && link.provider ? link.provider : 'Power Platform';
+      kanbanLink.href = url;
+      kanbanLink.textContent = label;
+      kanbanLink.target = link?.openTarget === '_self' || url.startsWith('/') ? '_self' : '_blank';
+      kanbanLink.rel = kanbanLink.target === '_blank' ? 'noopener' : '';
+      kanbanLink.title = `Open Morgan's ${provider} agentic Kanban`;
+      kanbanLink.setAttribute('aria-label', `Open Morgan live Agentic Kanban in ${provider}`);
+    }
+
+    async function checkGate() {
+      if (!(await requireSignedIn())) return false;
+      try {
+        const response = await fetch('/api/health', { credentials: 'include' });
+        const data = await response.json();
+        if (visualDemoMode) {
+          setVisualDemoBanner(visualDemoReason);
+          btnConnect.disabled = false;
+          return Boolean(data.voiceEnabled);
+        }
+        offlineOverlay.style.display = data.voiceEnabled ? 'none' : 'flex';
+        if (!data.voiceEnabled && (!ws || ws.readyState !== WebSocket.OPEN)) {
+          setStatus('Avatar visible, voice paused');
+          btnConnect.disabled = true;
+        } else if (!ws || ws.readyState !== WebSocket.OPEN) {
+          btnConnect.disabled = false;
+          setStatus('Ready to connect');
+        }
+        return Boolean(data.voiceEnabled);
+      } catch {
+        offlineOverlay.style.display = 'flex';
+        btnConnect.disabled = true;
+        return false;
+      }
+    }
+
+    async function connect() {
+      // D-ID variant: use @d-id/client-sdk loaded in <head>. No voice WebSocket, no mic capture.
+      if (!(await requireSignedIn())) return;
+      await loadAvatarConfig();
+      lastVoiceError = '';
+      visualDemoMode = false;
+      visualDemoReason = '';
+      offlineOverlay.style.display = 'none';
+      btnConnect.disabled = true;
+      stageEl.classList.add('is-connecting');
+      setStatus('Loading D-ID SDK');
+
+      try {
+        // Wait up to 10s for the SDK module to finish loading
+        if (!window.__didSdk && !window.__didSdkError) {
+          await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('D-ID SDK load timed out')), 10000);
+            window.addEventListener('did-sdk-ready', () => { clearTimeout(timer); resolve(); }, { once: true });
+          });
+        }
+        if (window.__didSdkError || !window.__didSdk) {
+          throw new Error('D-ID SDK unavailable: ' + (window.__didSdkError || 'unknown error'));
+        }
+
+        setStatus('Fetching D-ID config');
+        const configResp = await fetch('/api/avatar/did/config', { credentials: 'include' });
+        if (configResp.status === 401) { showSignIn(); btnConnect.disabled = false; return; }
+        if (!configResp.ok) throw new Error('D-ID config returned HTTP ' + configResp.status);
+        const didConfig = await configResp.json();
+        if (!didConfig.configured) throw new Error('D-ID is not configured on the server');
+
+        const agentId = didConfig.agentId || didConfig.config?.did?.agentId;
+        const clientKey = didConfig.clientKey;
+        if (!agentId || !clientKey) throw new Error('D-ID agentId or clientKey missing from server config response');
+
+        setStatus('Connecting to D-ID agent');
+        const sdk = window.__didSdk;
+        const createManager = sdk.createAgentManager || sdk.default?.createAgentManager;
+        if (typeof createManager !== 'function') {
+          throw new Error('D-ID SDK missing createAgentManager export');
+        }
+
+        const manager = await createManager(agentId, {
+          auth: { type: 'key', clientKey: clientKey },
+          enableAnalitics: false,
+          callbacks: {
+            onSrcObjectReady: (stream) => {
+              avatarHasVideo = true;
+              try {
+                (stream.getAudioTracks ? stream.getAudioTracks() : []).forEach((track) => {
+                  try { track.enabled = true; } catch {}
+                });
+              } catch {}
+              videoEl.srcObject = stream;
+              videoEl.classList.add('active');
+              videoEl.muted = false;
+              try { videoEl.volume = 1.0; } catch {}
+              if (idlePanel) idlePanel.style.display = 'none';
+              if (avatarStandby) avatarStandby.hidden = true;
+              const playPromise = videoEl.play();
+              if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch((err) => console.warn('[did] video.play() rejected', err));
+              }
+              try { startAvatarComposite && startAvatarComposite(); } catch {}
+              setStatus('D-ID avatar live', true);
+            },
+            onConnectionStateChange: (state) => {
+              if (state === 'connected') setStatus('D-ID avatar live', true);
+              else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+                setStatus('D-ID avatar disconnected');
+              } else {
+                setStatus('D-ID ' + state, true);
+              }
+            },
+            onVideoStateChange: (state) => {
+              try {
+                if (state === 'START') stageEl && stageEl.classList.add('avatar-speaking');
+                if (state === 'STOP') stageEl && stageEl.classList.remove('avatar-speaking');
+              } catch {}
+            },
+            onNewMessage: (messages, type) => {
+              if (!Array.isArray(messages)) return;
+              const last = messages[messages.length - 1];
+              if (!last) return;
+              if (last.role === 'assistant' && last.content) {
+                addTranscript('assistant', last.content);
+              } else if (last.role === 'user' && last.content && type === 'partial') {
+                // skip partial echoes
+              }
+            },
+            onError: (error) => {
+              console.error('[did] error', error);
+              lastVoiceError = (error && error.message) || 'D-ID error';
+              setStatus(lastVoiceError);
+            },
+          },
+          streamOptions: { streamWarmup: true, sessionTimeout: 600 },
+        });
+
+        window.didAgentManager = manager;
+        setStatus('Establishing D-ID stream');
+        try {
+          if (typeof manager.connect === 'function') {
+            await manager.connect();
+          }
+        } catch (err) {
+          console.error('[did] connect() failed', err);
+          throw err;
+        }
+
+        btnDisconnect.disabled = false;
+        // D-ID handles the avatar's audio playback; suppress local PCM playback to avoid double audio.
+        avatarHasRemoteAudio = true;
+
+        // Open Morgan's realtime voice WebSocket and start mic capture so live voice works.
+        // The response.audio_transcript.done handler will feed the reply text into manager.speak().
+        setStatus('Requesting microphone');
+        try {
+          micStream = await getMicrophoneWithTimeout(4500);
+          audioContext = new AudioContext();
+        } catch (micErr) {
+          console.warn('[did] microphone unavailable', micErr);
+          micStream = null;
+          audioContext = null;
+          setStatus('D-ID avatar live (no microphone)', true);
+        }
+
+        try {
+          const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const voiceQuery = new URLSearchParams({ voiceStyle: avatarConfig.voiceStyle || 'neutral', source: 'did' });
+          ws = new WebSocket(`${proto}//${location.host}/api/voice?${voiceQuery.toString()}`);
+          ws.binaryType = 'arraybuffer';
+          ws.onopen = async () => {
+            setStatus(micStream ? 'D-ID avatar live (voice on)' : 'D-ID avatar live (no microphone)', true);
+            btnMute.disabled = !micStream;
+            btnMute.style.display = micStream ? '' : 'none';
+            if (micStream && audioContext) {
+              try { await startMicCapture(); } catch (e) { console.warn('[did] startMicCapture failed', e); }
+            }
+          };
+          ws.onmessage = (event) => {
+            let msg;
+            try { msg = JSON.parse(event.data); } catch { return; }
+            handleVoiceEvent(msg);
+          };
+          ws.onclose = (event) => {
+            console.warn('[did] voice ws closed', event.code, event.reason);
+            if (btnDisconnect && !btnDisconnect.disabled) setStatus('Voice channel closed; avatar still live', true);
+          };
+          ws.onerror = (err) => { console.error('[did] voice ws error', err); };
+        } catch (wsErr) {
+          console.error('[did] failed to open voice ws', wsErr);
+          btnMute.disabled = true;
+          btnMute.style.display = 'none';
+        }
+      } catch (error) {
+        console.error('[did] connect failed', error);
+        btnConnect.disabled = false;
+        stageEl.classList.remove('is-connecting');
+        setStatus((error && error.message) || 'D-ID connection failed');
+      }
+    }
+
+    function getMicrophoneWithTimeout(timeoutMs) {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        return Promise.reject(new Error('Microphone capture is not available in this browser.'));
+      }
+      let settled = false;
+      const request = navigator.mediaDevices.getUserMedia({
+        audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      });
+      const timeout = new Promise((_, reject) => {
+        setTimeout(() => {
+          if (!settled) reject(new Error('Microphone permission timed out. Starting avatar without microphone.'));
+        }, timeoutMs);
+      });
+      request.then((stream) => {
+        if (!settled) return;
+        stream.getTracks().forEach((track) => track.stop());
+      }).catch(() => {});
+      return Promise.race([request, timeout]).then((stream) => {
+        settled = true;
+        return stream;
+      }).catch((error) => {
+        settled = true;
+        throw error;
+      });
+    }
+
+    function normalizeIceServers(input) {
+      if (!Array.isArray(input)) return [];
+      return input.map((server) => ({
+        urls: server.urls || server.Urls,
+        username: server.username || server.Username,
+        credential: server.credential || server.Password,
+      })).filter((server) => server.urls && server.username && server.credential);
+    }
+
+    async function startAvatarWebRtc(sessionIceServers) {
+      if (avatarStartRequested || pc) return;
+      avatarStartRequested = true;
+      try {
+        let iceServers = normalizeIceServers(sessionIceServers);
+        if (!iceServers.length) {
+          const iceResponse = await fetch('/api/avatar/ice', { credentials: 'include' });
+          if (iceResponse.status === 401) {
+            await iceResponse.json().catch(() => ({}));
+            showSignIn();
+            return;
+          }
+          if (!iceResponse.ok) {
+            setStatus('Voice connected, HD avatar relay missing', true);
+            return;
+          }
+          const iceData = await iceResponse.json();
+          iceServers = normalizeIceServers([iceData]);
+        }
+        if (!iceServers.length) {
+          setStatus('Voice connected, HD avatar relay missing', true);
+          return;
+        }
+        pc = new RTCPeerConnection({ iceServers });
+        pc.ontrack = (event) => {
+          if (event.track.kind === 'video') {
+            avatarHasVideo = true;
+            videoEl.srcObject = event.streams[0];
+            videoEl.classList.add('active');
+            videoEl.muted = false;
+            idlePanel.style.display = 'none';
+            avatarStandby.hidden = true;
+            videoEl.play().catch(() => {});
+            startAvatarComposite();
+            setStatus('HD avatar live', true);
+          }
+          if (event.track.kind === 'audio') {
+            avatarHasRemoteAudio = true;
+            const videoStream = videoEl.srcObject;
+            if (videoStream instanceof MediaStream && !videoStream.getAudioTracks().length) {
+              videoStream.addTrack(event.track);
+            }
+            audioEl.srcObject = event.streams[0];
+            audioEl.play().catch(() => {});
+            if (!avatarHasVideo) setStatus('Avatar audio connected, waiting for video', true);
+          }
+        };
+        pc.onconnectionstatechange = () => {
+          if (pc && pc.connectionState === 'failed') setStatus('Avatar media interrupted', true);
+        };
+        pc.createDataChannel('eventChannel');
+        pc.addTransceiver('video', { direction: 'sendrecv' });
+        pc.addTransceiver('audio', { direction: 'sendrecv' });
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await waitForIce(pc);
+        if (ws && ws.readyState === WebSocket.OPEN && pc.localDescription) {
+          ws.send(JSON.stringify({ type: 'session.avatar.connect', client_sdp: btoa(JSON.stringify(pc.localDescription)) }));
+        }
+      } catch (error) {
+        console.warn('[avatar] WebRTC setup failed:', error);
+        setStatus('Voice connected, HD avatar unavailable', true);
+      }
+    }
+
+    function waitForIce(connection) {
+      if (connection.iceGatheringState === 'complete') return Promise.resolve();
+      return new Promise((resolve) => {
+        const timer = setTimeout(resolve, 2000);
+        connection.addEventListener('icegatheringstatechange', () => {
+          if (connection.iceGatheringState === 'complete') {
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+      });
+    }
+
+    function createMicWorkletUrl() {
+      if (micWorkletUrl) return micWorkletUrl;
+      const workletSource = `
+        class MorganMicProcessor extends AudioWorkletProcessor {
+          constructor() {
+            super();
+            this.buffer = new Float32Array(4096);
+            this.offset = 0;
+          }
+          process(inputs) {
+            const channel = inputs[0] && inputs[0][0];
+            if (!channel) return true;
+            for (let index = 0; index < channel.length; index += 1) {
+              this.buffer[this.offset] = channel[index];
+              this.offset += 1;
+              if (this.offset >= this.buffer.length) {
+                const packet = this.buffer;
+                this.port.postMessage(packet, [packet.buffer]);
+                this.buffer = new Float32Array(4096);
+                this.offset = 0;
+              }
+            }
+            return true;
+          }
+        }
+        registerProcessor('morgan-mic-processor', MorganMicProcessor);
+      `;
+      micWorkletUrl = URL.createObjectURL(new Blob([workletSource], { type: 'application/javascript' }));
+      return micWorkletUrl;
+    }
+
+    async function startMicCapture() {
+      if (!audioContext || !micStream || !ws || processor || micCaptureStarting) return;
+      if (!audioContext.audioWorklet || typeof AudioWorkletNode === 'undefined') {
+        setStatus('AudioWorklet microphone capture unavailable');
+        return;
+      }
+      micCaptureStarting = true;
+      const nativeRate = audioContext.sampleRate;
+      try {
+        await audioContext.audioWorklet.addModule(createMicWorkletUrl());
+        micSource = audioContext.createMediaStreamSource(micStream);
+        processor = new AudioWorkletNode(audioContext, 'morgan-mic-processor', {
+          numberOfInputs: 1,
+          numberOfOutputs: 1,
+          outputChannelCount: [1],
+        });
+        micSilentGain = audioContext.createGain();
+        micSilentGain.gain.value = 0;
+        micSilentGain.connect(audioContext.destination);
+        processor.port.onmessage = (event) => {
+          if (!ws || ws.readyState !== WebSocket.OPEN || isMuted) return;
+          const input = event.data instanceof Float32Array ? event.data : new Float32Array(event.data);
+          const pcm16 = resampleToPcm16(input, nativeRate, 24000);
+          if (pcm16.byteLength) ws.send(pcm16.buffer);
+        };
+        micSource.connect(processor);
+        processor.connect(micSilentGain);
+      } catch (error) {
+        console.warn('[voice] AudioWorklet microphone capture failed:', error);
+        setStatus('Microphone capture unavailable');
+      } finally {
+        micCaptureStarting = false;
+      }
+    }
+
+    function resampleToPcm16(float32, sourceRate, targetRate) {
+      const ratio = sourceRate / targetRate;
+      const length = Math.floor(float32.length / ratio);
+      const pcm16 = new Int16Array(length);
+      for (let i = 0; i < length; i++) {
+        const sourceIndex = i * ratio;
+        const index = Math.floor(sourceIndex);
+        const fraction = sourceIndex - index;
+        const sample = (float32[index] || 0) + ((float32[index + 1] || 0) - (float32[index] || 0)) * fraction;
+        const clipped = Math.max(-1, Math.min(1, sample));
+        pcm16[i] = clipped < 0 ? clipped * 0x8000 : clipped * 0x7fff;
+      }
+      return pcm16;
+    }
+
+    function queueAudio(base64) {
+      if (avatarHasRemoteAudio) return;
+      if (!playbackContext) playbackContext = new AudioContext();
+      const raw = atob(base64);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      const int16 = new Int16Array(bytes.buffer);
+      const floatData = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) floatData[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7fff);
+      const buffer = playbackContext.createBuffer(1, floatData.length, 24000);
+      buffer.copyToChannel(floatData, 0);
+      const source = playbackContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(playbackContext.destination);
+      const startTime = Math.max(playbackContext.currentTime, nextPlaybackTime);
+      source.start(startTime);
+      nextPlaybackTime = startTime + buffer.duration;
+      activeSources.push(source);
+      source.onended = () => { activeSources = activeSources.filter((item) => item !== source); };
+    }
+
+    function flushPlayback() {
+      for (const source of activeSources) {
+        try { source.stop(); } catch {}
+      }
+      activeSources = [];
+      nextPlaybackTime = 0;
+    }
+
+    function sendText(text) {
+      // D-ID variant: prefer the D-ID agent manager when connected; otherwise fall back to the existing visual demo flow.
+      if (window.didAgentManager) {
+        addTranscript('user', text);
+        // Agent is configured for external orchestration: Morgan's backend produces the
+        // reply text and the avatar just speaks it. Send the user text to the realtime
+        // pipeline; the response.text.done handler will call manager.speak() with the reply.
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({
+              type: 'conversation.item.create',
+              item: {
+                type: 'message',
+                role: 'user',
+                content: [{ type: 'input_text', text }]
+              }
+            }));
+            ws.send(JSON.stringify({ type: 'response.create' }));
+          } catch (error) {
+            console.error('[did] realtime send failed', error);
+          }
+          return;
+        }
+        // Fallback: no realtime backend, ask D-ID to echo directly via speak().
+        try {
+          const result = window.didAgentManager.speak
+            ? window.didAgentManager.speak({ type: 'text', input: text })
+            : null;
+          if (result && typeof result.catch === 'function') {
+            result.catch((err) => {
+              console.error('[did] speak failed', err);
+              addTranscript('assistant', 'D-ID speak error: ' + ((err && err.message) || String(err)));
+            });
+          }
+        } catch (error) {
+          console.error('[did] speak threw', error);
+          addTranscript('assistant', 'D-ID speak error: ' + ((error && error.message) || String(error)));
+        }
+        return;
+      }
+      if (!visualDemoMode) {
+        enableVisualDemoMode('D-ID avatar not connected. Morgan is using Mission Control visual response mode.');
+      }
+      void sendDemoText(text);
+    }
+
+    function sendGreeting() {
+      if (greetingSent || !ws || ws.readyState !== WebSocket.OPEN) return;
+      greetingSent = true;
+      ws.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'system',
+          content: [{ type: 'input_text', text: 'Greet the user as Morgan, the CFO\'s Digital Finance Analyst avatar. Keep it to one concise sentence.' }],
+        },
+      }));
+      ws.send(JSON.stringify({ type: 'response.create' }));
+    }
+
+    function handleVoiceEvent(event) {
+      switch (event.type) {
+        case 'morgan.tool.started':
+          upsertActivity({
+            id: event.callId || event.name || Date.now().toString(),
+            name: event.name || 'Morgan tool',
+            status: 'running',
+            preview: event.argumentsPreview || 'Tool call started.',
+          });
+          setTab('activity');
+          setStatus('Working with CFO tools', true);
+          break;
+        case 'morgan.tool.completed':
+          upsertActivity({
+            id: event.callId || event.name || Date.now().toString(),
+            name: event.name || 'Morgan tool',
+            status: 'completed',
+            preview: event.resultPreview || 'Tool call completed.',
+          });
+          setStatus('Tool completed', true);
+          break;
+        case 'morgan.tool.failed':
+          upsertActivity({
+            id: event.callId || event.name || Date.now().toString(),
+            name: event.name || 'Morgan tool',
+            status: 'failed',
+            preview: event.error || 'Tool call failed.',
+          });
+          setStatus('Tool needs attention', true);
+          break;
+        case 'session.created':
+          setStatus('Voice session created', true);
+          break;
+        case 'session.updated':
+          setStatus('Starting HD avatar', true);
+          if (event.session?.avatar && !pc) {
+            void startAvatarWebRtc(event.session.avatar.ice_servers);
+          }
+          if (!processor && micStream && audioContext) void startMicCapture();
+          if (window.didAgentManager) sendGreeting();
+          break;
+        case 'session.avatar.connecting':
+          if (event.server_sdp && pc) {
+            try {
+              const serverDescription = JSON.parse(atob(event.server_sdp));
+              pc.setRemoteDescription(serverDescription)
+                .then(() => {
+                  setStatus('Avatar media connected', true);
+                  sendGreeting();
+                })
+                .catch((error) => {
+                  console.error('[avatar] setRemoteDescription failed:', error);
+                  setStatus('Voice connected, avatar handshake failed', true);
+                });
+            } catch (error) {
+              console.error('[avatar] Failed to decode server SDP:', error);
+              setStatus('Voice connected, avatar handshake failed', true);
+            }
+          }
+          break;
+        case 'input_audio_buffer.speech_started':
+          flushPlayback();
+          if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'response.cancel' }));
+          setStatus('Listening', true);
+          break;
+        case 'input_audio_buffer.speech_stopped':
+          setStatus('Thinking', true);
+          break;
+        case 'conversation.item.input_audio_transcription.completed':
+          addTranscript('user', event.transcript || '');
+          break;
+        case 'response.created':
+          activeResponseText = '';
+          setStatus('Speaking', true);
+          break;
+        case 'response.audio.delta':
+          if (event.delta) queueAudio(event.delta);
+          break;
+        case 'response.audio_transcript.delta':
+          if (event.delta) activeResponseText += event.delta;
+          break;
+        case 'response.audio_transcript.done': {
+          const replyText = event.transcript || activeResponseText || '';
+          const respId = event.response_id || event.response?.id || null;
+          const alreadyShown = respId && lastTranscribedResponseId === respId;
+          if (!alreadyShown) {
+            addTranscript('assistant', replyText);
+            if (respId) lastTranscribedResponseId = respId;
+          }
+          activeResponseText = '';
+          if (replyText && window.didAgentManager && typeof window.didAgentManager.speak === 'function') {
+            try {
+              const r = window.didAgentManager.speak({ type: 'text', input: replyText });
+              if (r && typeof r.catch === 'function') r.catch((err) => console.error('[did] speak(reply) failed', err));
+            } catch (err) { console.error('[did] speak(reply) threw', err); }
+          }
+          break;
+        }
+        case 'response.text.done': {
+          const replyText = event.text || '';
+          const respId = event.response_id || event.response?.id || null;
+          const alreadyShown = respId && lastTranscribedResponseId === respId;
+          if (!alreadyShown) {
+            addTranscript('assistant', replyText);
+            if (respId) lastTranscribedResponseId = respId;
+          }
+          if (replyText && window.didAgentManager && typeof window.didAgentManager.speak === 'function' && !alreadyShown) {
+            try {
+              const r = window.didAgentManager.speak({ type: 'text', input: replyText });
+              if (r && typeof r.catch === 'function') r.catch((err) => console.error('[did] speak(textReply) failed', err));
+            } catch (err) { console.error('[did] speak(textReply) threw', err); }
+          }
+          break;
+        }
+        case 'response.done':
+          setStatus('Avatar connected', true);
+          break;
+        case 'error':
+          if (!String(event.error?.message || '').includes('no active response')) {
+            console.error('[voice] error', event.error);
+            lastVoiceError = event.error?.message || voiceErrorText(event.error) || 'Voice error';
+            // In D-ID mode, never collapse to visual demo — keep the avatar alive and just disable mic.
+            if (window.didAgentManager) {
+              setStatus('Voice channel issue: ' + lastVoiceError + ' (avatar still live)', true);
+            } else if (event.error?.recoverable || isRecoverableVoiceCapacityError(event.error || lastVoiceError)) {
+              lastVoiceError = friendlyVoiceFallbackReason(event.error || lastVoiceError);
+              enableVisualDemoMode(lastVoiceError);
+              if (ws && ws.readyState === WebSocket.OPEN) ws.close(1000, 'visual demo fallback');
+            } else {
+              setStatus(lastVoiceError);
+            }
+          }
+          break;
+      }
+    }
+
+    function toggleMute() {
+      isMuted = !isMuted;
+      btnMute.textContent = isMuted ? 'Unmute' : 'Mute';
+      if (micStream) micStream.getAudioTracks().forEach((track) => { track.enabled = !isMuted; });
+      setStatus(isMuted ? 'Muted' : 'Avatar connected', true);
+    }
+
+    function disconnect() {
+      if (window.didAgentManager) {
+        try { window.didAgentManager.disconnect && window.didAgentManager.disconnect(); } catch (err) { console.warn('[did] disconnect threw', err); }
+        window.didAgentManager = null;
+      }
+      if (ws) ws.close();
+      visualDemoMode = false;
+      visualDemoReason = '';
+      cleanup();
+      setStatus('Disconnected');
+    }
+
+    function cleanup() {
+      btnConnect.disabled = false;
+      btnDisconnect.disabled = true;
+      stageEl.classList.remove('is-connecting');
+      btnMute.disabled = true;
+      btnMute.textContent = 'Mute';
+      isMuted = false;
+      avatarHasVideo = false;
+      avatarHasRemoteAudio = false;
+      greetingSent = false;
+      avatarStartRequested = false;
+      micCaptureStarting = false;
+      stopAvatarComposite();
+      idlePanel.style.display = '';
+      avatarStandby.hidden = false;
+      if (processor) {
+        try { processor.port.onmessage = null; } catch {}
+        try { processor.disconnect(); } catch {}
+        processor = null;
+      }
+      if (micSource) { try { micSource.disconnect(); } catch {} micSource = null; }
+      if (micSilentGain) { try { micSilentGain.disconnect(); } catch {} micSilentGain = null; }
+      if (audioContext) { audioContext.close().catch(() => {}); audioContext = null; }
+      if (playbackContext) { playbackContext.close().catch(() => {}); playbackContext = null; }
+      if (micStream) { micStream.getTracks().forEach((track) => track.stop()); micStream = null; }
+      if (pc) { pc.close(); pc = null; }
+      videoEl.srcObject = null;
+      videoEl.classList.remove('active');
+      audioEl.srcObject = null;
+      ws = null;
+      flushPlayback();
+    }
+
+    function setupAppUi() {
+      tabChat.addEventListener('click', () => setTab('chat'));
+      tabActivity.addEventListener('click', () => setTab('activity'));
+      btnSendText.addEventListener('click', () => {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        chatInput.value = '';
+        sendText(text);
+      });
+      chatInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') btnSendText.click();
+      });
+      document.querySelectorAll('[data-prompt]').forEach((button) => {
+        button.addEventListener('click', () => sendText(button.dataset.prompt || ''));
+      });
+      btnConfig.addEventListener('click', () => {
+        configOverlay.hidden = false;
+        btnCloseConfig.focus();
+      });
+      btnCloseConfig.addEventListener('click', () => {
+        configOverlay.hidden = true;
+        btnConfig.focus();
+      });
+      configOverlay.addEventListener('click', (event) => {
+        if (event.target === configOverlay) configOverlay.hidden = true;
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !configOverlay.hidden) configOverlay.hidden = true;
+      });
+      btnAccessible.addEventListener('click', () => {
+        accessibilityPrefs.accessibleMode = !accessibilityPrefs.accessibleMode;
+        saveAccessibilityPrefs();
+        applyAccessibilityPrefs();
+      });
+      btnFontNormal.addEventListener('click', () => {
+        accessibilityPrefs.fontSize = 'normal';
+        saveAccessibilityPrefs();
+        applyAccessibilityPrefs();
+      });
+      btnFontLarge.addEventListener('click', () => {
+        accessibilityPrefs.fontSize = 'large';
+        saveAccessibilityPrefs();
+        applyAccessibilityPrefs();
+      });
+      btnFontXLarge.addEventListener('click', () => {
+        accessibilityPrefs.fontSize = 'x-large';
+        saveAccessibilityPrefs();
+        applyAccessibilityPrefs();
+      });
+      btnHighContrast.addEventListener('click', () => {
+        accessibilityPrefs.highContrast = !accessibilityPrefs.highContrast;
+        saveAccessibilityPrefs();
+        applyAccessibilityPrefs();
+      });
+      videoFitSelect.addEventListener('change', () => {
+        avatarConfig.videoFit = videoFitSelect.value;
+        applyAvatarVisuals();
+      });
+      renderConfigControls();
+      renderActivityLog();
+      applyAccessibilityPrefs();
+      loadMissionTickerMetrics();
+      setTab('chat');
+    }
+
+    setupAppUi();
+    setupStarfieldInteractions();
+    startStarfield();
+    loadAvatarConfig();
+    checkGate();
+    setInterval(loadMissionTickerMetrics, 60000);
+    setInterval(checkGate, 30000);
+  </script>
+</body>
+</html>

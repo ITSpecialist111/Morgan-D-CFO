@@ -2,7 +2,7 @@ FROM node:20-slim AS build
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
@@ -16,8 +16,8 @@ ENV HOST=0.0.0.0
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=build /app/dist ./dist
 
 EXPOSE 8088
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/foundryHost.js"]

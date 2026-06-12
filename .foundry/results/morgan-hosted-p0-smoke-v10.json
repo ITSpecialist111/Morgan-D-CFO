@@ -1,0 +1,58 @@
+{
+  "date": "2026-05-07",
+  "status": "passed",
+  "environment": "northCentralHosted",
+  "projectEndpoint": "https://ai-account-bdoregvn6di7y.services.ai.azure.com/api/projects/ai-project-morgan-hosted-ncus",
+  "agentName": "morgan-digital-cfo-hosted",
+  "agentVersion": "10",
+  "modelDeployment": "gpt-5-mini",
+  "route": "/agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1",
+  "cloudShellResultPath": "~/morgan-v10-p0-smoke.json",
+  "image": "crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507204912",
+  "imageDigest": "sha256:675d09bee0e7880d927a7f810f3e1c0f6ecb613eb3c35ad3e991e17937ae6b04",
+  "acrRunId": "cp7",
+  "summary": "All four hosted P0 smoke prompts completed through direct Foundry Responses REST with status completed and scripted content gates passing.",
+  "cases": [
+    {
+      "id": "status",
+      "sessionId": "morganhostedv10p00100000000x",
+      "responseId": "resp_1778187198884",
+      "status": "completed",
+      "passStatus": true,
+      "passContent": true,
+      "notes": "Returned hosted-agent status, Mission Control readiness boundary, Foundry /responses boundary, and a next action."
+    },
+    {
+      "id": "cfo-brief",
+      "sessionId": "morganhostedv10p00200000000x",
+      "responseId": "resp_1778187274037",
+      "status": "completed",
+      "passStatus": true,
+      "passContent": true,
+      "notes": "Returned a CFO Mission Control brief for budget variance, cash runway, blocked approval, owners, evidence, and escalation."
+    },
+    {
+      "id": "integration-settings",
+      "sessionId": "morganhostedv10p00300000000x",
+      "responseId": "resp_1778187350105",
+      "status": "completed",
+      "passStatus": true,
+      "passContent": true,
+      "notes": "Returned required settings and readiness signals instead of the deterministic Microsoft IQ briefing path."
+    },
+    {
+      "id": "eod-demo",
+      "sessionId": "morganhostedv10p00400000000x",
+      "responseId": "resp_1778187425350",
+      "status": "completed",
+      "passStatus": true,
+      "passContent": true,
+      "notes": "Explicitly labeled demo/deterministic context and avoided claims that email, Teams, or tenant queries were sent, posted, or read."
+    }
+  ],
+  "importantLimitations": [
+    "Direct REST is the verified invocation path for this vNext hosted Responses route; the Foundry MCP agent_invoke helper previously returned internal errors for live hosted versions.",
+    "Graph/MCP, ACS/Teams voice, Application Insights/Log Analytics/Purview, Fabric/Power BI, durable storage, scheduler secret, and sub-agent endpoints were intentionally not included in the v10 hosted payload.",
+    "This P0 smoke proves hosted reachability, Azure OpenAI model routing, and bounded response behavior; it does not prove full production parity with the App Service Morgan."
+  ]
+}

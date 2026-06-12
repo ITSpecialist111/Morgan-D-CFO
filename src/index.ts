@@ -15,13 +15,13 @@ import {
 import express, { Response } from 'express';
 import http from 'http';
 import path from 'path';
-import { agentApplication, credential, runAutonomousBriefing, runEndOfDayReport } from './agent';
 import { setAdapter } from './scheduler/proactiveMonitor';
 import { getAutonomousWorkdaySchedulerStatus, startAutonomousWorkdayScheduler } from './scheduler/autonomousWorkdayScheduler';
 import { getAgentStorageStatus } from './storage/agentStorage';
 import { attachVoiceWebSocket } from './voice/voiceProxy';
 import { isVoiceEnabled } from './voice/voiceGate';
 import { registerAvatarRoutes } from './voice/avatarRoutes';
+import { didAvatarRouter } from './voice/didAvatarRoutes';
 import {
   attachAcsMediaWebSocket,
   getActiveCallSnapshot,
@@ -31,7 +31,11 @@ import {
   initiateOutboundTeamsCall,
   isAcsConfigured,
 } from './voice/acsBridge';
-import { getEndOfDayReport, getMissionControlSnapshot, runAutonomousCfoWorkday } from './mission/missionControl';
+import { getCorpGenReportAvailability, getCorpGenReportDownload, getEndOfDayReport, getMissionControlSnapshot, runAutonomousCfoWorkday, sanitizeMissionControlPayload } from './mission/missionControl';
+import { getAgenticKanbanLink } from './mission/agenticKanban';
+import { getHitlApprovalSurface, listHitlApprovalRequests, recordHitlApprovalDecision, sendHitlApprovalCardToModAdministrator } from './mission/hitlApprovals';
+import { getRetrospectiveHistory } from './tools/retrospectiveTools';
+import { getMorganIdentity, getWorkIQStatus } from './tools/identityTools';
 import { getMissionMindmap } from './mission/mindmap';
 import { getMorganCostDashboard } from './mission/costModel';
 import { registerFoundryResponsesRoutes } from './foundry/responsesAdapter';
@@ -49,9 +53,20 @@ import { getSubAgentRegistry } from './orchestrator/subAgents';
 
 // Only NODE_ENV=development disables authentication
 const isDevelopment = process.env.NODE_ENV === 'development';
-const authConfig: AuthConfiguration = isDevelopment ? {} : loadAuthConfigFromEnv();
+const foundryResponsesOnly = process.env.MORGAN_FOUNDRY_RESPONSES_ONLY === 'true';
+const authConfig: AuthConfiguration = isDevelopment || foundryResponsesOnly ? {} : loadAuthConfigFromEnv();
 
-console.log(`Environment: NODE_ENV=${process.env.NODE_ENV}, isDevelopment=${isDevelopment}`);
+type MorganAgentModule = typeof import('./agent');
+let morganAgentModule: Promise<MorganAgentModule> | undefined;
+
+function loadMorganAgentModule(): Promise<MorganAgentModule> {
+  if (!morganAgentModule) {
+    morganAgentModule = import('./agent');
+  }
+  return morganAgentModule;
+}
+
+console.log(`Environment: NODE_ENV=${process.env.NODE_ENV}, isDevelopment=${isDevelopment}, foundryResponsesOnly=${foundryResponsesOnly}`);
 
 const server = express();
 
@@ -78,10 +93,34 @@ function scheduledSecretFromRequest(req: express.Request): string | undefined {
   return undefined;
 }
 
+function hasConfiguredValue(value: string | undefined): boolean {
+  return Boolean(value && !/<[^>]+>/.test(value) && !/your-|example|\.\.\.|optional-/i.test(value));
+}
+
+function graphReadiness(): Record<string, unknown> {
+  const graphClientCredentials = hasConfiguredValue(process.env.MicrosoftAppTenantId)
+    && hasConfiguredValue(process.env.MicrosoftAppId)
+    && hasConfiguredValue(process.env.MicrosoftAppPassword);
+  const graphSendMailCredentials = hasConfiguredValue(process.env.MORGAN_GRAPH_TENANT_ID || process.env.MicrosoftAppTenantId)
+    && hasConfiguredValue(process.env.MORGAN_GRAPH_CLIENT_ID || process.env.MicrosoftAppId)
+    && hasConfiguredValue(process.env.MORGAN_GRAPH_CLIENT_SECRET || process.env.MicrosoftAppPassword);
+  return {
+    mcpPlatformEndpointConfigured: hasConfiguredValue(process.env.MCP_PLATFORM_ENDPOINT),
+    graphClientCredentialsConfigured: graphClientCredentials,
+    graphSendMailConfigured: graphSendMailCredentials
+      && hasConfiguredValue(process.env.MORGAN_GRAPH_SENDMAIL_USER || process.env.MORGAN_MAILBOX_UPN || process.env.AGENT_MAILBOX_UPN || process.env.AGENTIC_USER_UPN || process.env.CFO_EMAIL),
+    peopleLookupPath: hasConfiguredValue(process.env.MCP_PLATFORM_ENDPOINT)
+      ? 'Agent 365 WorkIQ MCP People/Directory, then Microsoft Graph fallback'
+      : graphClientCredentials
+        ? 'Microsoft Graph /v1.0/users fallback'
+        : 'Configured contacts only until MCP or Graph credentials are supplied',
+    noSecretValuesReturned: true,
+  };
+}
+
 function runtimeReadiness(): Record<string, unknown> {
   const subAgents = getSubAgentRegistry();
   const agentStorage = getAgentStorageStatus();
-  const hasConfiguredValue = (value: string | undefined): boolean => Boolean(value && !/<[^>]+>/.test(value) && !/your-|example|\.\.\.|optional-/i.test(value));
   return {
     azureOpenAI: hasConfiguredValue(process.env.AZURE_OPENAI_ENDPOINT) && hasConfiguredValue(process.env.AZURE_OPENAI_DEPLOYMENT),
     voiceLive: hasConfiguredValue(process.env.VOICELIVE_ENDPOINT) || hasConfiguredValue(process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT),
@@ -103,6 +142,72 @@ function safeLocalRedirectPath(value: unknown): string {
   return value;
 }
 
+function numberFromUnknown(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function resultInformationFromData(data: Record<string, unknown> | undefined): { code?: number; subCode?: number; message?: string } | undefined {
+  const raw = data?.resultInformation;
+  if (!raw || typeof raw !== 'object') return undefined;
+  const info = raw as Record<string, unknown>;
+  const code = numberFromUnknown(info.code);
+  const subCode = numberFromUnknown(info.subCode ?? info.subcode);
+  const message = typeof info.message === 'string' ? info.message.slice(0, 300) : undefined;
+  return { code, subCode, message };
+}
+
+function teamsCallOperatorAction(result?: { code?: number; subCode?: number; message?: string }): string | undefined {
+  if (!result?.code) return undefined;
+  if (result.code === 403 && result.subCode === 10391) {
+    return 'Teams rejected the ACS federated call. Verify Set-CsTeamsAcsFederationConfiguration uses the immutable ACS resource ID, Set-CsExternalAccessPolicy enables ACS federation for the target user, and the target has Teams Phone/Enterprise Voice eligibility.';
+  }
+  if (result.code === 403) {
+    return 'Teams or ACS rejected the call as forbidden. Check ACS federation allowlisting, target-user policy, Teams licensing, and source/target tenant alignment.';
+  }
+  if (result.code === 480) {
+    return 'The Teams target was not reachable. Confirm the user is signed in to Teams and available, then retry.';
+  }
+  return undefined;
+}
+
+function recentTeamsCallDiagnostics(): {
+  latestOutcome?: Record<string, unknown>;
+  recentEvents: Array<Record<string, unknown>>;
+} {
+  const interestingKinds = new Set([
+    'mission-control.teams-call.requested',
+    'teams.call.started',
+    'teams.call.connected',
+    'teams.call.disconnected',
+    'teams.call.failed',
+    'teams.call.media.failed',
+  ]);
+  const recentEvents = getRecentAuditEvents(80)
+    .filter((event) => interestingKinds.has(event.kind))
+    .slice(0, 8)
+    .map((event) => {
+      const data = event.data || {};
+      const resultInformation = resultInformationFromData(data);
+      const failed = event.kind === 'teams.call.failed' || (event.kind === 'teams.call.disconnected' && Boolean(resultInformation?.code && resultInformation.code >= 400));
+      return {
+        timestamp: event.timestamp,
+        kind: event.kind,
+        severity: event.severity,
+        label: event.label,
+        status: failed ? 'failed' : event.kind.replace(/^teams\.call\./, '').replace(/^mission-control\.teams-call\./, ''),
+        durationSec: numberFromUnknown(data.durationSec),
+        resultInformation,
+        operatorAction: teamsCallOperatorAction(resultInformation),
+      };
+    });
+  return { latestOutcome: recentEvents[0], recentEvents };
+}
+
 // Health endpoint (no auth required) — also exposes voice gate status
 server.get('/', (_req, res: Response) => {
   res.redirect(302, '/mission-control');
@@ -117,12 +222,36 @@ server.get('/api/health', (_req, res: Response) => {
     configuration: runtimeReadiness(),
     acsCallingConfigured: isAcsConfigured(),
     teamsFederationCalling: getTeamsFederationCallingStatus(),
+    agenticKanban: getAgenticKanbanLink(),
     missionControl: '/mission-control',
     timestamp: new Date().toISOString(),
   });
 });
 
 registerMicrosoftWebAuthRoutes(server);
+
+server.get('/api/workiq/status', requireEasyAuth, async (_req: express.Request, res: Response) => {
+  try {
+    const identity = getMorganIdentity();
+    const workIQ = await getWorkIQStatus();
+    const payload = sanitizeMissionControlPayload({
+      ok: true,
+      statement: 'Morgan, the Digital CFO, uses WorkIQ as the production proof point: Agent 365 MCP and Microsoft Graph provide Mail, Calendar, Teams, SharePoint, OneDrive, Planner, Word, Excel, People, and meeting-context access when configured.',
+      identity,
+      workIQ,
+      graph: graphReadiness(),
+      mockPolicy: {
+        workIQ: 'Live Agent 365 MCP / Microsoft Graph path, with configured-contact fallback only when tenant credentials are absent.',
+        foundryIQ: 'May be mocked for the demo until Foundry knowledge indexes, traces, and eval datasets are connected.',
+        fabricIQ: 'May be mocked for the demo until Fabric/Power BI finance semantic models are connected.',
+      },
+      timestamp: new Date().toISOString(),
+    });
+    res.status(200).json(payload);
+  } catch (err: unknown) {
+    res.status(500).json(sanitizeMissionControlPayload({ ok: false, error: err instanceof Error ? err.message : String(err), timestamp: new Date().toISOString() }));
+  }
+});
 
 server.all('/.auth/login/aad/callback', (req: express.Request, res: Response) => {
   res.redirect(302, safeLocalRedirectPath(req.query.post_login_redirect_uri || req.query.redir));
@@ -158,6 +287,11 @@ server.get('/avatar', (_req, res: Response) => {
   res.sendFile(path.join(__dirname, 'voice', 'voice.html'));
 });
 
+// D-ID humanoid avatar variant (same UI shell as /voice with the D-ID engine in the stage).
+server.get('/voice/did', (_req, res: Response) => {
+  res.sendFile(path.join(__dirname, 'voice', 'did-voice.html'));
+});
+
 // Static avatar assets (background photos, etc.) bundled by scripts/copy-static.cjs.
 // fallthrough: false so missing files return a clean 404 instead of dropping into the
 // downstream JWT auth gate (which would otherwise turn /voice/assets/foo.jpg into 401).
@@ -170,6 +304,9 @@ server.use(
 );
 
 registerAvatarRoutes(server, requireEasyAuth);
+
+// D-ID humanoid avatar routes (separate platform).
+server.use('/api/avatar/did', requireEasyAuth, didAvatarRouter);
 
 server.get('/api/voice', requireEasyAuth, (_req, res: Response) => {
   res.status(426).json({
@@ -190,6 +327,20 @@ server.use(['/api/mission-control', '/api/observability', '/api/audit/events'], 
 server.get('/mission-control', (_req, res: Response) => {
   res.sendFile(path.join(__dirname, 'mission', 'mission-control.html'));
 });
+server.get('/mission-control/live', (_req, res: Response) => {
+  res.sendFile(path.join(__dirname, 'mission', 'mission-control.html'));
+});
+server.get('/mission-control/avatar-toggle-ui.js', (_req, res: Response) => {
+  res.type('application/javascript');
+  res.sendFile(path.join(__dirname, 'mission', 'avatar-toggle-ui.js'));
+});
+server.get(['/approvals', '/hitl-approvals'], requireEasyAuth, (_req: express.Request, res: Response) => {
+  res.sendFile(path.join(__dirname, 'mission', 'hitl-approvals.html'));
+});
+server.get('/agentic-kanban', (_req: express.Request, res: Response) => {
+  const link = getAgenticKanbanLink();
+  res.redirect(302, link.url);
+});
 server.get('/mission-control/mockup', (_req, res: Response) => {
   res.sendFile(path.join(__dirname, 'mission', 'mission-control-mockup.html'));
 });
@@ -198,6 +349,173 @@ server.get('/mission-control/costs', (_req, res: Response) => {
 });
 server.get('/api/mission-control', requireEasyAuth, (_req, res: Response) => {
   res.status(200).json(getMissionControlSnapshot());
+});
+server.get('/api/mission-control/agentic-kanban', requireEasyAuth, (_req, res: Response) => {
+  res.status(200).json(getAgenticKanbanLink());
+});
+server.get('/api/mission-control/retrospectives', requireEasyAuth, (_req, res: Response) => {
+  res.status(200).json(getRetrospectiveHistory());
+});
+server.get('/api/mission-control/governance', requireEasyAuth, (req: express.Request, res: Response) => {
+  const traceLimit = Math.min(Math.max(Number(req.query?.traces) || 12, 1), 50);
+  const agentEvents = getRecentAgentEvents({ limit: 500 });
+  const auditEvents = getRecentAuditEvents(200);
+
+  const auditByCorrelation = new Map<string, typeof auditEvents>();
+  for (const event of auditEvents) {
+    const key = event.correlationId || 'uncorrelated';
+    const bucket = auditByCorrelation.get(key) || [];
+    bucket.push(event);
+    auditByCorrelation.set(key, bucket);
+  }
+
+  const traceOrder: string[] = [];
+  const traceMap = new Map<string, typeof agentEvents>();
+  for (const event of agentEvents) {
+    const key = event.correlationId || 'uncorrelated';
+    if (!traceMap.has(key)) {
+      traceMap.set(key, []);
+      traceOrder.push(key);
+    }
+    traceMap.get(key)!.push(event);
+  }
+
+  const traces = traceOrder.slice(0, traceLimit).map((correlationId) => {
+    const steps = (traceMap.get(correlationId) || []).slice().sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+    const audits = (auditByCorrelation.get(correlationId) || []).slice().sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const promptEvent = steps.find((step) => step.kind === 'agent.message');
+    const replyEvent = [...steps].reverse().find((step) => step.kind === 'agent.reply');
+    const toolEvents = steps.filter((step) => step.kind === 'tool.call' || step.kind === 'tool.result');
+    const reasoningSteps = steps
+      .filter((step) => step.kind === 'llm.turn' || step.kind === 'agent.reply')
+      .map((step) => (step.data?.reasoningSummary as string | undefined))
+      .filter((summary): summary is string => Boolean(summary));
+    const toolsSelected = Array.from(new Set(
+      steps.flatMap((step) => {
+        const calls = step.data?.toolCalls;
+        if (Array.isArray(calls)) return calls.map((call) => String(call));
+        if (step.kind === 'tool.call' && step.data?.tool) return [String(step.data.tool)];
+        return [];
+      }),
+    ));
+    const hitlAudit = audits.find((audit) => audit.kind.startsWith('hitl.'));
+    const severity = audits.some((audit) => audit.severity === 'error')
+      ? 'error'
+      : audits.some((audit) => audit.severity === 'warning')
+        ? 'warning'
+        : 'info';
+    const startedTs = steps[0]?.ts || audits[0]?.timestamp;
+    const endedTs = steps[steps.length - 1]?.ts || audits[audits.length - 1]?.timestamp;
+    return {
+      correlationId,
+      startedAt: startedTs,
+      endedAt: endedTs,
+      severity,
+      prompt: (promptEvent?.data?.promptPreview as string | undefined) || null,
+      response: (replyEvent?.data?.responsePreview as string | undefined) || null,
+      chainOfThought: reasoningSteps,
+      toolsSelected,
+      stepCount: steps.length,
+      toolCallCount: toolEvents.filter((step) => step.kind === 'tool.call').length,
+      hitlGate: hitlAudit ? { kind: hitlAudit.kind, label: hitlAudit.label, decision: hitlAudit.data?.decision ?? null } : null,
+      steps: steps.map((step) => ({
+        id: step.id,
+        ts: step.ts,
+        kind: step.kind,
+        label: step.label,
+        status: step.status,
+        durationMs: step.durationMs,
+        data: step.data || {},
+      })),
+      audit: audits.map((audit) => ({
+        id: audit.id,
+        timestamp: audit.timestamp,
+        kind: audit.kind,
+        label: audit.label,
+        severity: audit.severity,
+        actor: audit.actor || null,
+      })),
+    };
+  });
+
+  const stats = getAgentEventStats();
+  res.status(200).json(sanitizeMissionControlPayload({
+    traces,
+    auditEvents: auditEvents.slice(0, 60),
+    observability: getObservabilityStatus(),
+    stats: {
+      traceCount: traces.length,
+      auditEventCount: auditEvents.length,
+      reasoningTurns: stats.byKind['llm.turn'] || 0,
+      toolCalls: (stats.byKind['tool.call'] || 0),
+      governanceGates: auditEvents.filter((event) => event.kind.startsWith('hitl.')).length,
+      warnings: auditEvents.filter((event) => event.severity === 'warning').length,
+      errors: auditEvents.filter((event) => event.severity === 'error').length,
+      last5min: stats.last5min,
+    },
+    timestamp: new Date().toISOString(),
+  }));
+});
+function requireMissionControlOrScheduledSecret(req: express.Request, res: Response, next: express.NextFunction): void {
+  if (verifyScheduledSecret(scheduledSecretFromRequest(req))) {
+    next();
+    return;
+  }
+  requireEasyAuth(req as EasyAuthRequest, res, next);
+}
+server.get('/api/mission-control/corpgen-report', requireMissionControlOrScheduledSecret, (req: express.Request, res: Response) => {
+  const requestedFormat = typeof req.query?.format === 'string' ? req.query.format : undefined;
+  if (!requestedFormat) {
+    res.status(200).json(getCorpGenReportAvailability());
+    return;
+  }
+  const report = getCorpGenReportDownload(requestedFormat);
+  if (!report) {
+    res.status(404).json({ ok: false, error: 'No archived CFO report is available yet. Run the autonomous CFO workday, then try again.' });
+    return;
+  }
+  const safeName = report.downloadName.replace(/["\r\n]/g, '_');
+  const download = req.query?.download === '1' || req.query?.download === 'true' || report.format === 'doc';
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Content-Type', report.contentType);
+  res.setHeader('Content-Disposition', `${download ? 'attachment' : 'inline'}; filename="${safeName}"`);
+  res.sendFile(report.absolutePath);
+});
+server.get('/api/hitl/approvals', requireEasyAuth, (_req: express.Request, res: Response) => {
+  res.status(200).json(listHitlApprovalRequests({ status: 'all' }));
+});
+server.get('/api/hitl/approvals/surface', requireEasyAuth, (req: express.Request, res: Response) => {
+  res.status(200).json(getHitlApprovalSurface({ requestId: typeof req.query?.requestId === 'string' ? req.query.requestId : undefined }));
+});
+server.post('/api/hitl/approvals/send-mod-card', requireEasyAuth, async (req: express.Request, res: Response) => {
+  const body = req.body || {};
+  const result = await sendHitlApprovalCardToModAdministrator({
+    requestId: typeof body.requestId === 'string' ? body.requestId : undefined,
+    level: body.level === 'L3' ? 'L3' : 'L2',
+  });
+  res.status(result.ok ? 200 : 409).json(result);
+});
+server.post('/api/hitl/approvals/:id/decision', requireEasyAuth, (req: EasyAuthRequest, res: Response) => {
+  const decision = typeof req.body?.decision === 'string' ? req.body.decision : '';
+  if (!['approve', 'approve_with_edits', 'decline', 'cancel'].includes(decision)) {
+    res.status(400).json({ ok: false, error: 'decision must be approve, approve_with_edits, decline, or cancel' });
+    return;
+  }
+  const result = recordHitlApprovalDecision({
+    requestId: req.params.id,
+    decision: decision as Parameters<typeof recordHitlApprovalDecision>[0]['decision'],
+    decidedBy: req.easyAuthPrincipal?.name || req.easyAuthPrincipal?.email || 'Morgan approval operator',
+    rationale: typeof req.body?.rationale === 'string' ? req.body.rationale : undefined,
+    editedBody: typeof req.body?.editedBody === 'string' ? req.body.editedBody : undefined,
+  });
+  recordAuditEvent({
+    kind: result.ok ? 'hitl.approval.decision' : 'hitl.approval.failed',
+    label: result.ok ? `HITL approval ${decision} recorded` : 'HITL approval decision failed',
+    actor: req.easyAuthPrincipal?.name || req.easyAuthPrincipal?.email || 'Morgan approval operator',
+    severity: result.ok ? 'info' : 'warning',
+    data: { requestId: req.params.id, decision, status: result.request?.status, error: result.error },
+  });
+  res.status(result.ok ? 200 : 409).json(result);
 });
 server.get('/api/mission-control/costs', requireEasyAuth, async (_req, res: Response) => {
   res.status(200).json(await getMorganCostDashboard());
@@ -265,6 +583,7 @@ server.post('/api/mission-control/run-workday', (req: express.Request, res: Resp
 });
 
 server.get('/api/mission-control/teams-call/status', requireEasyAuth, (_req: express.Request, res: Response) => {
+  const diagnostics = recentTeamsCallDiagnostics();
   res.status(200).json({
     ok: true,
     status: getTeamsFederationCallingStatus(),
@@ -274,6 +593,8 @@ server.get('/api/mission-control/teams-call/status', requireEasyAuth, (_req: exp
       targetDisplayName: process.env.CFO_DISPLAY_NAME || process.env.CFO_EMAIL || 'CFO/operator',
       voice: process.env.ACS_REALTIME_VOICE || 'verse',
     },
+    latestOutcome: diagnostics.latestOutcome,
+    recentEvents: diagnostics.recentEvents,
     videoPresence: getTeamsFederationCallingStatus().videoPresence,
     timestamp: new Date().toISOString(),
   });
@@ -437,6 +758,7 @@ server.post('/api/scheduled', async (req: express.Request, res: Response) => {
   }
   try {
     console.log('Scheduled briefing triggered via /api/scheduled');
+    const { runAutonomousBriefing } = await loadMorganAgentModule();
     await runAutonomousBriefing();
     res.status(200).json({ status: 'briefing_complete', timestamp: new Date().toISOString() });
   } catch (err: unknown) {
@@ -453,6 +775,7 @@ server.post('/api/scheduled/end-of-day', async (req: express.Request, res: Respo
   }
   try {
     console.log('End-of-day CFO report triggered via /api/scheduled/end-of-day');
+    const { runEndOfDayReport } = await loadMorganAgentModule();
     await runEndOfDayReport();
     res.status(200).json({ status: 'end_of_day_complete', timestamp: new Date().toISOString() });
   } catch (err: unknown) {
@@ -492,6 +815,7 @@ server.use((req, res, next) => {
     '/api/audit/events',
     '/responses',
     '/responses/health',
+    '/readiness',
   ];
   if (req.path.startsWith('/.auth/') || publicPaths.some(p => req.path === p)) {
     return next();
@@ -500,23 +824,35 @@ server.use((req, res, next) => {
 });
 
 // Main messages endpoint — uses CloudAdapter (correct pattern per Agent 365 SDK)
-server.post('/api/messages', (req: Request, res: Response) => {
-  const adapter = agentApplication.adapter as CloudAdapter;
-  adapter.process(req, res, async (context) => {
-    await agentApplication.run(context);
-  });
+server.post('/api/messages', async (req: Request, res: Response) => {
+  try {
+    const { agentApplication } = await loadMorganAgentModule();
+    const adapter = agentApplication.adapter as CloudAdapter;
+    adapter.process(req, res, async (context) => {
+      await agentApplication.run(context);
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(503).json({ error: 'Morgan Teams adapter is not available.', detail: message });
+  }
 });
 
 // Agent-to-Agent (A2A) messages endpoint — same processing, separate logging
-server.post('/api/agent-messages', (req: Request, res: Response) => {
+server.post('/api/agent-messages', async (req: Request, res: Response) => {
   console.log('A2A message received from:', req.headers['x-agent-id'] || 'unknown-agent');
-  const adapter = agentApplication.adapter as CloudAdapter;
-  adapter.process(req, res, async (context) => {
-    await agentApplication.run(context);
-  });
+  try {
+    const { agentApplication } = await loadMorganAgentModule();
+    const adapter = agentApplication.adapter as CloudAdapter;
+    adapter.process(req, res, async (context) => {
+      await agentApplication.run(context);
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(503).json({ error: 'Morgan A2A adapter is not available.', detail: message });
+  }
 });
 
-const port = Number(process.env.PORT) || 3978;
+const port = Number(process.env.PORT) || (isDevelopment ? 3978 : 8088);
 const host = process.env.HOST ?? (isDevelopment ? 'localhost' : '0.0.0.0');
 
 // Create raw HTTP server to intercept voice gate before Express/JWT middleware
@@ -538,9 +874,32 @@ httpServer.listen(port, host, () => {
   console.log(`Mission Control: http://${host}:${port}/mission-control`);
   console.log(`Foundry Responses endpoint: http://${host}:${port}/responses`);
 
-  // Wire the adapter into the proactive monitor so it can send messages outside of turns
-  setAdapter(agentApplication.adapter as CloudAdapter);
-  console.log('Proactive P&L monitor ready — users can say "start monitoring" to activate');
+  if (foundryResponsesOnly) {
+    console.log('Foundry responses-only mode enabled; skipping Teams/A2A adapter initialization.');
+  } else {
+    void loadMorganAgentModule()
+      .then(({ agentApplication, credential }) => {
+        // Wire the adapter into the proactive monitor so it can send messages outside of turns
+        setAdapter(agentApplication.adapter as CloudAdapter);
+        console.log('Proactive P&L monitor ready — users can say "start monitoring" to activate');
+
+        // Pre-warm managed identity token to avoid first-message IMDS cold-start delay (~60s)
+        if (!isDevelopment) {
+          credential.getToken('https://cognitiveservices.azure.com/.default')
+            .then(() => console.log('Managed identity token pre-warmed successfully'))
+            .catch((err: unknown) => console.warn('Token pre-warm failed (will retry on first message):', err));
+        }
+      })
+      .catch((err: unknown) => {
+        console.error('Morgan Teams/A2A adapter initialization failed:', err);
+        recordAuditEvent({
+          kind: 'server.adapter.failed',
+          label: 'Morgan Teams/A2A adapter initialization failed',
+          severity: 'error',
+          data: { error: err instanceof Error ? err.message : String(err) },
+        });
+      });
+  }
 
   // Attach Voice Live WebSocket proxy to the HTTP server
   attachVoiceWebSocket(httpServer);
@@ -556,13 +915,6 @@ httpServer.listen(port, host, () => {
     label: 'Morgan server started',
     data: { host, port, missionControl: '/mission-control', responses: '/responses' },
   });
-
-  // Pre-warm managed identity token to avoid first-message IMDS cold-start delay (~60s)
-  if (!isDevelopment) {
-    credential.getToken('https://cognitiveservices.azure.com/.default')
-      .then(() => console.log('Managed identity token pre-warmed successfully'))
-      .catch((err: unknown) => console.warn('Token pre-warm failed (will retry on first message):', err));
-  }
 });
 httpServer.on('error', (err: unknown) => {
   console.error(err);

@@ -1,6 +1,6 @@
 import { DefaultAzureCredential } from '@azure/identity';
 import { getRecentAgentEvents, type AgentEvent } from '../observability/agentEvents';
-import { getRecentMissionTaskRecords } from './missionControl';
+import { getCfoImpactRoadmap, getRecentMissionTaskRecords } from './missionControl';
 
 const credential = new DefaultAzureCredential();
 
@@ -52,11 +52,18 @@ interface DailyCostPoint {
 
 interface CostRateConfig {
   currency: string;
+  avatarReadinessDaily: number;
   avatarSessionMinute: number;
   teamsCallMinute: number;
+  foundryDailyBaseline: number;
   llmTurn: number;
   toolCall: number;
+  financeAutomationDailyBaseline: number;
+  financeCompletedTask: number;
+  m365E5Monthly: number;
+  microsoftIqDailyBaseline: number;
   mcpGraphCall: number;
+  fabricDailyBaseline: number;
   foundryTraceOrEval: number;
   fabricQuery: number;
   computeDailyFallback: number;
@@ -66,6 +73,47 @@ interface CostRateConfig {
   hoursPerCompletedTask: number;
   defaultVoiceSessionMinutes: number;
   defaultTeamsCallMinutes: number;
+}
+
+export interface AgentUnitEconomics {
+  generatedAt: string;
+  currency: string;
+  verdict: 'cost-effective' | 'business-case-positive' | 'watch' | 'not-yet-cost-effective';
+  verdictLabel: string;
+  weekly: {
+    operatingCost: number;
+    observedValue: number;
+    netValue: number;
+    benefitCostRatio: number;
+    hoursSaved: number;
+    completedTasks: number;
+    costPerCompletedTask: number;
+    valuePerCompletedTask: number;
+    costEffective: boolean;
+    formula: string;
+  };
+  annualBusinessCase: {
+    operatingCost: number;
+    monthlyOperatingCost: number;
+    riskAdjustedValue: number;
+    monthlyRiskAdjustedValue: number;
+    netValue: number;
+    benefitCostRatio: number;
+    costEffective: boolean;
+    formula: string;
+    valueSource: string;
+  };
+  unit: {
+    activeWorkstreams: number;
+    costPerWorkstreamWeekly: number;
+    costPerWorkstreamMonthly: number;
+    costPerWorkstreamAnnual: number;
+    valuePerWorkstreamMonthly: number;
+    breakEvenWorkstreamsPerMonth: number;
+    breakEvenPctOfCurrentPortfolio: number;
+  };
+  costMix: Array<{ id: string; label: string; weeklyCost: number; sharePct: number; source: CostSource }>;
+  assumptions: string[];
 }
 
 let cachedAzureCostSnapshot: AzureCostSnapshot | null = null;
@@ -95,6 +143,7 @@ export interface MorganCostDashboard {
     valueToCostRatio: number;
     costPerCompletedTask: number;
   };
+  economics: AgentUnitEconomics;
   activity: {
     daily: Record<string, number>;
     weekly: Record<string, number>;
@@ -132,11 +181,18 @@ function azureCostStaleMs(): number {
 function getRates(): CostRateConfig {
   return {
     currency: process.env.MORGAN_COST_CURRENCY || 'USD',
+    avatarReadinessDaily: parseNumberEnv('MORGAN_COST_AVATAR_READINESS_DAILY', 1.2),
     avatarSessionMinute: parseNumberEnv('MORGAN_COST_AVATAR_SESSION_MINUTE', 0.12),
     teamsCallMinute: parseNumberEnv('MORGAN_COST_TEAMS_CALL_MINUTE', 0.08),
+    foundryDailyBaseline: parseNumberEnv('MORGAN_COST_FOUNDRY_DAILY_BASELINE', 4.75),
     llmTurn: parseNumberEnv('MORGAN_COST_LLM_TURN', 0.025),
     toolCall: parseNumberEnv('MORGAN_COST_TOOL_CALL', 0.003),
+    financeAutomationDailyBaseline: parseNumberEnv('MORGAN_COST_FINANCE_AUTOMATION_DAILY_BASELINE', 2),
+    financeCompletedTask: parseNumberEnv('MORGAN_COST_FINANCE_COMPLETED_TASK', 0.2),
+    m365E5Monthly: parseNumberEnv('MORGAN_COST_M365_E5_MONTHLY', 57),
+    microsoftIqDailyBaseline: parseNumberEnv('MORGAN_COST_MICROSOFT_IQ_DAILY_BASELINE', 1.25),
     mcpGraphCall: parseNumberEnv('MORGAN_COST_MCP_GRAPH_CALL', 0.002),
+    fabricDailyBaseline: parseNumberEnv('MORGAN_COST_FABRIC_IQ_DAILY_BASELINE', 1.5),
     foundryTraceOrEval: parseNumberEnv('MORGAN_COST_FOUNDRY_TRACE_OR_EVAL', 0.04),
     fabricQuery: parseNumberEnv('MORGAN_COST_FABRIC_QUERY', 0.03),
     computeDailyFallback: parseNumberEnv('MORGAN_COST_COMPUTE_DAILY_FALLBACK', 1.75),
@@ -339,17 +395,18 @@ function sumAzure(rows: AzureCostRow[], category: string, date?: string): number
     .reduce((sum, row) => sum + row.cost, 0);
 }
 
-function estimateCosts(activity: Record<string, number>, rates: CostRateConfig): Record<string, number> {
+function estimateCosts(activity: Record<string, number>, rates: CostRateConfig, periodDays = 1): Record<string, number> {
   const voiceMinutes = activity.voiceSessions * rates.defaultVoiceSessionMinutes;
   const teamsMinutes = activity.teamsCalls * rates.defaultTeamsCallMinutes;
+  const e5LicenseCost = (rates.m365E5Monthly / 30.4) * periodDays;
   return {
-    'voice-avatar': (voiceMinutes * rates.avatarSessionMinute) + (teamsMinutes * rates.teamsCallMinute),
-    'foundry-ai': (activity.llmTurns * rates.llmTurn) + (activity.foundrySignals * rates.foundryTraceOrEval),
-    'agent365-microsoft-iq': rates.agent365Daily + (activity.mcpGraphCalls * rates.mcpGraphCall),
-    'fabric-iq': activity.fabricSignals * rates.fabricQuery,
-    'tools-integration': Math.max(0, activity.toolCalls + activity.toolResults - activity.mcpGraphCalls) * rates.toolCall,
-    compute: rates.computeDailyFallback,
-    'storage-observability': rates.storageObservabilityDailyFallback,
+    'voice-avatar': (rates.avatarReadinessDaily * periodDays) + (voiceMinutes * rates.avatarSessionMinute) + (teamsMinutes * rates.teamsCallMinute),
+    'foundry-ai': (rates.foundryDailyBaseline * periodDays) + (activity.llmTurns * rates.llmTurn) + (activity.foundrySignals * rates.foundryTraceOrEval),
+    'agent365-microsoft-iq': (rates.agent365Daily * periodDays) + (rates.microsoftIqDailyBaseline * periodDays) + e5LicenseCost + (activity.mcpGraphCalls * rates.mcpGraphCall),
+    'fabric-iq': (rates.fabricDailyBaseline * periodDays) + (activity.fabricSignals * rates.fabricQuery),
+    'tools-integration': (rates.financeAutomationDailyBaseline * periodDays) + (Math.max(0, activity.toolCalls + activity.toolResults - activity.mcpGraphCalls) * rates.toolCall) + (activity.completedTasks * rates.financeCompletedTask),
+    compute: rates.computeDailyFallback * periodDays,
+    'storage-observability': rates.storageObservabilityDailyFallback * periodDays,
   };
 }
 
@@ -358,27 +415,27 @@ function categoryDefinition(id: string): { label: string; description: string; d
     'voice-avatar': {
       label: 'Realtime Avatar + Teams Voice',
       description: 'Azure Voice Live, Speech avatar relay, ACS media streaming, and Teams federation audio.',
-      drivers: ['Avatar session minutes', 'Teams call minutes', 'Speech/ACS meters'],
+      drivers: ['Production readiness baseline', 'Avatar session minutes', 'Teams call minutes', 'Speech/ACS meters'],
     },
     'foundry-ai': {
       label: 'Foundry + AI Inference',
       description: 'Azure OpenAI / Foundry model turns, hosted responses, traces, evaluation, and reasoning loops.',
-      drivers: ['LLM turns', 'Foundry traces', 'Evaluation signals'],
+      drivers: ['Hosted-agent readiness baseline', 'LLM turns', 'Foundry traces', 'Evaluation signals'],
     },
     'agent365-microsoft-iq': {
       label: 'Agent 365 + Microsoft IQ',
       description: 'Agent identity, WorkIQ, Microsoft 365 Graph, MCP tool calls, and governed enterprise context.',
-      drivers: ['Agent user/license assumptions', 'Graph calls', 'MCP invocations'],
+      drivers: ['Morgan E5 license', 'Agent 365 / WorkIQ baseline', 'Graph calls', 'MCP invocations'],
     },
     'fabric-iq': {
       label: 'Fabric IQ + Business Data',
       description: 'Fabric/Power BI semantic model reads and cross-functional business insight lookups.',
-      drivers: ['Semantic model queries', 'Capacity/licensing assumptions'],
+      drivers: ['Semantic model readiness baseline', 'Semantic model queries', 'Capacity/licensing assumptions'],
     },
     'tools-integration': {
       label: 'Finance Tools + Automations',
       description: 'Budget analysis, KPI reports, anomaly detection, report creation, scheduler and sub-agent handoffs.',
-      drivers: ['Tool calls', 'Planner/Word/Mail actions', 'Autonomous runs'],
+      drivers: ['Autonomous finance workday baseline', 'Completed CFO task work', 'Tool calls', 'Planner/Word/Mail actions'],
     },
     compute: {
       label: 'Compute + Hosting',
@@ -396,6 +453,103 @@ function categoryDefinition(id: string): { label: string; description: string; d
 
 function roundMoney(value: number): number {
   return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function ratio(numerator: number, denominator: number): number {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return 0;
+  return roundMoney(numerator / denominator);
+}
+
+function buildAgentUnitEconomics(input: {
+  generatedAt: string;
+  currency: string;
+  weeklyRunRate: number;
+  estimatedValueWeekly: number;
+  estimatedHoursSavedWeekly: number;
+  completedTasksWeekly: number;
+  categories: CategoryEstimate[];
+}): AgentUnitEconomics {
+  const roadmap = getCfoImpactRoadmap();
+  const weeklyOperatingCost = roundMoney(input.weeklyRunRate);
+  const monthlyOperatingCost = roundMoney(weeklyOperatingCost * 52 / 12);
+  const annualOperatingCost = roundMoney(weeklyOperatingCost * 52);
+  const observedWeeklyValue = roundMoney(input.estimatedValueWeekly);
+  const observedWeeklyNetValue = roundMoney(observedWeeklyValue - weeklyOperatingCost);
+  const weeklyBenefitCostRatio = ratio(observedWeeklyValue, weeklyOperatingCost);
+  const riskAdjustedAnnualValue = roundMoney(roadmap.summary.riskAdjustedAnnualValueUsd || 0);
+  const monthlyRiskAdjustedValue = roundMoney(riskAdjustedAnnualValue / 12);
+  const annualNetValue = roundMoney(riskAdjustedAnnualValue - annualOperatingCost);
+  const annualBenefitCostRatio = ratio(riskAdjustedAnnualValue, annualOperatingCost);
+  const activeWorkstreams = roadmap.summary.workstreamCount || 0;
+  const valuePerWorkstreamMonthly = activeWorkstreams > 0 ? roundMoney(monthlyRiskAdjustedValue / activeWorkstreams) : 0;
+  const breakEvenWorkstreamsPerMonth = valuePerWorkstreamMonthly > 0 ? roundMoney(monthlyOperatingCost / valuePerWorkstreamMonthly) : 0;
+  const annualCostEffective = annualNetValue >= 0;
+  const weeklyCostEffective = observedWeeklyNetValue >= 0;
+  const verdict: AgentUnitEconomics['verdict'] = weeklyCostEffective && annualCostEffective
+    ? 'cost-effective'
+    : annualCostEffective
+      ? 'business-case-positive'
+      : weeklyBenefitCostRatio >= 0.8 || annualBenefitCostRatio >= 0.8
+        ? 'watch'
+        : 'not-yet-cost-effective';
+  const verdictLabel = verdict === 'cost-effective'
+    ? 'Cost effective'
+    : verdict === 'business-case-positive'
+      ? 'Business case positive'
+      : verdict === 'watch'
+        ? 'Watch economics'
+        : 'Not yet cost effective';
+  return {
+    generatedAt: input.generatedAt,
+    currency: input.currency,
+    verdict,
+    verdictLabel,
+    weekly: {
+      operatingCost: weeklyOperatingCost,
+      observedValue: observedWeeklyValue,
+      netValue: observedWeeklyNetValue,
+      benefitCostRatio: weeklyBenefitCostRatio,
+      hoursSaved: input.estimatedHoursSavedWeekly,
+      completedTasks: input.completedTasksWeekly,
+      costPerCompletedTask: input.completedTasksWeekly > 0 ? roundMoney(weeklyOperatingCost / input.completedTasksWeekly) : 0,
+      valuePerCompletedTask: input.completedTasksWeekly > 0 ? roundMoney(observedWeeklyValue / input.completedTasksWeekly) : 0,
+      costEffective: weeklyCostEffective,
+      formula: 'weekly observed net value = estimated CFO hours-saved value this week - Morgan weekly operating cost',
+    },
+    annualBusinessCase: {
+      operatingCost: annualOperatingCost,
+      monthlyOperatingCost,
+      riskAdjustedValue: riskAdjustedAnnualValue,
+      monthlyRiskAdjustedValue,
+      netValue: annualNetValue,
+      benefitCostRatio: annualBenefitCostRatio,
+      costEffective: annualCostEffective,
+      formula: 'annual business-case net value = CFO impact roadmap risk-adjusted annual value - annualized Morgan weekly run-rate',
+      valueSource: 'Mission Control CFO impact roadmap risk-adjusted annual value',
+    },
+    unit: {
+      activeWorkstreams,
+      costPerWorkstreamWeekly: activeWorkstreams > 0 ? roundMoney(weeklyOperatingCost / activeWorkstreams) : 0,
+      costPerWorkstreamMonthly: activeWorkstreams > 0 ? roundMoney(monthlyOperatingCost / activeWorkstreams) : 0,
+      costPerWorkstreamAnnual: activeWorkstreams > 0 ? roundMoney(annualOperatingCost / activeWorkstreams) : 0,
+      valuePerWorkstreamMonthly,
+      breakEvenWorkstreamsPerMonth,
+      breakEvenPctOfCurrentPortfolio: activeWorkstreams > 0 ? roundMoney((breakEvenWorkstreamsPerMonth / activeWorkstreams) * 100) : 0,
+    },
+    costMix: input.categories.map((category) => ({
+      id: category.id,
+      label: category.label,
+      weeklyCost: category.weeklyCost,
+      sharePct: weeklyOperatingCost > 0 ? roundMoney((category.weeklyCost / weeklyOperatingCost) * 100) : 0,
+      source: category.source,
+    })),
+    assumptions: [
+      'Observed weekly value uses live Mission Control activity: completed CFO tasks, tool calls, MCP/Graph calls, configured hourly value, and configured hours saved per completed task.',
+      'Annual business-case value uses the CFO impact roadmap risk-adjusted annual value, which is a directional model until live finance, ERP, and Fabric sources are connected.',
+      'Annual operating cost is annualized from the current weekly Morgan run-rate so voice demos, model use, and Graph activity are visible in the economics.',
+      `Break-even workstreams/month divides monthly Morgan run-rate by risk-adjusted monthly value per CFO workstream across ${activeWorkstreams} visible workstreams.`,
+    ],
+  };
 }
 
 function buildServiceBreakdown(rows: AzureCostRow[], today: string): Array<{ serviceName: string; resourceId: string; category: string; weeklyCost: number; dailyCost: number }> {
@@ -431,8 +585,8 @@ export async function getMorganCostDashboard(): Promise<MorganCostDashboard> {
   const weeklyMissionRecords = getRecentMissionTaskRecords(7);
   dailyActivity.completedTasks = Math.max(dailyActivity.completedTasks, dailyMissionRecords.filter((record) => record.status === 'completed').length);
   weeklyActivity.completedTasks = Math.max(weeklyActivity.completedTasks, weeklyMissionRecords.filter((record) => record.status === 'completed').length);
-  const dailyEstimates = estimateCosts(dailyActivity, rates);
-  const weeklyEstimates = estimateCosts({ ...weeklyActivity, completedTasks: weeklyActivity.completedTasks }, { ...rates, computeDailyFallback: rates.computeDailyFallback * 7, storageObservabilityDailyFallback: rates.storageObservabilityDailyFallback * 7, agent365Daily: rates.agent365Daily * 7 });
+  const dailyEstimates = estimateCosts(dailyActivity, rates, 1);
+  const weeklyEstimates = estimateCosts(weeklyActivity, rates, 7);
   const azure = await queryAzureCosts(7);
   const categoryIds = ['voice-avatar', 'foundry-ai', 'agent365-microsoft-iq', 'fabric-iq', 'tools-integration', 'compute', 'storage-observability'];
   const categories = categoryIds.map((id) => {
@@ -470,6 +624,15 @@ export async function getMorganCostDashboard(): Promise<MorganCostDashboard> {
   const estimatedHoursSavedWeekly = roundMoney((completedTasksWeekly * rates.hoursPerCompletedTask) + (weeklyActivity.toolCalls * 0.05) + (weeklyActivity.mcpGraphCalls * 0.03));
   const estimatedValueToday = roundMoney(estimatedHoursSavedToday * rates.financeHourlyValue);
   const estimatedValueWeekly = roundMoney(estimatedHoursSavedWeekly * rates.financeHourlyValue);
+  const economics = buildAgentUnitEconomics({
+    generatedAt: now.toISOString(),
+    currency: azure.available ? azure.currency : rates.currency,
+    weeklyRunRate,
+    estimatedValueWeekly,
+    estimatedHoursSavedWeekly,
+    completedTasksWeekly,
+    categories,
+  });
   const dailyTrend = Array.from({ length: 7 }).map((_, index) => {
     const date = dateOnly(daysAgo(6 - index));
     const actual = azure.rows.filter((row) => row.date === date).reduce((sum, row) => sum + row.cost, 0);
@@ -499,6 +662,7 @@ export async function getMorganCostDashboard(): Promise<MorganCostDashboard> {
       valueToCostRatio: weeklyRunRate > 0 ? roundMoney(estimatedValueWeekly / weeklyRunRate) : 0,
       costPerCompletedTask: completedTasksWeekly > 0 ? roundMoney(weeklyRunRate / completedTasksWeekly) : 0,
     },
+    economics,
     activity: { daily: dailyActivity, weekly: weeklyActivity },
     categories: categories.sort((a, b) => b.weeklyCost - a.weeklyCost),
     dailyTrend,
@@ -512,14 +676,17 @@ export async function getMorganCostDashboard(): Promise<MorganCostDashboard> {
     },
     assumptions: [
       'Azure Cost Management data is grouped at the Morgan resource-group scope and can lag behind live usage until billing data refreshes.',
-      'Realtime avatar and Teams voice are modelled from observed voice/Teams sessions unless the exact Speech, Voice Live, and ACS meters are present in Azure Cost Management.',
-      'Agent 365, Microsoft 365, Fabric, Power BI, and Copilot licensing may not appear in Azure subscription costs; configure MORGAN_COST_* environment variables for customer-specific chargeback.',
+      `Realtime avatar and Teams voice include a ${rates.currency} ${rates.avatarReadinessDaily}/day production-readiness baseline plus observed voice and Teams call minutes unless exact Speech, Voice Live, and ACS meters are present in Azure Cost Management.`,
+      `Foundry + AI inference includes a ${rates.currency} ${rates.foundryDailyBaseline}/day hosted-agent baseline plus observed LLM turns, traces, and evaluation signals.`,
+      `Agent 365 + Microsoft IQ includes Morgan's dedicated Microsoft 365 E5 license at ${rates.currency} ${rates.m365E5Monthly}/month, a ${rates.currency} ${rates.microsoftIqDailyBaseline}/day WorkIQ baseline, any configured Agent 365 daily charge, and observed Graph/MCP calls.`,
+      `Fabric IQ and finance automations include ${rates.currency} ${rates.fabricDailyBaseline}/day and ${rates.currency} ${rates.financeAutomationDailyBaseline}/day baselines respectively, plus semantic-model usage, tool calls, and ${rates.currency} ${rates.financeCompletedTask} per completed CFO task.`,
       `Value uses ${rates.financeHourlyValue} ${rates.currency}/hour and ${rates.hoursPerCompletedTask} hour(s) saved per completed CFO task.`,
+      'Agent Unit Economics compares observed weekly value against weekly run-rate and compares CFO impact roadmap risk-adjusted annual value against annualized run-rate.',
     ],
     recommendations: [
       'Tag all Morgan resources with project=Morgan and costCenter=DigitalCFO so Cost Management can split project cost cleanly across shared subscriptions.',
       'Track avatar session minutes separately; the realtime avatar/voice path is expected to be the largest variable cost during demos.',
-      'Set customer-specific MORGAN_COST_AGENT365_DAILY, MORGAN_COST_FABRIC_QUERY, and MORGAN_COST_AVATAR_SESSION_MINUTE values when moving from showcase estimates to enterprise chargeback.',
+      'Set customer-specific MORGAN_COST_M365_E5_MONTHLY, MORGAN_COST_FOUNDRY_DAILY_BASELINE, MORGAN_COST_MICROSOFT_IQ_DAILY_BASELINE, MORGAN_COST_FABRIC_IQ_DAILY_BASELINE, and MORGAN_COST_AVATAR_SESSION_MINUTE values when moving from showcase estimates to enterprise chargeback.',
       'Add a budget alert at the Morgan resource-group scope and review weekly run-rate changes before customer demos.',
     ],
     detailDashboard: '/mission-control/costs',

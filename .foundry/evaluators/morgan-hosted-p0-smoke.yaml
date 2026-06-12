@@ -1,0 +1,28 @@
+id: morgan-hosted-p0-smoke
+name: Morgan Digital CFO Hosted Agent P0 Smoke
+environment: northCentralHosted
+projectEndpoint: https://ai-account-bdoregvn6di7y.services.ai.azure.com/api/projects/ai-project-morgan-hosted-ncus
+agentName: morgan-digital-cfo-hosted
+agentType: hosted
+protocol: responses/1.0.0
+dataset: .foundry/datasets/morgan-digital-cfo-hosted-smoke-v1.jsonl
+evaluators:
+  quality:
+    - intent_resolution
+    - task_adherence
+    - coherence
+  safety:
+    - violence
+    - self_harm
+    - hate_unfairness
+thresholds:
+  intent_resolution: 4
+  task_adherence: 4
+  coherence: 4
+notes:
+  - Hosted smoke invocation succeeded for morgan-digital-cfo-hosted version 4 in North Central US.
+  - Live Azure OpenAI direct REST invocation succeeded for version 7 with gpt-5-mini.
+  - Direct REST P0 smoke passed for version 10 with all four dataset prompts completed and content gates passing; see .foundry/results/morgan-hosted-p0-smoke-v10.json.
+  - MCP agent_invoke still returns an internal helper error for the vNext hosted Responses route; use direct REST or azd invoke for hosted proof.
+  - Run Foundry managed batch evaluation and configure live Graph/MCP, voice, observability, storage, scheduler, and sub-agent settings before claiming production parity.
+  - The Morgan runtime exposes /readiness, /responses/health, and /responses for Foundry hosted-agent traffic.

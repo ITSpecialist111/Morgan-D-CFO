@@ -90,6 +90,18 @@ import {
   AUTONOMOUS_CALLBACK_TOOL_DEFINITIONS,
 } from '../scheduler/autonomousCallback';
 import { recordAuditEvent } from '../observability/agentAudit';
+import {
+  listHitlApprovalRequests,
+  getHitlApprovalSurface,
+  recordHitlApprovalDecision,
+  sendHitlApprovalCardToModAdministrator,
+  HITL_APPROVAL_TOOL_DEFINITIONS,
+} from '../mission/hitlApprovals';
+import {
+  generateAndSaveRetrospective,
+  getRetrospectiveHistory,
+  RETROSPECTIVE_TOOL_DEFINITIONS,
+} from './retrospectiveTools';
 
 // ---------------------------------------------------------------------------
 // Built-in utility tools (definitions + implementations inline)
@@ -214,6 +226,8 @@ const TOOL_SOURCE_SETS = {
   teamsCall: definitionNames(CALL_TOOL_DEFINITIONS),
   autonomousCallback: definitionNames(AUTONOMOUS_CALLBACK_TOOL_DEFINITIONS),
   utility: definitionNames(UTILITY_TOOL_DEFINITIONS),
+  hitlApprovals: definitionNames(HITL_APPROVAL_TOOL_DEFINITIONS),
+  retrospective: definitionNames(RETROSPECTIVE_TOOL_DEFINITIONS),
 };
 
 function toolSource(name: string): string {
@@ -227,6 +241,8 @@ function toolSource(name: string): string {
   if (TOOL_SOURCE_SETS.teamsCall.has(name)) return 'teams-federation-calling';
   if (TOOL_SOURCE_SETS.autonomousCallback.has(name)) return 'autonomous-callback';
   if (TOOL_SOURCE_SETS.utility.has(name)) return 'utility';
+  if (TOOL_SOURCE_SETS.hitlApprovals.has(name)) return 'hitl-approvals';
+  if (TOOL_SOURCE_SETS.retrospective.has(name)) return 'retrospective';
   if (hasMcpToolServer(name)) return 'agent365-mcp-discovered';
   return 'unknown';
 }
@@ -246,6 +262,8 @@ export function getAllTools(): ChatCompletionTool[] {
     ...SUB_AGENT_TOOL_DEFINITIONS,
     ...CALL_TOOL_DEFINITIONS,
     ...AUTONOMOUS_CALLBACK_TOOL_DEFINITIONS,
+    ...HITL_APPROVAL_TOOL_DEFINITIONS,
+    ...RETROSPECTIVE_TOOL_DEFINITIONS,
     ...UTILITY_TOOL_DEFINITIONS,
   ];
 }
@@ -380,6 +398,24 @@ export async function executeTool(name: string, params: Record<string, unknown>,
         break;
       case 'getTodaysTaskRecords':
         result = getTodaysTaskRecords(typeof params.date === 'string' ? params.date : undefined);
+        break;
+      case 'listHitlApprovalRequests':
+        result = listHitlApprovalRequests(params as Parameters<typeof listHitlApprovalRequests>[0]);
+        break;
+      case 'getHitlApprovalSurface':
+        result = getHitlApprovalSurface(params as Parameters<typeof getHitlApprovalSurface>[0]);
+        break;
+      case 'recordHitlApprovalDecision':
+        result = recordHitlApprovalDecision(params as Parameters<typeof recordHitlApprovalDecision>[0]);
+        break;
+      case 'sendHitlApprovalCardToModAdministrator':
+        result = await sendHitlApprovalCardToModAdministrator(params as Parameters<typeof sendHitlApprovalCardToModAdministrator>[0], context);
+        break;
+      case 'generateCfoRetrospective':
+        result = generateAndSaveRetrospective(getTodaysTaskRecords());
+        break;
+      case 'getRetrospectiveHistory':
+        result = getRetrospectiveHistory();
         break;
       case 'recordMissionTaskCompletion':
         result = recordMissionTaskCompletion(params as Parameters<typeof recordMissionTaskCompletion>[0]);

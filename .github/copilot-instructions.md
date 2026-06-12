@@ -1,0 +1,16 @@
+# Morgan D-CFO Copilot Notes
+
+When asked about Morgan Agent 365 or hosted deployment, keep the Agent 365 blueprint-instance path separate from the Microsoft Foundry hosted-container proof.
+
+- Treat Agent 365 setup/config files (`a365.config.json`, `a365.generated.config.json`) as local-only and gitignored; do not print or commit their contents.
+- The Agent 365/Microsoft 365 app-catalog action is creating a managed instance from the published blueprint/template, using the Teams/M365 manifest path `manifest/manifest.json` -> `manifest/agenticUserTemplateManifest.json`. Do not describe this as an ACR/Foundry container deployment.
+- The blueprint instance is the Microsoft 365/Agent 365 identity and Works-across experience shown by the Create instance button. The checked-in placeholders in `manifest/agenticUserTemplateManifest.json` are template placeholders; real blueprint/config values are local or tenant-side.
+- The verified hosted deployment path is documented in `docs/hosted-agent-command-research.md`, `docs/morgan-foundry-hosted-agent.md`, `.foundry/agent-metadata.yaml`, `verification/hosted-agent-command-research-v1.json`, and `.foundry/results/morgan-hosted-p0-smoke-v10.json`.
+- The successful hosted runtime is `northCentralHosted`: Foundry project `ai-project-morgan-hosted-ncus`, agent `morgan-digital-cfo-hosted`, active version `10`, image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507204912`, protocol `responses/1.0.0`, model deployment `gpt-5-mini`.
+- Use `npm run build` to validate the repo, then build/push a Linux AMD64 image with `az acr build --registry crbdoregvn6di7y --image "morgan-digital-cfo:$tag" --platform linux/amd64 --file Dockerfile .`.
+- Do not include `--source-acr-auth-id "[caller]"` for the verified registry path; the Cloud Shell run failed with that flag and succeeded without it.
+- Prepare the hosted payload with `npm run foundry:prepare-hosted -- --image "crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:$tag" --project-endpoint "https://ai-account-bdoregvn6di7y.services.ai.azure.com/api/projects/ai-project-morgan-hosted-ncus" --confirm-env-payload yes` only after reviewing environment values.
+- Create/update via the Foundry MCP `agent_update` workflow, poll with `agent_get` until the hosted version is active, then verify vNext Responses with direct REST or `azd ai agent invoke`.
+- For vNext Responses proof, prefer the direct route `/agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1` with `Foundry-Features=HostedAgents=V1Preview`; the MCP `agent_invoke` helper previously returned internal errors for live hosted versions.
+- Do not claim Graph/MCP, ACS/Teams voice, Application Insights, Purview, Fabric/Power BI, durable storage, scheduler, or sub-agent production parity from the hosted P0 smoke. Version 10 proves hosted reachability, Azure OpenAI model routing, and bounded response behavior only.
+- Do not run hosted `agent_update` against Flightdeck (`uksouth`); it was blocked as an unsupported hosted-agent preview region.

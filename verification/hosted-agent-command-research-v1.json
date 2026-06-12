@@ -1,0 +1,150 @@
+{
+  "date": "2026-05-07",
+  "status": "foundry-hosted-p0-smoke-passed-direct-rest",
+  "researchArtifacts": [
+    "docs/hosted-agent-command-research.md",
+    "docs/morgan-foundry-hosted-agent.md"
+  ],
+  "officialDocsChecked": [
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/deploy-hosted-agent",
+    "https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agents",
+    "https://learn.microsoft.com/azure/foundry/agents/quickstarts/quickstart-hosted-agent?pivots=azd",
+    "https://learn.microsoft.com/cli/azure/cognitiveservices/agent/logs",
+    "https://learn.microsoft.com/azure/container-registry/container-registry-quickstart-task-cli"
+  ],
+  "integratedCloudShellTryOut": {
+    "signedInSubscription": {
+      "name": "ME-ABSx02771022-ghosking-1",
+      "id": "260948a4-1d5e-42c8-b095-33a6641ad189",
+      "tenantId": "e4ccbd32-1a13-4cb6-8fda-c392e7ea359f"
+    },
+    "azureCliVersion": "2.85.0",
+    "azdVersion": "1.23.14",
+    "azdAgentExtension": {
+      "installed": true,
+      "version": "0.1.30-preview",
+      "commandGroupAvailable": true
+    },
+    "cloudShellWarnings": [
+      "Microsoft.CloudShell namespace is not registered for the subscription.",
+      "No-storage Cloud Shell session is ephemeral."
+    ]
+  },
+  "flightdeckOutcome": {
+    "projectEndpoint": "https://ai-flightdeck.services.ai.azure.com/api/projects/flightdeck-project",
+    "resourceGroup": "rg-flightdeck",
+    "foundryAccount": "ai-flightdeck",
+    "project": "flightdeck-project",
+    "location": "uksouth",
+    "acr": "crflightdeck.azurecr.io",
+    "builtImage": "crflightdeck.azurecr.io/morgan-digital-cfo:20260507180211",
+    "builtImageDigest": "sha256:78ee1d27c9111afa7201cc5d5cbc8d1d3ab24f85967e6e4dbfcf63fd1487558c",
+    "acrRunId": "dbh",
+    "status": "region-blocked",
+    "error": "Unsupported region for Foundry Hosted Agents."
+  },
+  "northCentralHostedDeployment": {
+    "projectEndpoint": "https://ai-account-bdoregvn6di7y.services.ai.azure.com/api/projects/ai-project-morgan-hosted-ncus",
+    "resourceGroup": "rg-morgan-hosted-ncus",
+    "foundryAccount": "ai-account-bdoregvn6di7y",
+    "project": "ai-project-morgan-hosted-ncus",
+    "location": "northcentralus",
+    "acr": "crbdoregvn6di7y.azurecr.io",
+    "agentName": "morgan-digital-cfo-hosted",
+    "activeVersion": "10",
+    "protocol": "responses/1.0.0",
+    "image": "crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507204912",
+    "imageDigest": "sha256:675d09bee0e7880d927a7f810f3e1c0f6ecb613eb3c35ad3e991e17937ae6b04",
+    "acrRunId": "cp7",
+    "localProbe": {
+      "npmBuild": "passed",
+      "readiness": "GET /readiness returned status ready on 127.0.0.1:8088",
+      "responses": "POST /responses returned Morgan setup-verification output without Azure OpenAI configured"
+    },
+    "foundryInvoke": {
+      "status": "succeeded",
+      "sessionId": "morganhostedv4smoke000001",
+      "requestId": "a3e93a531857d3293afb0a72b1147247",
+      "outputText": "Morgan is running as a hosted-agent container, but AZURE_OPENAI_ENDPOINT is not configured. Mission Control, health, and audit endpoints are available for setup verification."
+    },
+    "liveModel": {
+      "status": "succeeded-direct-rest",
+      "agentVersion": "7",
+      "deployment": "gpt-5-mini",
+      "modelVersion": "2025-08-07",
+      "endpoint": "https://ai-account-bdoregvn6di7y.cognitiveservices.azure.com/",
+      "sessionId": "morganhostedv7rest000001x",
+      "responseId": "resp_1778184291367",
+      "correlationId": "26661326-b246-4d31-b296-ea6f3e815d91",
+      "route": "/agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1",
+      "note": "Direct REST completed with model gpt-5-mini. MCP agent_invoke helper returned internal errors for v5-v7, so direct REST is the verified proof path."
+    },
+    "p0Smoke": {
+      "status": "passed-direct-rest",
+      "agentVersion": "10",
+      "resultFile": ".foundry/results/morgan-hosted-p0-smoke-v10.json",
+      "cloudShellResultPath": "~/morgan-v10-p0-smoke.json",
+      "cases": [
+        {
+          "id": "status",
+          "responseId": "resp_1778187198884",
+          "status": "completed",
+          "passContent": true
+        },
+        {
+          "id": "cfo-brief",
+          "responseId": "resp_1778187274037",
+          "status": "completed",
+          "passContent": true
+        },
+        {
+          "id": "integration-settings",
+          "responseId": "resp_1778187350105",
+          "status": "completed",
+          "passContent": true
+        },
+        {
+          "id": "eod-demo",
+          "responseId": "resp_1778187425350",
+          "status": "completed",
+          "passContent": true
+        }
+      ]
+    }
+  },
+  "errorsAndFixes": [
+    {
+      "error": "ACR build failed with --source-acr-auth-id [caller].",
+      "fix": "Build without --source-acr-auth-id for these registries."
+    },
+    {
+      "error": "Foundry rejected PORT and AGENT_* environment variables as reserved.",
+      "fix": "Remove FOUNDRY_*, PORT, and AGENT_* variables from hosted-agent payloads."
+    },
+    {
+      "error": "Flightdeck project is in unsupported uksouth region.",
+      "fix": "Provisioned a North Central US Foundry project with hosted agents enabled."
+    },
+    {
+      "error": "Versions 1-3 failed invocation with session_not_ready because the full runtime constructed the Microsoft Agents SDK adapter without production ClientId.",
+      "fix": "Added src/foundryHost.ts and changed Docker CMD to node dist/foundryHost.js."
+    },
+    {
+      "error": "Version 5 live model invoke failed because hosted identities did not yet have Azure OpenAI/Foundry RBAC and the payload did not include AZURE_CLIENT_ID.",
+      "fix": "Assigned Azure AI User and Cognitive Services OpenAI User to the instance and blueprint identities, then created version 7 with AZURE_CLIENT_ID set to the hosted instance identity."
+    },
+    {
+      "error": "MCP agent_invoke helper returned internal server errors for live versions even after direct REST succeeded.",
+      "fix": "Use the direct Foundry hosted Responses route or azd invoke path for vNext proof until the helper path is corrected."
+    },
+    {
+      "error": "Version 7 P0 integration-settings prompt drifted into deterministic Microsoft IQ briefing instead of listing required settings.",
+      "fix": "Version 10 uses a pre-showcase hosted readiness/configuration guard and explicit demo/deterministic labeling for end-of-day digest prompts."
+    }
+  ],
+  "remainingGates": [
+    "Live Azure OpenAI direct REST proof and four-prompt P0 smoke succeeded for version 10.",
+    "Graph/MCP, ACS/Teams voice, observability, and durable storage values were intentionally not included.",
+    "Run managed Foundry batch evaluation after reviewing and adding live connector settings."
+  ]
+}

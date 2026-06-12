@@ -1,0 +1,134 @@
+{
+  "date": "2026-05-07",
+  "decision": "Morgan D-CFO should be deployed to Microsoft Foundry as a hosted agent for the real runtime, with App Service remaining as the web/voice/showcase companion surface.",
+  "status": "hosted-v10-p0-smoke-passed-direct-rest",
+  "target": {
+    "projectEndpoint": "https://ai-account-bdoregvn6di7y.services.ai.azure.com/api/projects/ai-project-morgan-hosted-ncus",
+    "resourceGroup": "rg-morgan-hosted-ncus",
+    "foundryAccount": "ai-account-bdoregvn6di7y",
+    "projectName": "ai-project-morgan-hosted-ncus",
+    "location": "northcentralus",
+    "acr": "crbdoregvn6di7y.azurecr.io",
+    "agentName": "morgan-digital-cfo-hosted",
+    "agentVersion": "10",
+    "protocol": "responses/1.0.0",
+    "latestBuiltImage": "crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507204912",
+    "latestBuiltImageDigest": "sha256:675d09bee0e7880d927a7f810f3e1c0f6ecb613eb3c35ad3e991e17937ae6b04",
+    "modelDeployment": "gpt-5-mini",
+    "modelVersion": "2025-08-07"
+  },
+  "preparedArtifacts": [
+    "Dockerfile updated to support builds without package-lock.json and start dist/foundryHost.js.",
+    "src/foundryHost.ts added as the dedicated Foundry Responses host.",
+    "src/foundry/responsesAdapter.ts exposes GET /readiness, GET /responses/health, and POST /responses.",
+    "scripts/prepare-foundry-hosted-agent-definition.cjs excludes reserved FOUNDRY_*, PORT, and AGENT_* variables and defaults smoke payloads to responses-only mode.",
+    "scripts/diagnose-foundry-hosted-readiness.cjs validates the Foundry host and readiness route.",
+    ".foundry/agent-metadata.yaml records northCentralHosted as the default environment.",
+    ".foundry/datasets/morgan-digital-cfo-hosted-smoke-v1.jsonl and .foundry/evaluators/morgan-hosted-p0-smoke.yaml are present."
+  ],
+  "verifiedByExecution": [
+    "Integrated Cloud Shell npm run build completed after adding src/foundryHost.ts.",
+    "Cloud Shell local production probe returned HTTP 200 from /readiness on port 8088.",
+    "Cloud Shell local POST /responses returned Morgan setup-verification output.",
+    "ACR build/push succeeded for crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507193551 with run ID cp4.",
+    "Foundry agent_update created morgan-digital-cfo-hosted version 4.",
+    "Foundry agent_get reported version 4 active.",
+    "Foundry agent_invoke succeeded with request ID a3e93a531857d3293afb0a72b1147247.",
+    "gpt-5-mini deployment succeeded in the North Central US Foundry account.",
+    "Hosted instance and blueprint identities were assigned Azure AI User and Cognitive Services OpenAI User at the account scope.",
+    "Foundry agent_get reported version 7 active with AZURE_CLIENT_ID set to the hosted instance identity.",
+    "Direct REST to the hosted Responses endpoint succeeded for version 7 with response ID resp_1778184291367 and correlation ID 26661326-b246-4d31-b296-ea6f3e815d91.",
+    "ACR build/push succeeded for crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507204912 with run ID cp7.",
+    "Foundry agent_get reported version 10 active with pre-showcase readiness guard and demo-label smoke guard metadata.",
+    "Direct REST P0 smoke passed for version 10 with response IDs resp_1778187198884, resp_1778187274037, resp_1778187350105, and resp_1778187425350."
+  ],
+  "deploymentAttempts": [
+    {
+      "version": "1",
+      "status": "failed-invoke",
+      "reason": "session_not_ready before /readiness fix and dedicated Foundry host."
+    },
+    {
+      "version": "2",
+      "status": "failed-invoke",
+      "reason": "session_not_ready after /readiness, before production default port and dedicated Foundry host."
+    },
+    {
+      "version": "3",
+      "status": "failed-invoke",
+      "reason": "session_not_ready; local reproduction showed Microsoft Agents SDK adapter required ClientId at startup."
+    },
+    {
+      "version": "4",
+      "status": "succeeded-smoke-invoke",
+      "reason": "Dedicated Foundry Responses host started on 8088 and answered /responses."
+    },
+    {
+      "version": "5",
+      "status": "failed-live-agent-invoke",
+      "reason": "Live Azure OpenAI env was present, but hosted identity RBAC and AZURE_CLIENT_ID were not yet configured. Correlation ID 6ac551ad597271addf4371edccf5ec26."
+    },
+    {
+      "version": "6",
+      "status": "failed-live-agent-invoke",
+      "reason": "RBAC was assigned, but AZURE_CLIENT_ID was still missing for the user-assigned hosted identity. Correlation ID b4c36c0192360ac1e28af57c2849e80c."
+    },
+    {
+      "version": "7",
+      "status": "succeeded-live-direct-rest",
+      "reason": "AZURE_CLIENT_ID was set and the direct Foundry hosted Responses endpoint completed with gpt-5-mini. MCP agent_invoke helper still failed with correlation ID 7b8952ae6f51f8862dcb2181b7b7f811."
+    },
+    {
+      "version": "8",
+      "status": "incomplete-behavior-fix",
+      "reason": "Hosted readiness/configuration guard was added, but showcase shortcuts still intercepted Microsoft IQ settings prompts first."
+    },
+    {
+      "version": "9",
+      "status": "partial-behavior-fix",
+      "reason": "Readiness/configuration guard moved before showcase shortcuts; settings prompt passed, but end-of-day demo prompt still needed an explicit deterministic context label."
+    },
+    {
+      "version": "10",
+      "status": "succeeded-p0-direct-rest",
+      "reason": "Pre-showcase readiness guard plus explicit demo/deterministic end-of-day label made all four P0 smoke prompts complete and pass content gates."
+    }
+  ],
+  "currentSmokeOutput": "Morgan is running as a hosted-agent container, but AZURE_OPENAI_ENDPOINT is not configured. Mission Control, health, and audit endpoints are available for setup verification.",
+  "currentLiveOutput": "Direct REST returned a completed gpt-5-mini response for session morganhostedv7rest000001x. The model text mentioned Agent 365 MCP endpoints, but connector proof remains unconfigured.",
+  "p0Smoke": {
+    "status": "passed",
+    "resultFile": ".foundry/results/morgan-hosted-p0-smoke-v10.json",
+    "cases": [
+      {
+        "id": "status",
+        "responseId": "resp_1778187198884",
+        "status": "completed",
+        "passContent": true
+      },
+      {
+        "id": "cfo-brief",
+        "responseId": "resp_1778187274037",
+        "status": "completed",
+        "passContent": true
+      },
+      {
+        "id": "integration-settings",
+        "responseId": "resp_1778187350105",
+        "status": "completed",
+        "passContent": true
+      },
+      {
+        "id": "eod-demo",
+        "responseId": "resp_1778187425350",
+        "status": "completed",
+        "passContent": true
+      }
+    ]
+  },
+  "remainingGates": [
+    "Use direct REST or azd invoke for vNext hosted Responses proof while MCP agent_invoke is returning internal helper errors.",
+    "Review Graph/MCP, ACS/Teams voice, observability, and storage values before adding them to a hosted-agent version.",
+    "Run managed Foundry batch evaluation and live connector verification before claiming production parity."
+  ]
+}

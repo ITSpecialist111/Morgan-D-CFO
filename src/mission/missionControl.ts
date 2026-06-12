@@ -1562,6 +1562,296 @@ export function getCorpGenDigestDeliveryStatus(): CorpGenDigestDeliveryStatus {
   return lastCorpGenDigestDelivery;
 }
 
+// Persona-protective text replacements applied to outbound Mission Control payloads.
+// Ported from the Morgan ECIF Director repo (which re-skins CFO -> ECIF) and re-skinned
+// here to neutralize any stray ECIF/other-persona wording back to the Digital CFO persona.
+// Patterns are intentionally narrow (anchored on "ECIF") so legitimate CFO content is untouched.
+const MISSION_CONTROL_TEXT_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/Morgan ECIF Director reviewed/g, 'Morgan Digital CFO reviewed'],
+  [/Morgan ECIF funding Teams update/g, 'Morgan Digital CFO Teams update'],
+  [/Morgan ECIF funding consult/g, 'Morgan Digital CFO budget consult'],
+  [/Morgan ECIF Director/g, 'Morgan Digital CFO'],
+  [/Morgan ECIF funding/g, 'Morgan Digital CFO'],
+  [/ECIF funding consult/g, 'Digital CFO consult'],
+  [/ECIF Director/g, 'Digital CFO'],
+  [/ECIF funding/g, 'Digital CFO'],
+];
+
+function sanitizeMissionControlText(value: string): string {
+  return MISSION_CONTROL_TEXT_REPLACEMENTS.reduce((current, [pattern, replacement]) => current.replace(pattern, replacement), value);
+}
+
+export function sanitizeMissionControlPayload<T>(value: T): T {
+  if (typeof value === 'string') return sanitizeMissionControlText(value) as T;
+  if (Array.isArray(value)) return value.map((item) => sanitizeMissionControlPayload(item)) as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, sanitizeMissionControlPayload(item)]),
+    ) as T;
+  }
+  return value;
+}
+
+export type CorpGenReportFormat = 'html' | 'markdown' | 'doc' | 'json';
+
+export interface CorpGenReportDownload {
+  format: CorpGenReportFormat;
+  absolutePath: string;
+  fileName: string;
+  downloadName: string;
+  contentType: string;
+}
+
+interface CorpGenReportArchiveResult {
+  fileNameBase: string;
+  generatedAt: string;
+  paths: Record<CorpGenReportFormat, string>;
+}
+
+function resolveCorpGenReportDir(): string {
+  if (process.env.MORGAN_CORPGEN_REPORT_DIR) return path.resolve(process.env.MORGAN_CORPGEN_REPORT_DIR);
+  const home = process.env.HOME || process.env.USERPROFILE;
+  const stateRoot = home ? path.join(home, 'data') : path.join(process.cwd(), '.data');
+  return path.join(stateRoot, 'corpgen-reports');
+}
+
+const CORPGEN_REPORT_DIR = resolveCorpGenReportDir();
+const CORPGEN_REPORT_ENDPOINT = '/api/mission-control/corpgen-report';
+const CORPGEN_REPORT_FILE_PREFIX = 'morgan-cfo-day-report';
+const CORPGEN_REPORT_FORMATS: Record<CorpGenReportFormat, { extension: string; contentType: string }> = {
+  html: { extension: 'html', contentType: 'text/html; charset=utf-8' },
+  markdown: { extension: 'md', contentType: 'text/markdown; charset=utf-8' },
+  doc: { extension: 'doc', contentType: 'application/msword' },
+  json: { extension: 'json', contentType: 'application/json; charset=utf-8' },
+};
+
+function normalizeCorpGenReportFormat(value: unknown): CorpGenReportFormat {
+  const normalized = String(value || 'html').toLowerCase();
+  if (normalized === 'md' || normalized === 'markdown') return 'markdown';
+  if (normalized === 'word' || normalized === 'doc') return 'doc';
+  if (normalized === 'json' || normalized === 'manifest') return 'json';
+  return 'html';
+}
+
+function corpGenReportEndpoint(format: CorpGenReportFormat, download = false): string {
+  return `${CORPGEN_REPORT_ENDPOINT}?format=${format}${download ? '&download=1' : ''}`;
+}
+
+function pathWithoutExtension(filePath: string): string {
+  return path.basename(filePath, path.extname(filePath));
+}
+
+function safeArchivedReportPath(candidate: string | undefined): string | undefined {
+  if (!candidate) return undefined;
+  const resolved = path.resolve(candidate);
+  const relative = path.relative(CORPGEN_REPORT_DIR, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) return undefined;
+  if (!fs.existsSync(resolved)) return undefined;
+  return resolved;
+}
+
+function latestArchivedReportBase(): string | undefined {
+  try {
+    if (!fs.existsSync(CORPGEN_REPORT_DIR)) return undefined;
+    const files = fs.readdirSync(CORPGEN_REPORT_DIR)
+      .filter((fileName) => fileName.startsWith(CORPGEN_REPORT_FILE_PREFIX) && /\.(html|doc|md|json)$/i.test(fileName))
+      .map((fileName) => {
+        const absolutePath = path.join(CORPGEN_REPORT_DIR, fileName);
+        return { fileName, modifiedAt: fs.statSync(absolutePath).mtimeMs };
+      })
+      .sort((a, b) => b.modifiedAt - a.modifiedAt);
+    return files[0] ? pathWithoutExtension(files[0].fileName) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function renderArchivedCfoReportInlineHtml(text: string): string {
+  return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
+function renderArchivedCfoReportHtml(input: { title: string; markdown: string }): string {
+  const body: string[] = [];
+  let inList = false;
+  const closeList = (): void => {
+    if (inList) {
+      body.push('</ul>');
+      inList = false;
+    }
+  };
+  for (const rawLine of input.markdown.split('\n')) {
+    const line = rawLine.replace(/\s+$/, '');
+    if (!line.trim()) {
+      closeList();
+      continue;
+    }
+    if (line.startsWith('# ')) {
+      closeList();
+      body.push(`<h1>${renderArchivedCfoReportInlineHtml(line.slice(2))}</h1>`);
+    } else if (line.startsWith('## ')) {
+      closeList();
+      body.push(`<h2>${renderArchivedCfoReportInlineHtml(line.slice(3))}</h2>`);
+    } else if (line.startsWith('### ')) {
+      closeList();
+      body.push(`<h3>${renderArchivedCfoReportInlineHtml(line.slice(4))}</h3>`);
+    } else if (line.startsWith('- ')) {
+      if (!inList) {
+        body.push('<ul>');
+        inList = true;
+      }
+      body.push(`<li>${renderArchivedCfoReportInlineHtml(line.slice(2))}</li>`);
+    } else {
+      closeList();
+      body.push(`<p>${renderArchivedCfoReportInlineHtml(line)}</p>`);
+    }
+  }
+  closeList();
+  return [
+    '<!DOCTYPE html>',
+    '<html lang="en">',
+    '<head>',
+    '<meta charset="utf-8" />',
+    `<title>${escapeHtml(input.title)}</title>`,
+    '<style>body{font-family:Segoe UI,Arial,sans-serif;max-width:880px;margin:24px auto;padding:0 16px;color:#1b1b1f;}h1{color:#0f6cbd;}h2{color:#103a5e;margin-top:24px;}ul{padding-left:20px;}li{margin:4px 0;}</style>',
+    '</head>',
+    '<body>',
+    ...body,
+    '</body>',
+    '</html>',
+  ].join('\n');
+}
+
+function buildArchivedCfoReportMarkdown(input: {
+  runId: string;
+  period: string;
+  headline: string;
+  generatedAt: string;
+  title: string;
+  endOfDay: ReturnType<typeof getEndOfDayReport>;
+  digestDelivery: CorpGenDigestDeliveryStatus;
+}): string {
+  const { endOfDay, digestDelivery } = input;
+  const documentLine = digestDelivery.document.documentUrl
+    ? `Word digest: ${digestDelivery.document.documentUrl}`
+    : digestDelivery.document.localPath
+      ? `Word digest archived locally at ${digestDelivery.document.localPath}`
+      : `Word digest status: ${digestDelivery.document.status}`;
+  return [
+    `# ${input.title}`,
+    '',
+    `**Run ID:** ${input.runId}`,
+    `**Period:** ${input.period}`,
+    `**Generated:** ${input.generatedAt}`,
+    `**Mission Control:** ${missionControlUrl()}`,
+    '',
+    '## Executive Summary',
+    '',
+    input.headline,
+    '',
+    `Completed ${endOfDay.completedTasks.length} task(s); ${endOfDay.blockedTasks.length} blocked; ${endOfDay.failedTasks.length} failed.`,
+    '',
+    '## Digest Delivery',
+    '',
+    `- ${digestDelivery.summary}`,
+    `- ${documentLine}`,
+    '',
+    '## End-of-Day Detail',
+    '',
+    endOfDay.summaryMarkdown,
+  ].join('\n');
+}
+
+// Best-effort archive of the autonomous CFO workday report to disk so Mission Control can
+// expose availability + download. Never throws: archiving must not impact the workday loop.
+function archiveCorpGenCfoReport(input: {
+  runId: string;
+  period: string;
+  headline: string;
+  digestDelivery: CorpGenDigestDeliveryStatus;
+}): CorpGenReportArchiveResult | null {
+  try {
+    fs.mkdirSync(CORPGEN_REPORT_DIR, { recursive: true });
+    const endOfDay = getEndOfDayReport();
+    const generatedAt = new Date().toISOString();
+    const title = `Morgan End-of-Day CFO Report - ${input.period}`;
+    const fileNameBase = `${CORPGEN_REPORT_FILE_PREFIX}-${endOfDay.date}-${input.runId}`.replace(/[^a-zA-Z0-9._-]/g, '-');
+    const markdown = buildArchivedCfoReportMarkdown({ ...input, endOfDay, generatedAt, title });
+    const html = renderArchivedCfoReportHtml({ title, markdown });
+    const manifest = {
+      ok: true,
+      kind: 'morgan-cfo-day-report',
+      title,
+      runId: input.runId,
+      period: input.period,
+      generatedAt,
+      date: endOfDay.date,
+      headline: input.headline,
+      digestSummary: input.digestDelivery.summary,
+      document: input.digestDelivery.document,
+      counts: {
+        completed: endOfDay.completedTasks.length,
+        blocked: endOfDay.blockedTasks.length,
+        failed: endOfDay.failedTasks.length,
+      },
+      nextWorkingDayPriorities: endOfDay.nextWorkingDayPriorities,
+      formats: Object.keys(CORPGEN_REPORT_FORMATS),
+      markdown,
+    };
+    const paths: Record<CorpGenReportFormat, string> = {
+      markdown: path.join(CORPGEN_REPORT_DIR, `${fileNameBase}.md`),
+      html: path.join(CORPGEN_REPORT_DIR, `${fileNameBase}.html`),
+      doc: path.join(CORPGEN_REPORT_DIR, `${fileNameBase}.doc`),
+      json: path.join(CORPGEN_REPORT_DIR, `${fileNameBase}.json`),
+    };
+    fs.writeFileSync(paths.markdown, markdown, 'utf8');
+    fs.writeFileSync(paths.html, html, 'utf8');
+    fs.writeFileSync(paths.doc, html, 'utf8');
+    fs.writeFileSync(paths.json, JSON.stringify(manifest, null, 2), 'utf8');
+    return { fileNameBase, generatedAt, paths };
+  } catch {
+    // The autonomous workday remains healthy even if the downloadable report cannot be archived.
+    return null;
+  }
+}
+
+export function getCorpGenReportDownload(formatInput: unknown = 'html'): CorpGenReportDownload | null {
+  const format = normalizeCorpGenReportFormat(formatInput);
+  const fileNameBase = latestArchivedReportBase();
+  if (!fileNameBase) return null;
+  const definition = CORPGEN_REPORT_FORMATS[format];
+  const absolutePath = safeArchivedReportPath(path.join(CORPGEN_REPORT_DIR, `${fileNameBase}.${definition.extension}`));
+  if (!absolutePath) return null;
+  return {
+    format,
+    absolutePath,
+    fileName: path.basename(absolutePath),
+    downloadName: `${fileNameBase}.${definition.extension}`,
+    contentType: definition.contentType,
+  };
+}
+
+export function getCorpGenReportAvailability(): {
+  ok: true;
+  available: boolean;
+  status: CorpGenDigestDeliveryStatus;
+  formats: Array<{ format: CorpGenReportFormat; available: boolean; viewUrl: string; downloadUrl: string }>;
+  reason?: string;
+} {
+  const available = Boolean(latestArchivedReportBase());
+  return {
+    ok: true,
+    available,
+    status: getCorpGenDigestDeliveryStatus(),
+    formats: (Object.keys(CORPGEN_REPORT_FORMATS) as CorpGenReportFormat[]).map((format) => ({
+      format,
+      available: Boolean(getCorpGenReportDownload(format)),
+      viewUrl: corpGenReportEndpoint(format),
+      downloadUrl: corpGenReportEndpoint(format, true),
+    })),
+    reason: available ? undefined : 'No archived CFO report yet. Run the autonomous CFO workday to generate one.',
+  };
+}
+
 function missionStateFilePath(): string {
   if (process.env.MORGAN_MISSION_STATE_FILE) return path.resolve(process.env.MORGAN_MISSION_STATE_FILE);
   const home = process.env.HOME || process.env.USERPROFILE;
@@ -2560,6 +2850,9 @@ export async function runAutonomousCfoWorkday(params: { source?: MissionTaskReco
     evidence: digestDelivery.evidence,
     source,
   }));
+
+  // Archive a downloadable CFO day report for Mission Control (best-effort; never breaks the workday).
+  archiveCorpGenCfoReport({ runId, period, headline, digestDelivery });
 
   return {
     runId,

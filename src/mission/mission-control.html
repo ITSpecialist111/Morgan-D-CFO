@@ -176,6 +176,82 @@
     .kanban-meta { color: var(--muted); font-size: 11px; display: flex; flex-wrap: wrap; gap: 5px; }
     .kanban-chip { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #d8dee9; border-radius: 999px; padding: 3px 6px; font-size: 10px; }
     .kanban-empty { color: var(--muted); font-size: 12px; padding: 10px; border: 1px dashed var(--border); border-radius: 8px; }
+    /* Agentic Kanban live-board proof */
+    .kanban-live-proof { border: 1px solid var(--border); background: #111620; border-radius: 8px; padding: 12px; margin-bottom: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+    .kanban-live-proof h3 { margin: 6px 0 5px; font-size: 14px; }
+    .kanban-live-proof p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .kanban-live-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .kanban-proof-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 8px; }
+    .kanban-proof-item { border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); border-radius: 8px; padding: 9px; min-width: 0; }
+    .kanban-proof-item b { display: block; font-size: 12px; margin-bottom: 3px; overflow-wrap: anywhere; }
+    .kanban-proof-item span { color: var(--muted); font-size: 11px; line-height: 1.35; }
+    /* HITL finance approvals */
+    .approval-summary { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .approval-card { border: 1px solid var(--border); border-left: 3px solid var(--amber); background: #151922; border-radius: 0 8px 8px 0; padding: 11px 12px; display: grid; gap: 8px; }
+    .approval-card.decided { border-left-color: var(--teal); opacity: .84; }
+    .approval-card-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .approval-card-head b { font-size: 13px; line-height: 1.3; }
+    .approval-note { width: 100%; min-height: 58px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; background: #111620; color: var(--text); padding: 9px 10px; font: inherit; font-size: 12px; }
+    .approval-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .approval-actions button { padding: 7px 9px; }
+    .approval-actions button.danger { color: #ffd7d7; border-color: rgba(224, 88, 88, .55); }
+    .approval-status { min-height: 20px; color: var(--muted); font-size: 12px; }
+    /* Governance Observability — run-timeline + detail layout */
+    .gov-runbar { display: flex; flex-wrap: wrap; gap: 10px 22px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: #151922; margin-bottom: 14px; }
+    .gov-runbar .gov-run-field { display: grid; gap: 2px; min-width: 0; }
+    .gov-runbar .gov-run-field span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+    .gov-runbar .gov-run-field b { font-size: 12px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .gov-runbar .gov-run-field code { font-size: 11px; color: var(--blue); overflow-wrap: anywhere; }
+    .gov-trace-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .gov-trace-tabs button { padding: 8px 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 7px; }
+    .gov-trace-tabs button.active { background: rgba(54, 194, 180, .18); border-color: rgba(54, 194, 180, .65); color: var(--text); }
+    .gov-trace-tabs .gov-tab-gate { color: var(--amber); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    .gov-layout { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 14px; align-items: start; }
+    @media (max-width: 900px) { .gov-layout { grid-template-columns: 1fr; } }
+    .gov-timeline { border: 1px solid var(--border); border-radius: 8px; background: #141922; overflow: hidden; }
+    .gov-timeline-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+    .gov-timeline-list { display: grid; gap: 0; max-height: 460px; overflow: auto; }
+    .gov-step { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border-bottom: 1px solid rgba(48,54,66,.5); cursor: pointer; }
+    .gov-step:last-child { border-bottom: none; }
+    .gov-step:hover { background: rgba(91,141,239,.08); }
+    .gov-step.active { background: rgba(54,194,180,.12); box-shadow: inset 3px 0 0 var(--teal); }
+    .gov-step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); margin-left: 3px; }
+    .gov-step-dot.ok { background: var(--teal); }
+    .gov-step-dot.started { background: var(--amber); box-shadow: 0 0 8px rgba(240,180,41,.55); }
+    .gov-step-dot.error { background: var(--red); }
+    .gov-step-main { min-width: 0; display: grid; gap: 2px; }
+    .gov-step-name { display: flex; align-items: center; gap: 7px; font-size: 13px; overflow-wrap: anywhere; }
+    .gov-step-badge { font-size: 9px; letter-spacing: .08em; color: var(--blue); border: 1px solid rgba(91,141,239,.5); border-radius: 4px; padding: 1px 4px; text-transform: uppercase; }
+    .gov-step-badge.tool { color: var(--amber); border-color: rgba(240,180,41,.5); }
+    .gov-step-badge.gate { color: var(--teal); border-color: rgba(54,194,180,.55); }
+    .gov-step-sub { color: var(--muted); font-size: 11px; }
+    .gov-step-time { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; text-align: right; }
+    .gov-detail { border: 1px solid var(--border); border-radius: 8px; background: #111620; min-height: 320px; }
+    .gov-detail-head { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .gov-detail-title { display: flex; align-items: center; gap: 9px; font-size: 14px; overflow-wrap: anywhere; }
+    .gov-detail-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; color: var(--muted); font-size: 11px; }
+    .gov-detail-meta b { color: var(--text); font-weight: 600; }
+    .gov-tabs { display: flex; gap: 6px; padding: 10px 14px 0; }
+    .gov-tabs button { padding: 6px 11px; font-size: 12px; color: var(--muted); border-radius: 6px 6px 0 0; border: 1px solid transparent; border-bottom: none; }
+    .gov-tabs button.active { color: var(--text); background: #161c27; border-color: var(--border); }
+    .gov-tab-body { padding: 14px; display: grid; gap: 12px; }
+    .gov-field { display: grid; gap: 4px; }
+    .gov-field .gov-field-label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+    .gov-field .gov-field-value { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+    .gov-field .gov-field-value.cot { border-left: 2px solid var(--blue); padding-left: 10px; color: #cfd6e2; }
+    .gov-tool-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .gov-gate-banner { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 8px; background: rgba(240,180,41,.12); border: 1px solid rgba(240,180,41,.4); font-size: 12px; }
+    .gov-detail pre { max-height: 300px; overflow: auto; background: #0d121b; border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
+    /* CFO operational retrospectives */
+    .retro-grid { display: grid; gap: 10px; }
+    .retro-card { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #151922; border-radius: 0 8px 8px 0; padding: 12px; display: grid; gap: 8px; }
+    .retro-card-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .retro-card-head b { font-size: 13px; line-height: 1.3; }
+    .retro-card-head span { color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .retro-section { display: grid; gap: 4px; }
+    .retro-section .retro-label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+    .retro-section ul { margin: 0; padding-left: 16px; }
+    .retro-section li { color: #cfd6e2; font-size: 12px; line-height: 1.45; }
     .cost-summary { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; }
     .cost-card { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 11px 12px; min-width: 0; }
     .cost-card b { display: block; font-size: 18px; margin-bottom: 4px; overflow-wrap: anywhere; }
@@ -427,6 +503,9 @@
       .call-status-grid { grid-template-columns: 1fr; }
       .call-grid { grid-template-columns: 1fr; }
       .kanban-summary { grid-template-columns: 1fr; }
+      .kanban-live-proof, .kanban-proof-grid { grid-template-columns: 1fr; }
+      .kanban-live-actions { justify-content: flex-start; }
+      .approval-summary { grid-template-columns: 1fr; }
       .cost-summary, .cost-body, .cost-bar-row { grid-template-columns: 1fr; }
       .roi-summary, .roi-body, .roi-detail-grid, .roi-research { grid-template-columns: 1fr; }
       .roi-graph-shell { min-height: 360px; }
@@ -461,11 +540,14 @@
       <span class="signed-in" id="signedInUser"></span>
       <a href="#betaStarfield">Beta Starfield</a>
       <a href="#agentMind">Agent Mind</a>
+      <a href="#governanceObservability">Governance</a>
       <a href="#costOfMorgan">Cost</a>
       <a href="#cfoImpactGraph">CFO ROI</a>
       <a href="#corpgenDigestDelivery">Digest</a>
       <a href="#microsoftIQ">Microsoft IQ</a>
       <a href="#teamsCallControl">Teams Call</a>
+      <a href="#hitlApprovals">Approvals</a>
+      <a href="#retrospectives">Retrospectives</a>
       <a href="#autonomousKanban">D-CFO Kanban</a>
       <a href="/auth/logout?returnTo=/mission-control">Sign out</a>
       <a href="/voice" class="primary">Open Avatar</a>
@@ -596,6 +678,34 @@
         </div>
       </div>
     </section>
+    <section class="wide" id="governanceObservability">
+      <div class="section-head"><h2>Governance Observability &amp; Audit</h2><span class="status-dot partial" id="governanceBadge">waiting</span></div>
+      <div class="body">
+        <p class="small" style="margin:0 0 12px">The governance layer beyond the Beta Starfield thought view: a full run timeline for every CFO decision, joined by correlation ID with its prompt, chain-of-thought reasoning, tool selection, response, HITL gate, and audit severity. Same telemetry stream &mdash; now with the accountability detail finance, audit, and compliance teams need for board-grade evidence.</p>
+        <div class="agent-mind-summary" style="margin-bottom:14px">
+          <div class="agent-mind-stat"><b id="govTraceCount">0</b><span>decision traces</span></div>
+          <div class="agent-mind-stat"><b id="govReasoningTurns">0</b><span>reasoning turns</span></div>
+          <div class="agent-mind-stat"><b id="govToolCalls">0</b><span>tool selections</span></div>
+          <div class="agent-mind-stat"><b id="govGates">0</b><span>HITL gates</span></div>
+          <div class="agent-mind-stat"><b id="govAuditCount">0</b><span>audit events</span></div>
+        </div>
+        <div class="compact-list" id="governanceObservabilityStatus" style="margin-bottom:14px"></div>
+        <div class="gov-runbar" id="governanceRunBar"></div>
+        <div class="gov-trace-tabs" id="governanceTraceTabs" aria-label="Decision traces"></div>
+        <div class="gov-layout">
+          <div class="gov-timeline">
+            <div class="gov-timeline-head"><span>Run timeline</span><span id="governanceTimelineCount">0 events</span></div>
+            <div class="gov-timeline-list" id="governanceTimelineList" aria-live="polite"></div>
+          </div>
+          <div class="gov-detail" id="governanceDetail">
+            <div class="gov-detail-head">
+              <div class="gov-detail-title">Select a timeline step</div>
+              <div class="gov-detail-meta"><span>Pick any tool call, reasoning turn, or response to inspect the governed detail.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
     <section class="wide" id="microsoftIQ">
       <div class="section-head"><h2>Microsoft IQ Command Layer</h2><span class="status-dot live" id="microsoftIqBadge">working demo</span></div>
       <div class="body">
@@ -674,9 +784,46 @@
       <div class="section-head"><h2>Experiential Learning</h2><span class="pill">playbook</span></div>
       <div class="body"><div class="compact-list" id="experientialLearning"></div></div>
     </section>
+    <section class="wide" id="hitlApprovals">
+      <div class="section-head"><h2>HITL Approvals</h2><span class="status-dot partial" id="hitlApprovalBadge">loading</span></div>
+      <div class="body">
+        <p class="small" style="margin:0 0 12px">Human-in-the-loop gate for finance actions that require a CFO or finance approver sign-off &mdash; payment releases, journal postings, board-report sends, and material variance calls. Approve, edit, or decline here, or open the full approval queue.</p>
+        <div class="approval-summary">
+          <div class="kanban-summary-item"><b id="hitlPendingCount">0</b><span>pending</span></div>
+          <div class="kanban-summary-item"><b id="hitlApprovedCount">0</b><span>approved</span></div>
+          <div class="kanban-summary-item"><b id="hitlL2Count">0</b><span>L2</span></div>
+          <div class="kanban-summary-item"><b id="hitlL3Count">0</b><span>L3</span></div>
+        </div>
+        <div class="kanban-live-actions" style="margin-bottom:12px; justify-content:flex-start;">
+          <a class="primary" href="/approvals" target="_self">Open approval queue</a>
+          <button class="primary" type="button" id="hitlSendModCard">Send finance approver card</button>
+          <button type="button" id="hitlApprovalRefresh">Refresh approvals</button>
+        </div>
+        <div class="approval-status" id="hitlApprovalStatus">Loading approvals...</div>
+        <div class="compact-list" id="hitlApprovalList"></div>
+      </div>
+    </section>
+    <section class="wide" id="retrospectives">
+      <div class="section-head"><h2>CFO Operational Retrospectives</h2><span class="status-dot partial" id="retrospectivesBadge">loading</span></div>
+      <div class="body">
+        <p class="small" style="margin:0 0 12px">What Morgan learned over recent finance operating cycles &mdash; close runs, forecast revisions, variance reviews, and board-report cycles. Each retrospective captures what worked, what to improve, and the actions carried into the next cycle.</p>
+        <div class="retro-grid" id="retrospectivesList"></div>
+      </div>
+    </section>
     <section class="wide" id="autonomousKanban">
       <div class="section-head"><h2>Autonomous Kanban</h2><span class="pill">D-CFO work board</span></div>
       <div class="body">
+        <div class="kanban-live-proof" id="kanbanLiveProof">
+          <div>
+            <span class="status-dot partial" id="kanbanLiveBadge">checking</span>
+            <h3 id="kanbanLiveTitle">Live Finance Kanban</h3>
+            <p id="kanbanLiveSummary">Checking Morgan's live finance board link.</p>
+          </div>
+          <div class="kanban-live-actions">
+            <a class="primary" id="kanbanLiveOpen" href="/agentic-kanban" target="_blank" rel="noopener">Open live board</a>
+          </div>
+          <div class="kanban-proof-grid" id="kanbanLiveProofPoints"></div>
+        </div>
         <div class="kanban-summary" id="kanbanSummary"></div>
         <div class="kanban-board" id="kanbanBoard" aria-label="Morgan D-CFO autonomous Kanban board"></div>
       </div>
@@ -2001,6 +2148,391 @@
       });
     }
 
+    const governanceKindLabels = {
+      'agent.message': 'Prompt',
+      'agent.reply': 'Response',
+      'llm.turn': 'Reasoning',
+      'tool.call': 'Tool Call',
+      'tool.result': 'Tool Result',
+      'mcp.discover': 'MCP Discovery',
+      'mcp.invoke': 'MCP Invoke',
+      'graph.call': 'Graph Call'
+    };
+    const governanceState = { traces: [], selectedTraceId: null, selectedStepId: null, detailTab: 'human' };
+
+    function renderGovernanceStatus(observability) {
+      const el = document.getElementById('governanceObservabilityStatus');
+      if (!el) return;
+      const o = observability || {};
+      const aiState = o.applicationInsightsConfigured ? 'live' : 'partial';
+      const aiText = o.applicationInsightsConfigured ? 'Application Insights connected' : 'App Insights not configured (stdout + memory ledger active)';
+      const purviewState = o.purviewAuditEnabled ? 'live' : 'partial';
+      const purviewText = o.purviewAuditEnabled ? 'Purview audit enabled' : 'Purview audit standby';
+      el.innerHTML = [
+        `<div class="compact-item"><span class="status-dot ${aiState}">${o.applicationInsightsConfigured ? 'live' : 'standby'}</span><p><b>Telemetry sink</b></p><p>${escapeHtml(aiText)}</p></div>`,
+        `<div class="compact-item"><span class="status-dot ${purviewState}">${o.purviewAuditEnabled ? 'on' : 'standby'}</span><p><b>Compliance audit</b></p><p>${escapeHtml(purviewText)}</p></div>`,
+        `<div class="compact-item"><span class="status-dot live">join</span><p><b>Correlation join</b></p><p>${escapeHtml('Every Morgan event, Agent 365, Entra, Teams, Exchange and SharePoint record joins on correlationId for end-to-end finance audit.')}</p></div>`
+      ].join('');
+    }
+
+    function stepDotClass(step) {
+      if (step.status === 'error') return 'error';
+      if (step.status === 'started') return 'started';
+      if (step.status === 'ok') return 'ok';
+      return '';
+    }
+
+    function stepStatusText(step) {
+      const label = governanceKindLabels[step.kind] || step.kind;
+      const status = step.status === 'started' ? 'Running' : step.status === 'error' ? 'Failed' : step.status === 'ok' ? 'Completed' : (step.status || 'logged');
+      const duration = (step.durationMs || step.durationMs === 0) ? ` · ${step.durationMs} ms` : '';
+      return `${label} · ${status}${duration}`;
+    }
+
+    function stepDisplayName(step) {
+      if (step.kind === 'tool.call' || step.kind === 'tool.result') return step.data?.tool || step.label || step.kind;
+      if (step.kind === 'agent.message') return 'User prompt';
+      if (step.kind === 'agent.reply') return 'Morgan response';
+      if (step.kind === 'llm.turn') return 'Reasoning turn';
+      return governanceKindLabels[step.kind] || step.label || step.kind;
+    }
+
+    function renderGovernanceRunBar(trace) {
+      const el = document.getElementById('governanceRunBar');
+      if (!el) return;
+      if (!trace) { el.innerHTML = '<div class="gov-run-field"><span>Run</span><b>No decision trace selected</b></div>'; return; }
+      const fields = [
+        ['Agent', '<b>Morgan Digital CFO</b>'],
+        ['Visibility', '<b>Signed-in operators</b>'],
+        ['Correlation ID', `<code>${escapeHtml(trace.correlationId)}</code>`],
+        ['Severity', `<b>${escapeHtml(trace.severity || 'info')}</b>`],
+        ['Tool calls', `<b>${trace.toolCallCount} · ${trace.stepCount} events</b>`],
+        ['Governance gate', `<b>${trace.hitlGate ? escapeHtml(trace.hitlGate.kind) : 'none'}</b>`],
+        ['Updated', `<b>${escapeHtml(formatAgentTime(trace.endedAt))}</b>`]
+      ];
+      el.innerHTML = fields.map(([label, value]) => `<div class="gov-run-field"><span>${label}</span>${value}</div>`).join('');
+    }
+
+    function renderGovernanceTraceTabs() {
+      const el = document.getElementById('governanceTraceTabs');
+      if (!el) return;
+      if (!governanceState.traces.length) { el.innerHTML = '<span class="small">No governed decision traces yet.</span>'; return; }
+      el.innerHTML = governanceState.traces.map((trace) => {
+        const active = trace.correlationId === governanceState.selectedTraceId ? ' active' : '';
+        const title = trace.prompt ? trace.prompt.slice(0, 28) : trace.correlationId.slice(0, 18);
+        const gate = trace.hitlGate ? '<span class="gov-tab-gate">HITL</span>' : '';
+        return `<button type="button" data-trace="${escapeHtml(trace.correlationId)}" class="${active.trim()}">${escapeHtml(title)}${gate}</button>`;
+      }).join('');
+    }
+
+    function renderGovernanceTimeline(trace) {
+      const listEl = document.getElementById('governanceTimelineList');
+      const countEl = document.getElementById('governanceTimelineCount');
+      if (!listEl) return;
+      const steps = trace?.steps || [];
+      if (countEl) countEl.textContent = `${steps.length} event${steps.length === 1 ? '' : 's'}`;
+      if (!steps.length) { listEl.innerHTML = '<div class="small" style="padding:12px">No timeline events for this trace.</div>'; return; }
+      listEl.innerHTML = steps.map((step) => {
+        const isTool = step.kind === 'tool.call' || step.kind === 'tool.result';
+        const isGate = step.kind === 'agent.message' || step.kind === 'agent.reply';
+        const badge = isTool ? '<span class="gov-step-badge tool">tool</span>' : isGate ? '<span class="gov-step-badge gate">io</span>' : '<span class="gov-step-badge">step</span>';
+        const active = step.id === governanceState.selectedStepId ? ' active' : '';
+        return `<div class="gov-step${active}" data-step="${escapeHtml(step.id)}">
+          <div class="gov-step-dot ${stepDotClass(step)}"></div>
+          <div class="gov-step-main">
+            <div class="gov-step-name">${escapeHtml(stepDisplayName(step))} ${badge}</div>
+            <div class="gov-step-sub">${escapeHtml(stepStatusText(step))}</div>
+          </div>
+          <div class="gov-step-time">${escapeHtml(formatAgentTime(step.ts))}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderGovernanceDetail(trace, step) {
+      const el = document.getElementById('governanceDetail');
+      if (!el) return;
+      if (!trace) { el.innerHTML = '<div class="gov-detail-head"><div class="gov-detail-title">Select a decision trace</div></div>'; return; }
+      const tab = governanceState.detailTab;
+      const data = step?.data || {};
+      let bodyHtml = '';
+      if (tab === 'raw') {
+        bodyHtml = `<pre>${escapeHtml(safeJson(step || trace))}</pre>`;
+      } else if (tab === 'diagnostics') {
+        const audits = trace.audit || [];
+        bodyHtml = `<div class="gov-field"><div class="gov-field-label">Audit ledger (correlation ${escapeHtml(trace.correlationId)})</div>`
+          + (audits.length
+            ? `<div class="gov-field-value">${audits.map((a) => `${escapeHtml(formatAgentTime(a.timestamp))} · <b>${escapeHtml(a.kind)}</b> (${escapeHtml(a.severity)})${a.actor ? ` · ${escapeHtml(a.actor)}` : ''}`).join('<br>')}</div>`
+            : '<div class="gov-field-value">No audit ledger entries joined to this correlation ID yet.</div>')
+          + '</div>'
+          + `<div class="gov-field"><div class="gov-field-label">Severity</div><div class="gov-field-value">${escapeHtml(trace.severity || 'info')}</div></div>`;
+      } else {
+        const blocks = [];
+        if (step) {
+          blocks.push(`<div class="gov-field"><div class="gov-field-label">Step</div><div class="gov-field-value">${escapeHtml(stepDisplayName(step))} — ${escapeHtml(stepStatusText(step))}</div></div>`);
+        }
+        if (data.reasoningSummary) {
+          blocks.push(`<div class="gov-field"><div class="gov-field-label">Chain of thought</div><div class="gov-field-value cot">${escapeHtml(String(data.reasoningSummary))}</div></div>`);
+        }
+        if (Array.isArray(data.toolCalls) && data.toolCalls.length) {
+          blocks.push(`<div class="gov-field"><div class="gov-field-label">Tool selection</div><div class="gov-tool-chips">${data.toolCalls.map((tool) => `<span class="agent-chip">${escapeHtml(String(tool))}</span>`).join('')}</div></div>`);
+        }
+        if (data.tool) {
+          const params = Array.isArray(data.parameterKeys) ? data.parameterKeys.join(', ') : '';
+          blocks.push(`<div class="gov-field"><div class="gov-field-label">Calling tool</div><div class="gov-field-value"><code>${escapeHtml(String(data.tool))}</code>${data.source ? ` via ${escapeHtml(String(data.source))}` : ''}${params ? `<br><span class="small">params: ${escapeHtml(params)}</span>` : ''}</div></div>`);
+        }
+        if (data.promptPreview) {
+          blocks.push(`<div class="gov-field"><div class="gov-field-label">Prompt / input</div><div class="gov-field-value">${escapeHtml(String(data.promptPreview))}</div></div>`);
+        }
+        if (data.responsePreview) {
+          blocks.push(`<div class="gov-field"><div class="gov-field-label">Response</div><div class="gov-field-value">${escapeHtml(String(data.responsePreview))}</div></div>`);
+        }
+        if (!blocks.length) {
+          if (trace.prompt) blocks.push(`<div class="gov-field"><div class="gov-field-label">Prompt / input</div><div class="gov-field-value">${escapeHtml(trace.prompt)}</div></div>`);
+          if (trace.chainOfThought?.length) blocks.push(`<div class="gov-field"><div class="gov-field-label">Chain of thought</div><div class="gov-field-value cot">${trace.chainOfThought.map((s) => escapeHtml(s)).join('<br>')}</div></div>`);
+          if (trace.toolsSelected?.length) blocks.push(`<div class="gov-field"><div class="gov-field-label">Tool selection</div><div class="gov-tool-chips">${trace.toolsSelected.map((t) => `<span class="agent-chip">${escapeHtml(t)}</span>`).join('')}</div></div>`);
+          if (trace.response) blocks.push(`<div class="gov-field"><div class="gov-field-label">Response</div><div class="gov-field-value">${escapeHtml(trace.response)}</div></div>`);
+        }
+        if (trace.hitlGate) {
+          blocks.push(`<div class="gov-gate-banner"><span class="status-dot partial">HITL</span> <span>${escapeHtml(trace.hitlGate.label)}${trace.hitlGate.decision ? ` · decision: ${escapeHtml(String(trace.hitlGate.decision))}` : ' · awaiting human approval'}</span></div>`);
+        }
+        bodyHtml = blocks.join('') || '<div class="small">No governed detail captured for this step.</div>';
+      }
+      const headName = step ? stepDisplayName(step) : 'Decision trace';
+      const headMeta = step
+        ? `<span>TYPE <b>${escapeHtml(governanceKindLabels[step.kind] || step.kind)}</b></span><span>STATUS <b>${escapeHtml(step.status || 'logged')}</b></span>${step.durationMs || step.durationMs === 0 ? `<span>DURATION <b>${step.durationMs} ms</b></span>` : '<span>DURATION <b>Not reported</b></span>'}`
+        : `<span>EVENTS <b>${trace.stepCount}</b></span><span>SEVERITY <b>${escapeHtml(trace.severity || 'info')}</b></span>`;
+      el.innerHTML = `
+        <div class="gov-detail-head">
+          <div class="gov-detail-title"><span class="gov-step-dot ${step ? stepDotClass(step) : 'ok'}"></span> ${escapeHtml(headName)}</div>
+          <div class="gov-detail-meta">${headMeta}</div>
+        </div>
+        <div class="gov-tabs">
+          <button type="button" data-detail-tab="human" class="${tab === 'human' ? 'active' : ''}">Human</button>
+          <button type="button" data-detail-tab="raw" class="${tab === 'raw' ? 'active' : ''}">Raw</button>
+          <button type="button" data-detail-tab="diagnostics" class="${tab === 'diagnostics' ? 'active' : ''}">Diagnostics</button>
+        </div>
+        <div class="gov-tab-body">${bodyHtml}</div>`;
+    }
+
+    function getSelectedGovernanceTrace() {
+      return governanceState.traces.find((trace) => trace.correlationId === governanceState.selectedTraceId) || governanceState.traces[0] || null;
+    }
+
+    function getSelectedGovernanceStep(trace) {
+      if (!trace) return null;
+      return (trace.steps || []).find((step) => step.id === governanceState.selectedStepId) || (trace.steps || [])[trace.steps.length - 1] || null;
+    }
+
+    function renderGovernance() {
+      const trace = getSelectedGovernanceTrace();
+      if (trace) governanceState.selectedTraceId = trace.correlationId;
+      const step = getSelectedGovernanceStep(trace);
+      if (step) governanceState.selectedStepId = step.id;
+      renderGovernanceRunBar(trace);
+      renderGovernanceTraceTabs();
+      renderGovernanceTimeline(trace);
+      renderGovernanceDetail(trace, step);
+    }
+
+    async function loadGovernanceObservability() {
+      const data = await authedJson('/api/mission-control/governance?traces=12') || {};
+      const stats = data.stats || {};
+      document.getElementById('govTraceCount').textContent = String(stats.traceCount || 0);
+      document.getElementById('govReasoningTurns').textContent = String(stats.reasoningTurns || 0);
+      document.getElementById('govToolCalls').textContent = String(stats.toolCalls || 0);
+      document.getElementById('govGates').textContent = String(stats.governanceGates || 0);
+      document.getElementById('govAuditCount').textContent = String(stats.auditEventCount || 0);
+      const badge = document.getElementById('governanceBadge');
+      const liveCount = stats.last5min || 0;
+      badge.className = `status-dot ${liveCount > 0 ? 'live' : 'partial'}`;
+      badge.textContent = liveCount > 0 ? 'live' : (stats.traceCount > 0 ? 'audited' : 'waiting');
+      renderGovernanceStatus(data.observability);
+      const previousTrace = governanceState.selectedTraceId;
+      governanceState.traces = data.traces || [];
+      if (!governanceState.traces.some((trace) => trace.correlationId === previousTrace)) {
+        governanceState.selectedTraceId = governanceState.traces[0]?.correlationId || null;
+        governanceState.selectedStepId = null;
+      }
+      renderGovernance();
+      return data;
+    }
+
+    function renderAgenticKanbanLink(link) {
+      const badge = document.getElementById('kanbanLiveBadge');
+      const title = document.getElementById('kanbanLiveTitle');
+      const summary = document.getElementById('kanbanLiveSummary');
+      const open = document.getElementById('kanbanLiveOpen');
+      const proof = document.getElementById('kanbanLiveProofPoints');
+      if (!badge || !title || !summary || !open || !proof) return;
+      const source = link?.source || 'internal-fallback';
+      const provider = link?.provider || 'Power Platform';
+      const appName = link?.powerPlatform?.appDisplayName || 'FlightDeck';
+      const url = link?.url || '/agentic-kanban';
+      const proofData = link?.proof || {};
+      badge.className = `status-dot ${source === 'internal-fallback' ? 'partial' : 'live'}`;
+      badge.textContent = source === 'configured-url' || source === 'power-app-ids' ? 'configured' : source === 'flightdeck-demo' ? 'demo link' : 'fallback';
+      title.textContent = `${provider} live Finance Kanban`;
+      summary.textContent = `${appName} is the connected board surface for Morgan's sub-agent finance work control, backed by Dataverse task, activity, and agent-action records.`;
+      open.href = url;
+      open.target = link?.openTarget === '_self' || url.startsWith('/') ? '_self' : '_blank';
+      open.rel = open.target === '_blank' ? 'noopener' : '';
+      open.textContent = link?.label || 'Open live board';
+      proof.innerHTML = [
+        ['Power Platform', `${appName}${link?.powerPlatform?.appId ? ` · ${link.powerPlatform.appId.slice(0, 8)}` : ''}`],
+        ['Dataverse', proofData.dataverseBacked ? 'mc_task, mc_agentaction, activity log' : 'Internal Mission Control fallback'],
+        ['Sub-agents', (proofData.subAgents || []).slice(0, 4).join(', ') || 'Morgan CFO sub-agent registry'],
+        ['Refresh model', proofData.pollIntervalSeconds ? `${proofData.pollIntervalSeconds}s board polling` : 'Mission Control snapshot'],
+      ].map(([name, value]) => `<div class="kanban-proof-item"><b>${escapeHtml(name)}</b><span>${escapeHtml(value)}</span></div>`).join('');
+    }
+
+    async function loadAgenticKanbanLink() {
+      try {
+        renderAgenticKanbanLink(await authedJson('/api/mission-control/agentic-kanban'));
+      } catch (error) {
+        renderAgenticKanbanLink({
+          source: 'internal-fallback',
+          provider: 'Mission Control',
+          label: 'Open Finance Kanban',
+          url: '/mission-control#autonomousKanban',
+          openTarget: '_self',
+          powerPlatform: { appDisplayName: 'Morgan Mission Control' },
+          proof: { dataverseBacked: false, subAgents: [], pollIntervalSeconds: 0 },
+        });
+      }
+    }
+
+    function approvalCountWhere(items, predicate) {
+      return items.filter(predicate).length;
+    }
+
+    function renderHitlApprovals(data) {
+      const requests = Array.isArray(data?.requests) ? data.requests : [];
+      const pending = approvalCountWhere(requests, (item) => item.status === 'pending');
+      const approved = approvalCountWhere(requests, (item) => item.status === 'approved' || item.status === 'approved_with_edits');
+      const badge = document.getElementById('hitlApprovalBadge');
+      const listEl = document.getElementById('hitlApprovalList');
+      document.getElementById('hitlPendingCount').textContent = String(pending);
+      document.getElementById('hitlApprovedCount').textContent = String(approved);
+      document.getElementById('hitlL2Count').textContent = String(approvalCountWhere(requests, (item) => item.level === 'L2'));
+      document.getElementById('hitlL3Count').textContent = String(approvalCountWhere(requests, (item) => item.level === 'L3'));
+      badge.className = `status-dot ${pending ? 'partial' : 'ready'}`;
+      badge.textContent = pending ? `${pending} waiting` : 'clear';
+      document.getElementById('hitlApprovalStatus').textContent = `${requests.length} approval record(s) loaded. Use Open approval queue for the full decision surface.`;
+      if (!requests.length) {
+        listEl.innerHTML = '<div class="compact-item"><p><b>No HITL approvals are waiting.</b></p><p>Morgan will add L2/L3 requests here when a finance approver sign-off is required.</p></div>';
+        return;
+      }
+      listEl.innerHTML = requests.slice(0, 6).map((item) => {
+        const disabled = item.status === 'pending' ? '' : 'disabled';
+        const decidedClass = item.status === 'pending' ? '' : ' decided';
+        const metaParts = [item.caseId, item.customer, item.actionType].filter(Boolean).map((value) => escapeHtml(String(value))).join(' · ');
+        return `<div class="approval-card${decidedClass}" id="mission-${escapeHtml(item.id)}">
+          <div class="approval-card-head">
+            <div><b>${escapeHtml(item.title || 'Approval request')}</b><div class="small">${metaParts}</div></div>
+            <span class="status-dot ${escapeHtml(item.status)}">${escapeHtml(item.level)} ${escapeHtml(item.status)}</span>
+          </div>
+          <p class="small">${escapeHtml(item.rationale)}</p>
+          <p class="small"><b>Recipient:</b> ${escapeHtml(item.recipient)} · <b>Tool:</b> ${escapeHtml(item.tool)}</p>
+          <textarea class="approval-note" id="mission-note-${escapeHtml(item.id)}" placeholder="Optional decision note or edited body" ${disabled}></textarea>
+          <div class="approval-actions">
+            <button class="primary" type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="approve">Approve</button>
+            <button type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="approve_with_edits">Approve With Edits</button>
+            <button class="danger" type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="decline">Decline</button>
+            <button type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="cancel">Cancel</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function loadHitlApprovals() {
+      document.getElementById('hitlApprovalStatus').textContent = 'Loading approvals...';
+      const data = await authedJson('/api/hitl/approvals');
+      renderHitlApprovals(data);
+      return data;
+    }
+
+    async function recordMissionControlHitlDecision(id, decision) {
+      const note = document.getElementById(`mission-note-${id}`)?.value || '';
+      document.getElementById('hitlApprovalStatus').textContent = `Recording ${decision}...`;
+      const result = await authedJson(`/api/hitl/approvals/${encodeURIComponent(id)}/decision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ decision, rationale: note, editedBody: decision === 'approve_with_edits' ? note : undefined }),
+      });
+      document.getElementById('hitlApprovalStatus').textContent = result?.request?.title ? `Recorded ${decision} for ${result.request.title}.` : `Recorded ${decision}.`;
+      await loadHitlApprovals();
+    }
+
+    async function sendMissionControlHitlCard() {
+      document.getElementById('hitlApprovalStatus').textContent = 'Sending L2 Adaptive Card to the finance approver...';
+      const result = await authedJson('/api/hitl/approvals/send-mod-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ level: 'L2' }),
+      }) || {};
+      document.getElementById('hitlApprovalStatus').textContent = result.ok
+        ? `${result.adaptiveCardSent ? 'Sent Adaptive Card' : 'Sent Teams fallback'} with ${result.requestCount || 0} L2 approval request(s) to ${result.targetLabel || 'finance approver'} via ${result.source || 'Teams bot'}.`
+        : `Unable to send L2 approval card: ${result.error || 'unknown error'}.`;
+    }
+
+    function retroList(value) {
+      const arr = Array.isArray(value) ? value : (value == null ? [] : [value]);
+      return arr.map((entry) => {
+        if (entry == null) return '';
+        if (typeof entry === 'string') return entry;
+        if (typeof entry === 'object') return entry.text || entry.title || entry.summary || entry.label || entry.name || entry.description || '';
+        return String(entry);
+      }).filter((entry) => String(entry).trim());
+    }
+
+    function renderRetroSection(label, items) {
+      if (!items.length) return '';
+      return `<div class="retro-section"><div class="retro-label">${escapeHtml(label)}</div><ul>${items.slice(0, 6).map((entry) => `<li>${escapeHtml(String(entry))}</li>`).join('')}</ul></div>`;
+    }
+
+    function renderRetrospectives(data) {
+      const badge = document.getElementById('retrospectivesBadge');
+      const listEl = document.getElementById('retrospectivesList');
+      if (!listEl) return;
+      const items = Array.isArray(data)
+        ? data
+        : (data?.retrospectives || data?.items || data?.records || data?.cycles || []);
+      if (!Array.isArray(items) || !items.length) {
+        if (badge) { badge.className = 'status-dot partial'; badge.textContent = 'no data yet'; }
+        listEl.innerHTML = '<div class="compact-item"><p><b>No retrospectives captured yet.</b></p><p>Morgan will record finance operating-cycle retrospectives here as close runs, forecasts, and board reports complete.</p></div>';
+        return;
+      }
+      if (badge) { badge.className = 'status-dot live'; badge.textContent = `${items.length} captured`; }
+      listEl.innerHTML = items.slice(0, 5).map((entry) => {
+        const it = entry || {};
+        const title = it.title || it.name || it.cycle || it.period || it.label || 'Operating-cycle retrospective';
+        const when = it.date || it.completedAt || it.updatedAt || it.createdAt || it.period || it.cycle || '';
+        const summary = it.summary || it.overview || it.narrative || it.headline || '';
+        const body = [
+          summary ? `<p class="small">${escapeHtml(String(summary))}</p>` : '',
+          renderRetroSection('What worked', retroList(it.wins || it.whatWorked || it.strengths || it.highlights)),
+          renderRetroSection('What to improve', retroList(it.improvements || it.whatToImprove || it.risks || it.issues)),
+          renderRetroSection('Carried actions', retroList(it.actions || it.nextActions || it.followUps || it.actionItems)),
+          renderRetroSection('Learnings', retroList(it.learnings || it.lessons || it.insights)),
+        ].join('') || '<p class="small">No detail captured for this cycle.</p>';
+        return `<article class="retro-card">
+          <div class="retro-card-head"><b>${escapeHtml(String(title))}</b><span>${escapeHtml(String(when))}</span></div>
+          ${body}
+        </article>`;
+      }).join('');
+    }
+
+    async function loadRetrospectives() {
+      const badge = document.getElementById('retrospectivesBadge');
+      const listEl = document.getElementById('retrospectivesList');
+      try {
+        renderRetrospectives(await authedJson('/api/mission-control/retrospectives'));
+      } catch (error) {
+        if (badge) { badge.className = 'status-dot partial'; badge.textContent = 'unavailable'; }
+        if (listEl) listEl.innerHTML = `<div class="compact-item"><p><b>Retrospectives unavailable.</b></p><p>${escapeHtml(error.message || 'Unable to load CFO retrospectives.')}</p></div>`;
+      }
+    }
+
     const teamsCallState = { status: null, loading: false };
     const corpgenDayState = { loading: false };
 
@@ -2080,6 +2612,27 @@
       result.className = `call-result ${kind}`.trim();
     }
 
+    function formatTeamsCallOutcome(outcome) {
+      if (!outcome || typeof outcome !== 'object') return '';
+      const result = outcome.resultInformation || {};
+      const code = result.code ? ` ${result.code}` : '';
+      const subCode = result.subCode ? `/${result.subCode}` : '';
+      const message = result.message ? ` - ${result.message}` : '';
+      const action = outcome.operatorAction ? ` ${outcome.operatorAction}` : '';
+      if (outcome.status === 'failed' || outcome.severity === 'error') {
+        return `Last Teams call failed${code}${subCode}${message}.${action}`.trim();
+      }
+      if (outcome.kind === 'teams.call.started') return 'Teams call request accepted by ACS; waiting for Teams lifecycle callback.';
+      if (outcome.kind === 'teams.call.connected') return 'Teams call connected to Morgan.';
+      return '';
+    }
+
+    function refreshTeamsCallStatusSoon(delayMs = 6500) {
+      setTimeout(() => {
+        loadTeamsCallStatus().catch((error) => setTeamsCallResult(error.message || 'Teams call status unavailable.', 'error'));
+      }, delayMs);
+    }
+
     function renderTeamsCallStatus(data) {
       teamsCallState.status = data;
       buildLiveMindmap(agentMindState.events || []);
@@ -2116,7 +2669,12 @@
         : 'Dial Morgan over the ACS-to-Teams federation bridge';
       if (!status.configured && blockers.length) {
         setTeamsCallResult(`Teams calling needs configuration: ${blockers.join(', ')}.`, 'error');
-      } else if (status.configured && !status.federationResourceIdConfigured) {
+      } else {
+        const outcomeMessage = formatTeamsCallOutcome(data?.latestOutcome);
+        if (outcomeMessage) setTeamsCallResult(outcomeMessage, data?.latestOutcome?.status === 'failed' || data?.latestOutcome?.severity === 'error' ? 'error' : 'ready');
+      }
+
+      if (status.configured && !status.federationResourceIdConfigured && !(data?.latestOutcome?.status === 'failed' || data?.latestOutcome?.severity === 'error')) {
         setTeamsCallResult('Teams audio bridge is configured; tenant federation policy marker is still pending.', '');
       }
 
@@ -2178,8 +2736,18 @@
           }),
         });
         setTeamsCallResult(`Morgan call placed: ${data.callConnectionId || data.serverCallId || 'pending connection'}`, 'ready');
-        renderTeamsCallStatus({ ...(teamsCallState.status || {}), activeCalls: data.activeCalls || [] });
+        renderTeamsCallStatus({
+          ...(teamsCallState.status || {}),
+          activeCalls: data.activeCalls || [],
+          latestOutcome: {
+            kind: 'teams.call.started',
+            status: 'started',
+            severity: 'info',
+          },
+        });
         await loadTeamsCallStatus().catch(() => {});
+        refreshTeamsCallStatusSoon(7000);
+        refreshTeamsCallStatusSoon(15000);
       } catch (error) {
         setTeamsCallResult(error.message || 'Teams call request failed.', 'error');
       } finally {
@@ -2224,7 +2792,14 @@
       ];
       document.getElementById('adaptiveMemory').innerHTML = `<div class="compact-item"><p><b>Compression policy:</b> ${memory.compressionPolicy || 'Not generated yet.'}</p><p>${memory.recordsConsidered || 0} record(s), ${memory.auditEventsConsidered || 0} audit event(s)</p></div>` + memoryBlocks.map(([title, items]) => `<div class="compact-item"><b>${title}</b><p>${items.length ? items.slice(0, 5).join('<br>') : 'No entries yet.'}</p></div>`).join('');
       document.getElementById('experientialLearning').innerHTML = (data.experientialLearning || []).map((item) => `<div class="compact-item"><span class="status-dot ${item.status}">${item.status}</span><p><b>${item.title}</b></p><p><b>Trigger:</b> ${item.trigger}</p><p>${item.reuseInstruction}</p></div>`).join('');
+      await loadAgenticKanbanLink();
       renderAutonomousKanban(data.autonomousKanban);
+      await loadHitlApprovals().catch((error) => {
+        const badge = document.getElementById('hitlApprovalBadge');
+        badge.className = 'status-dot partial';
+        badge.textContent = 'unavailable';
+        document.getElementById('hitlApprovalStatus').textContent = error.message || 'Unable to load HITL approvals.';
+      });
       const plan = data.operatingPlan || { horizon: {}, nextRunnableTasks: [], dependencyGraph: [], escalationQueue: [], proofRequired: [] };
       document.getElementById('operatingPlan').innerHTML = `<div class="task"><div class="task-title"><b>Strategic horizon</b><span class="pill">${(plan.horizon.strategic || []).length} objectives</span></div><p>${(plan.horizon.strategic || []).join('<br>')}</p></div>` + (plan.nextRunnableTasks || []).map((task) => `<div class="task"><div class="task-title"><b>${task.title}</b><span class="pill ${task.priority <= 2 ? '' : 'amber'}">P${task.priority}</span></div><p>${task.reason}</p><div class="small"><b>Tools:</b> ${(task.tools || []).join(', ')}</div><div class="small"><b>Sub-agents:</b> ${(task.subAgents || []).join(', ')}</div></div>`).join('') + `<div class="task"><div class="task-title"><b>Proof required</b><span class="pill amber">guardrail</span></div><p>${(plan.proofRequired || []).join('<br>')}</p></div>`;
       const artifactEvaluations = data.recentArtifactEvaluations || [];
@@ -2240,6 +2815,8 @@
         ? data.today.records.map((record) => `<div class="record ${record.status}"><b>${record.title}</b><div class="small">${record.status} - ${record.summary}</div></div>`).join('')
         : '<div class="small">No tasks recorded yet today. Trigger the autonomous workday or ask Morgan to record completed work.</div>';
       await loadAgentMind().catch(() => {});
+      await loadGovernanceObservability().catch(() => {});
+      await loadRetrospectives().catch(() => {});
       await loadTeamsCallStatus().catch((error) => setTeamsCallResult(error.message || 'Teams call status unavailable.', 'error'));
       await loadMindmap();
     }
@@ -2265,6 +2842,35 @@
       document.getElementById('agentMindFilters').querySelectorAll('button').forEach((item) => item.classList.toggle('active', item === button));
       loadAgentMind().catch(() => {});
     });
+    document.getElementById('hitlSendModCard').addEventListener('click', () => sendMissionControlHitlCard().catch((error) => { document.getElementById('hitlApprovalStatus').textContent = error.message || 'Unable to send L2 approval card.'; }));
+    document.getElementById('hitlApprovalRefresh').addEventListener('click', () => loadHitlApprovals().catch((error) => { document.getElementById('hitlApprovalStatus').textContent = error.message || 'Unable to load HITL approvals.'; }));
+    document.getElementById('hitlApprovalList').addEventListener('click', (event) => {
+      const button = event.target instanceof HTMLElement ? event.target.closest('button[data-hitl-id]') : null;
+      if (!button) return;
+      recordMissionControlHitlDecision(button.getAttribute('data-hitl-id') || '', button.getAttribute('data-hitl-decision') || '').catch((error) => {
+        document.getElementById('hitlApprovalStatus').textContent = error.message || 'Unable to record HITL approval decision.';
+      });
+    });
+    document.getElementById('governanceTraceTabs').addEventListener('click', (event) => {
+      const button = event.target instanceof HTMLElement ? event.target.closest('button[data-trace]') : null;
+      if (!button) return;
+      governanceState.selectedTraceId = button.getAttribute('data-trace');
+      governanceState.selectedStepId = null;
+      renderGovernance();
+    });
+    document.getElementById('governanceTimelineList').addEventListener('click', (event) => {
+      const row = event.target instanceof HTMLElement ? event.target.closest('.gov-step[data-step]') : null;
+      if (!row) return;
+      governanceState.selectedStepId = row.getAttribute('data-step');
+      renderGovernance();
+    });
+    document.getElementById('governanceDetail').addEventListener('click', (event) => {
+      const button = event.target instanceof HTMLElement ? event.target.closest('button[data-detail-tab]') : null;
+      if (!button) return;
+      governanceState.detailTab = button.getAttribute('data-detail-tab') || 'human';
+      const trace = getSelectedGovernanceTrace();
+      renderGovernanceDetail(trace, getSelectedGovernanceStep(trace));
+    });
     setupMindmapCameraControls();
     refresh().catch((error) => { document.getElementById('subtitle').textContent = error.message; });
     setInterval(() => {
@@ -2279,6 +2885,14 @@
     setInterval(() => {
       if (!document.getElementById('appMain').hidden) loadMorganCosts().catch(() => {});
     }, 60000);
+    setInterval(() => {
+      if (!document.getElementById('appMain').hidden) loadGovernanceObservability().catch(() => {});
+    }, 8000);
+    setInterval(() => {
+      if (!document.getElementById('appMain').hidden) loadHitlApprovals().catch(() => {});
+    }, 30000);
   </script>
+  <!-- Mission Control avatar toggle (adds Morgan Standard + Mia Elegant D-ID launch buttons to the header .top-actions) -->
+  <script src="/mission-control/avatar-toggle-ui.js" defer></script>
 </body>
 </html>

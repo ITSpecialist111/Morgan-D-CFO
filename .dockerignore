@@ -5,5 +5,20 @@ dist
 .env.*
 *.log
 coverage
-azure-function-trigger/node_modules
-azure-function-trigger/dist
+
+# Build context only needs package*.json, tsconfig.json, src, scripts.
+# Exclude large/irrelevant dirs so the ACR upload stays small (was ~1GB+).
+.deploy
+.logs
+.appservice-logs
+.understand-anything
+.data
+.foundry
+verification
+.github
+.vscode
+control
+azure-function-trigger
+docs
+*.tar.gz
+node_modules.tar.gz

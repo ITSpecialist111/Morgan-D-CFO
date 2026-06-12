@@ -3,6 +3,7 @@ import type { ChatCompletionTool } from 'openai/resources/chat';
 export interface SubAgentDefinition {
   id: string;
   name: string;
+  kind: 'specialist' | 'bridge';
   role: string;
   endpointEnv: string;
   defaultPath: string;
@@ -33,6 +34,7 @@ export function getSubAgentRegistry(): SubAgentDefinition[] {
     {
       id: 'cassidy',
       name: 'Cassidy',
+      kind: 'specialist',
       role: 'Autonomous Chief of Staff and operations coordinator',
       endpointEnv: 'CASSIDY_AGENT_ENDPOINT',
       defaultPath: '/api/agent-messages',
@@ -41,6 +43,7 @@ export function getSubAgentRegistry(): SubAgentDefinition[] {
     {
       id: 'avatar',
       name: 'Avatar',
+      kind: 'specialist',
       role: 'Visible spoken agent interface',
       endpointEnv: 'AVATAR_AGENT_ENDPOINT',
       defaultPath: '/api/voice',
@@ -49,6 +52,7 @@ export function getSubAgentRegistry(): SubAgentDefinition[] {
     {
       id: 'ai-kanban',
       name: 'AI Kanban',
+      kind: 'specialist',
       role: 'Mission board and task intelligence agent',
       endpointEnv: 'AI_KANBAN_AGENT_ENDPOINT',
       defaultPath: '/api/agent-actions',

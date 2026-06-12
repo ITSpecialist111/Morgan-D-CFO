@@ -1,5 +1,6 @@
 import type { TurnContext } from '@microsoft/agents-hosting';
 import { executeTool } from './tools';
+import { getRetrospectiveHistory } from './tools/retrospectiveTools';
 
 export interface ShowcaseShortcutOptions {
   allowVoiceActions?: boolean;
@@ -132,7 +133,7 @@ function latestWorkdayBatch(completed: any[], blockedOrFailed: any[]): { complet
   return { completed: batch, blockedOrFailed: relatedBlockedOrFailed };
 }
 
-function formatEndOfDay(report: any): string {
+function formatEndOfDay(report: any, demoOnly = false): string {
   const completed = Array.isArray(report.completed) ? report.completed : Array.isArray(report.completedTasks) ? report.completedTasks : [];
   const blocked = Array.isArray(report.blocked) ? report.blocked : Array.isArray(report.blockedTasks) ? report.blockedTasks : [];
   const failed = Array.isArray(report.failed) ? report.failed : Array.isArray(report.failedTasks) ? report.failedTasks : [];
@@ -145,6 +146,12 @@ function formatEndOfDay(report: any): string {
       : [];
   const leadItems = latestBatch?.completed.length ? latestBatch.completed : completed;
   return [
+    ...(demoOnly
+      ? [
+        'Demo/deterministic context: this digest uses only Morgan Mission Control records and deterministic showcase state available in this hosted session. No emails, Teams messages, tenant queries, or external sends were performed or claimed.',
+        '',
+      ]
+      : []),
     `End-of-day CFO report for **${report.date || 'today'}**.`,
     latestBatch
       ? `**Latest autonomous workday**: ${latestBatch.completed.length} completed, ${latestBatch.blockedOrFailed.length} blocked/failed.`
@@ -168,6 +175,77 @@ function formatEscalation(board: any): string {
   ].join('\n');
 }
 
+function approvalKeywordToRequestId(text: string, approvals: any[]): string | undefined {
+  const requested = approvals.find((item) => {
+    const haystack = `${item.id || ''} ${item.caseId || ''} ${item.customer || ''} ${item.title || ''}`.toLowerCase();
+    return haystack.split(/[^a-z0-9]+/).filter(Boolean).some((token) => token.length > 3 && text.includes(token));
+  });
+  return requested?.id || approvals[0]?.id;
+}
+
+function formatHitlApprovals(surface: any): string {
+  const approvals = Array.isArray(surface.requests) ? surface.requests : [];
+  const lines = [
+    `Morgan has **${surface.pendingCount ?? approvals.length} HITL approval(s)** waiting.`,
+    `Open approval queue: ${surface.url}`,
+  ];
+  if (approvals.length) {
+    lines.push('', '**Pending approvals**:');
+    lines.push(...approvals.slice(0, 4).map((item: any) => `- ${item.level} - ${item.title}: ${item.rationale}`));
+  }
+  return lines.join('\n');
+}
+
+async function handleHitlApprovalShortcut(text: string, inputText: string, context?: TurnContext): Promise<string | null> {
+  const isHitlAsk = /\b(hitl|l2|l3|approve|approval|sign off|sign-off|go ahead|decision card|approval queue)\b/.test(text);
+  if (!isHitlAsk) return null;
+
+  const wantsApproverCard = /\b(reach out|send|notify|message|ping|adaptive card|decision card|card)\b/.test(text)
+    && /\b(mod administrator|mod admin|administrator|approver|cfo|level 2|l2)\b/.test(text);
+  if (wantsApproverCard) {
+    const delivery = parseResult(await executeTool('sendHitlApprovalCardToModAdministrator', { level: 'L2' }, context));
+    if (delivery.ok) {
+      const sentLine = delivery.adaptiveCardSent
+        ? `Sent the L2 HITL Adaptive Card to **${delivery.targetLabel || 'CFO / Finance Approver'}**.`
+        : `Prepared the L2 HITL Adaptive Card and sent the Teams text fallback to **${delivery.targetLabel || 'CFO / Finance Approver'}**.`;
+      return [
+        sentLine,
+        `It includes ${delivery.requestCount || 0} pending approval request(s), decision notes, and Approve / Approve With Edits / Decline / Cancel actions.`,
+        `Delivery path: ${delivery.source || 'Teams bot'}.`,
+      ].join('\n');
+    }
+    return [
+      `I prepared the L2 HITL Adaptive Card, but could not send it: ${delivery.error || 'unknown delivery error'}.`,
+      delivery.fallbackText ? `Approval queue: ${delivery.fallbackText.split('Open approval queue: ')[1] || 'available in Mission Control'}` : 'Approval queue: available in Mission Control.',
+    ].join('\n');
+  }
+
+  const surface = parseResult(await executeTool('getHitlApprovalSurface', {}, context));
+  const approvals = Array.isArray(surface.requests) ? surface.requests : [];
+  const decisionMatch = /\b(approve|approved|yes|go ahead|decline|declined|reject|rejected|cancel|stop)\b/.exec(text);
+  if (!decisionMatch || /\b(show|open|where|what|which|list|queue|status|pending)\b/.test(text)) return formatHitlApprovals(surface);
+
+  const requestId = approvalKeywordToRequestId(text, approvals);
+  if (!requestId) return formatHitlApprovals(surface);
+  const decision = /\b(decline|declined|reject|rejected)\b/.test(text)
+    ? 'decline'
+    : /\b(cancel|stop)\b/.test(text)
+      ? 'cancel'
+      : 'approve';
+  const result = parseResult(await executeTool('recordHitlApprovalDecision', {
+    requestId,
+    decision,
+    decidedBy: 'Morgan chat approver',
+    rationale: inputText,
+  }, context));
+  if (!result.ok) return `I could not record that HITL decision: ${result.error || 'unknown error'}. Approval queue: ${surface.url}`;
+  return [
+    `Recorded **${decision}** for ${result.request?.level || 'HITL'} approval: **${result.request?.title || requestId}**.`,
+    'No external message or dollar-bearing action was sent by this chat turn; the approval decision is now captured for Morgan to continue through the governed path.',
+    `Approval queue: ${surface.url}`,
+  ].join('\n');
+}
+
 export async function tryHandleShowcaseShortcut(
   inputText: string,
   context?: TurnContext,
@@ -175,6 +253,9 @@ export async function tryHandleShowcaseShortcut(
 ): Promise<string | null> {
   const text = normalize(inputText);
   if (!text) return null;
+
+  const hitlReply = await handleHitlApprovalShortcut(text, inputText, context);
+  if (hitlReply) return hitlReply;
 
   if (/\b(email address|mailbox|meeting invite|invite morgan|morgan.*email)\b/.test(text)) {
     return formatIdentity(parseResult(await executeTool('getMorganIdentity', {}, context)));
@@ -204,11 +285,33 @@ export async function tryHandleShowcaseShortcut(
   }
 
   if (/\b(end of day|end-of-day|day end|day-end)\b/.test(text)) {
-    return formatEndOfDay(parseResult(await executeTool('getEndOfDayReport', {}, context)));
+    const demoOnly = /\b(demo|deterministic|available deterministic|do not claim|only available)\b/.test(text);
+    return formatEndOfDay(parseResult(await executeTool('getEndOfDayReport', {}, context)), demoOnly);
   }
 
   if (/\b(escalate|escalation|to whom)\b/.test(text)) {
     return formatEscalation(parseResult(await executeTool('getAutonomousKanbanBoard', {}, context)));
+  }
+
+  if (/\b(retrospective|retrospectives|lessons learned|what did you learn|learning history)\b/.test(text)) {
+    const history = getRetrospectiveHistory();
+    const latest = history[0] ?? null;
+    if (!latest) {
+      return [
+        '**No retrospectives recorded yet.**',
+        'Run the autonomous CFO workday (or call generateCfoRetrospective), then ask again to see what Morgan would do differently next cycle.',
+      ].join('\n');
+    }
+    const groundingLabel = `${latest.groundedIn.completedCount} completed, ${latest.groundedIn.blockedCount} blocked, ${latest.groundedIn.failedCount} failed task(s) in ${latest.period}`;
+    const lines = [
+      `**What I would do differently next cycle** *(grounded in ${groundingLabel})*:`,
+      ...latest.recommendations.map((r: string) => `- ${r}`),
+    ];
+    if (history.length > 1) {
+      lines.push('');
+      lines.push(`**Learning history**: ${history.length} retrospectives on record. Previous cycle (${history[1].period}) focused on: ${history[1].groundedIn.patterns.join(', ') || 'process improvement'}.`);
+    }
+    return lines.join('\n');
   }
 
   if (/\b(next quarter|differently next quarter|cfo do differently)\b/.test(text)) {

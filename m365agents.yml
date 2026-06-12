@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://aka.ms/m365-agents-toolkits/v1.9/yaml.schema.json
+version: v1.9
+
+environmentFolderPath: ./env
+
+provision:
+  - uses: teamsApp/create
+    with:
+      name: Morgan-Digital-CFO-Agent-Live
+    writeToEnvironmentFile:
+      teamsAppId: TEAMS_APP_ID
+projectId: 00efa2a2-c47a-44b4-a5b4-7a180aa9f932

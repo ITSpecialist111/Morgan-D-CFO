@@ -625,6 +625,7 @@
         <div class="meta" id="statusText">Ready to connect</div>
         <div class="controls">
           <a class="button" href="/mission-control">Mission Control</a>
+          <a class="button" id="humanoidAvatarLink" href="/voice/did" title="Open the D-ID humanoid avatar (Mia Elegant)">Humanoid avatar</a>
           <button class="primary" id="btnConnect" onclick="connect()">Start Avatar</button>
           <button class="warn" id="btnMute" onclick="toggleMute()" disabled>Mute</button>
           <button class="danger" id="btnDisconnect" onclick="disconnect()" disabled>End</button>
@@ -771,6 +772,9 @@
     let activeResponseText = '';
     let greetingSent = false;
     let avatarStartRequested = false;
+    let voiceOnlyMode = false;
+    let voiceOnlyFallbackAttempted = false;
+    let voiceOnlyFallbackPending = false;
     let starfieldFrame = 0;
     let starfieldLastTs = 0;
     let starfieldParticles = [];
@@ -1588,13 +1592,17 @@
       }
     }
 
-    async function connect() {
+    async function connect(options = {}) {
+      const startVoiceOnly = options.avatar === false;
+      if (!startVoiceOnly) voiceOnlyFallbackAttempted = false;
+      voiceOnlyFallbackPending = false;
+      voiceOnlyMode = startVoiceOnly;
       if (!(await requireSignedIn())) return;
       if (!(await checkGate())) return;
       await loadAvatarConfig();
       lastVoiceError = '';
       btnConnect.disabled = true;
-      setStatus('Requesting microphone');
+      setStatus(startVoiceOnly ? 'Starting voice-only fallback' : 'Requesting microphone');
 
       let micError = null;
       try {
@@ -1608,11 +1616,12 @@
 
       try {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        ws = new WebSocket(`${proto}//${location.host}/api/voice`);
+        const voicePath = startVoiceOnly ? '/api/voice?avatar=false' : '/api/voice';
+        ws = new WebSocket(`${proto}//${location.host}${voicePath}`);
         ws.binaryType = 'arraybuffer';
 
         ws.onopen = async () => {
-          setStatus(micError ? 'Starting avatar without microphone' : 'Voice socket connected', true);
+          setStatus(startVoiceOnly ? 'Voice-only socket connected' : micError ? 'Starting avatar without microphone' : 'Voice socket connected', true);
           btnDisconnect.disabled = false;
           btnMute.disabled = !micStream;
         };
@@ -1624,7 +1633,14 @@
         };
         ws.onclose = (event) => {
           const reason = lastVoiceError || event.reason || 'Disconnected';
+          const shouldStartVoiceOnly = voiceOnlyFallbackPending;
           cleanup();
+          if (shouldStartVoiceOnly) {
+            voiceOnlyFallbackPending = false;
+            setStatus('Avatar capacity busy - starting voice only', true);
+            setTimeout(() => { void connect({ avatar: false }); }, 300);
+            return;
+          }
           setStatus(reason);
         };
         ws.onerror = () => {
@@ -1923,9 +1939,11 @@
           setStatus('Voice session created', true);
           break;
         case 'session.updated':
-          setStatus('Starting HD avatar', true);
+          setStatus(voiceOnlyMode ? 'Voice-only connected' : 'Starting HD avatar', true);
           if (event.session?.avatar && !pc) {
             void startAvatarWebRtc(event.session.avatar.ice_servers);
+          } else if (voiceOnlyMode) {
+            sendGreeting();
           }
           if (!processor && micStream && audioContext) void startMicCapture();
           break;
@@ -1977,12 +1995,20 @@
           addTranscript('assistant', event.text || '');
           break;
         case 'response.done':
-          setStatus('Avatar connected', true);
+          setStatus(voiceOnlyMode ? 'Voice-only connected' : 'Avatar connected', true);
           break;
         case 'error':
           if (!String(event.error?.message || '').includes('no active response')) {
             console.error('[voice] error', event.error);
-            lastVoiceError = event.error?.message || 'Voice error';
+            const message = event.error?.message || 'Voice error';
+            if (!voiceOnlyMode && !voiceOnlyFallbackAttempted && /avatar service|resource exhausted/i.test(String(message))) {
+              voiceOnlyFallbackAttempted = true;
+              voiceOnlyFallbackPending = true;
+              lastVoiceError = 'Avatar capacity busy - starting voice only';
+              setStatus(lastVoiceError, true);
+              return;
+            }
+            lastVoiceError = message;
             setStatus(lastVoiceError);
           }
           break;
@@ -1997,6 +2023,7 @@
     }
 
     function disconnect() {
+      voiceOnlyFallbackPending = false;
       if (ws) ws.close();
       cleanup();
       setStatus('Disconnected');
@@ -2012,6 +2039,7 @@
       avatarHasRemoteAudio = false;
       greetingSent = false;
       avatarStartRequested = false;
+      voiceOnlyMode = false;
       micCaptureStarting = false;
       stopAvatarComposite();
       idlePanel.style.display = '';
@@ -2104,6 +2132,37 @@
     loadAvatarConfig();
     checkGate();
     setInterval(checkGate, 30000);
+  </script>
+  <script>
+    // D-ID humanoid avatar discoverability: gate the link on the readiness probe served
+    // by /api/avatar/did/status (registered by didAvatarRouter). Mirrors the Mission
+    // Control avatar-toggle behaviour so the humanoid stage integrates with the standard
+    // Digital CFO voice page rather than replacing it.
+    (function wireHumanoidAvatarLink() {
+      var link = document.getElementById('humanoidAvatarLink');
+      if (!link) return;
+      link.addEventListener('click', function (event) {
+        event.preventDefault();
+        var url = link.getAttribute('href') || '/voice/did';
+        fetch('/api/avatar/did/status', { credentials: 'include' })
+          .then(function (resp) {
+            if (resp.status === 401) { window.open(url, '_blank', 'noopener'); return null; }
+            return resp.json().catch(function () { return null; });
+          })
+          .then(function (data) {
+            if (data && data.available === false) {
+              alert(
+                'D-ID humanoid avatar is not configured on this deployment.\n\n' +
+                  'Required environment variables: DID_API_KEY, DID_CLIENT_KEY, DID_AGENT_ID, ELEVENLABS_API_KEY.\n\n' +
+                  'Use the standard Morgan avatar on this page instead.'
+              );
+              return;
+            }
+            window.open(url, '_blank', 'noopener');
+          })
+          .catch(function () { window.open(url, '_blank', 'noopener'); });
+      });
+    })();
   </script>
 </body>
 </html>

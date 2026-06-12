@@ -30,6 +30,7 @@ import { recordAuditEvent } from './observability/agentAudit';
 import { recordAgentEvent } from './observability/agentEvents';
 import { createAgentStorage } from './storage/agentStorage';
 import { tryHandleShowcaseShortcut } from './showcaseShortcuts';
+import { handleHitlApprovalCardSubmit } from './mission/hitlApprovals';
 
 // State interfaces
 interface PendingDelivery {
@@ -288,6 +289,12 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
     },
   });
 
+  const hitlCardSubmit = handleHitlApprovalCardSubmit(context.activity.value, userName);
+  if (hitlCardSubmit?.handled) {
+    try { await context.sendActivity(hitlCardSubmit.reply); } catch { /* ignore */ }
+    return;
+  }
+
   if (!userMessage) {
     try {
       await context.sendActivity(`Hi ${userName}! I'm Morgan, your Digital Finance Analyst. How can I help you today?`);
@@ -363,7 +370,10 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
       return;
     }
 
-    const showcaseReply = await tryHandleShowcaseShortcut(userMessage, context, { allowVoiceActions: true });
+    const showcaseReply = await tryHandleShowcaseShortcut(userMessage, context, { allowVoiceActions: true }).catch((err: unknown) => {
+      console.warn('[Morgan] Showcase shortcut failed, falling through to LLM:', err instanceof Error ? err.message : String(err));
+      return null;
+    });
     if (showcaseReply) {
       state.conversation.history.push({ role: 'assistant', content: showcaseReply });
       rememberDeliverable(state, userMessage, showcaseReply);

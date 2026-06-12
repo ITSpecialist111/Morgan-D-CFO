@@ -5,9 +5,12 @@ const projectRoot = path.resolve(__dirname, '..');
 
 const files = [
   ['src/voice/voice.html', 'dist/voice/voice.html'],
+  ['src/voice/did-voice.html', 'dist/voice/did-voice.html'],
   ['src/mission/mission-control.html', 'dist/mission/mission-control.html'],
   ['src/mission/mission-control-mockup.html', 'dist/mission/mission-control-mockup.html'],
   ['src/mission/cost-dashboard.html', 'dist/mission/cost-dashboard.html'],
+  ['src/mission/hitl-approvals.html', 'dist/mission/hitl-approvals.html'],
+  ['src/mission/avatar-toggle-ui.js', 'dist/mission/avatar-toggle-ui.js'],
 ];
 
 for (const [sourceRel, targetRel] of files) {

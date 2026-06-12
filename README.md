@@ -168,6 +168,7 @@ This is how Morgan and other agentic workloads are governed inside the Microsoft
 
 - **Production app**: `https://morganfinanceagent-webapp.azurewebsites.net`
 - **Azure host**: Linux Azure App Service on Basic B1 with Node.js 20 and WebSockets enabled
+- **Foundry hosted-agent target**: Morgan should be deployed as a Microsoft Foundry hosted agent named `morgan-digital-cfo-hosted`, using the existing `/responses` protocol and containerized runtime. See [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md).
 - **Mission Control**: `/mission-control` shows Morgan's job description, operating contract, autonomous instructions, key tasks, CorpGen alignment, live task log, day-end summary, D-CFO Kanban, cost panel, Agent Mind, and a cinematic interactive Beta Starfield
 - **Mission Control mockup**: `/mission-control/mockup` serves a static customer-preview dashboard with fixed data for the Beta Starfield, Agent Mind, Microsoft IQ, cost, Kanban, and readiness surfaces
 - **Agent Mind**: Mission Control exposes live tool calls, Graph/MCP activity, safe reasoning summaries, voice turns, Teams call events, and autonomous task records without exposing hidden chain-of-thought

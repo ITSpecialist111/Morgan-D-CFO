@@ -1,0 +1,32 @@
+{
+  "agent": "morgan-digital-cfo-hosted",
+  "agentVersion": "17",
+  "image": "crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227",
+  "imageDigest": "sha256:46506783a7036fd7d5337cd749fb51650df6f195beeb4546d00e40d5104a7064",
+  "route": "/agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1",
+  "model": "gpt-5-mini",
+  "ranAt": "2026-06-12T11:30:03.5255084+01:00",
+  "cases": [
+    {
+      "id": "cfo-brief",
+      "status": "completed",
+      "responseId": "resp_1781260194497",
+      "model": "gpt-5-mini",
+      "passContent": true
+    },
+    {
+      "id": "integration-settings",
+      "status": "completed",
+      "responseId": "resp_1781260199087",
+      "model": "gpt-5-mini",
+      "passContent": true
+    },
+    {
+      "id": "eod-demo",
+      "status": "completed",
+      "responseId": "resp_1781260203087",
+      "model": "gpt-5-mini",
+      "passContent": true
+    }
+  ]
+}
