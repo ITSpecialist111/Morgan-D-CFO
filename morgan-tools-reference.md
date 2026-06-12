@@ -53,6 +53,18 @@ Set-CsTeamsAcsFederationConfiguration -EnableAcsUsers $true `
 
 Set `ACS_TEAMS_FEDERATION_RESOURCE_ID` to the allowed ACS resource marker so Morgan can show readiness in Mission Control and the federation status endpoint. The current bridge is bidirectional audio into Teams; Aria-as-Morgan in the Teams video feed is tracked as the next video sender workstream.
 
+## Human-in-the-Loop Approvals
+
+**Approval queue URL:** `https://<your-app-name>.azurewebsites.net/approvals`
+
+Material finance actions route through an L2/L3 human-in-the-loop (HITL) approval surface before Morgan completes them. **L2** covers external sends; **L3** covers dollar-bearing actions. Morgan lists requests with `listHitlApprovalRequests`, hands the CFO / Finance Approver the queue URL with `getHitlApprovalSurface`, pushes a Microsoft Teams Adaptive Card with approve / approve-with-edits / decline / cancel buttons via `sendHitlApprovalCardToModAdministrator`, and writes the outcome back with `recordHitlApprovalDecision`. Four seeded finance scenarios ship for demos: send a board-ready P&L to the CFO distribution list (L2), post a Q3 variance summary to the Finance Teams channel (L2), commit a $250k budget reforecast (L3), and release a $180k vendor payment memo (L3).
+
+## Operational Retrospectives
+
+**Retrospectives endpoint:** `GET /api/mission-control/retrospectives`
+
+Morgan generates an end-of-cycle Digital CFO retrospective from the day's task records with `generateCfoRetrospective` and reviews how its recommendations evolve across close and reporting cycles with `getRetrospectiveHistory`. Recommendations are grounded in blocked or failed finance workstream patterns such as month-end close, board reporting sign-offs, and budget-vs-forecast variance.
+
 ---
 
 ## Sample Questions to Ask Morgan
@@ -134,6 +146,12 @@ Set `ACS_TEAMS_FEDERATION_RESOURCE_ID` to the allowed ACS resource marker so Mor
 | **`getTeamsFederationCallingStatus`** | Checks ACS-to-Teams federation readiness, active calls, tenant policy command, and video-presence roadmap | — |
 | **`initiateTeamsFederatedCall`** | Rings any supplied Teams user object ID through ACS-to-Teams federation | `reason`, `teams_user_aad_oid`, `target_display_name`, `requested_by`, `instructions` |
 | **`initiateTeamsCallToCfo`** | Rings the CFO/operator in Microsoft Teams through the ACS federation bridge for urgent finance escalation | `reason`, `teams_user_aad_oid` (optional) |
+| **`listHitlApprovalRequests`** | Lists Morgan's L2/L3 human-in-the-loop approval requests (pending or decided) with action details and the approval-queue URL | `status` (optional), `level` (optional, L2/L3) |
+| **`getHitlApprovalSurface`** | Returns the approval-queue URL plus pending requests to hand the CFO / Finance Approver when an L2 or L3 sign-off is required | `requestId` (optional) |
+| **`recordHitlApprovalDecision`** | Records a CFO / Finance Approver decision (approve / approve_with_edits / decline / cancel) on a pending request; records the decision only, it does not send external messages | `requestId` required, `decision` required; `decidedBy`, `rationale`, `editedBody` optional |
+| **`sendHitlApprovalCardToModAdministrator`** | Sends pending approval requests to the configured CFO / Finance Approver as a Microsoft Teams Adaptive Card with approve / approve-with-edits / decline / cancel buttons | `requestId` (optional), `level` (optional, L2/L3, defaults L2) |
+| **`generateCfoRetrospective`** | Generates and persists an end-of-cycle Digital CFO operational retrospective derived from today's task records, grounded in blocked/failed finance workstream patterns | — |
+| **`getRetrospectiveHistory`** | Returns recent Digital CFO retrospectives showing how operational recommendations evolve across close and reporting cycles | — |
 
 ---
 

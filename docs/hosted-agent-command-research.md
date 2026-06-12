@@ -1,6 +1,6 @@
 # Hosted Agent Command Research
 
-Date: 2026-05-07
+Date: 2026-05-07 (updated 2026-06-12)
 
 This note records the command surfaces available for moving Morgan D-CFO and Morgan Agent Blueprint toward Microsoft Foundry hosted agents. It is intentionally research-first: do not run deploy commands until the prerequisite gates are satisfied.
 
@@ -235,6 +235,38 @@ Version 10 direct REST P0 smoke evidence:
 | eod-demo | `resp_1778187425350` | completed | passed |
 
 Full local evidence is stored in `.foundry/results/morgan-hosted-p0-smoke-v10.json`. The Cloud Shell result file was `~/morgan-v10-p0-smoke.json`.
+
+## Feature-Parity Port Hosted Refresh (Version 17)
+
+After the v10 P0 smoke pass, Morgan's full feature-parity port was wired into the codebase and rebuilt into the hosted image, so the hosted container now matches the App Service surface. The current active hosted version is:
+
+- Agent: `morgan-digital-cfo-hosted`.
+- Version: `17`.
+- Status: `active`.
+- Image: `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227`.
+- Digest: `sha256:46506783a7036fd7d5337cd749fb51650df6f195beeb4546d00e40d5104a7064`.
+- Project: `ai-project-morgan-hosted-ncus` (North Central US).
+- Model deployment: `gpt-5-mini`.
+- Container protocol: `responses/1.0.0`.
+
+Versions 10 and 16 remain the prior known-good restore points; roll back to one of those tags if a later version regresses.
+
+The feature-parity port added to this image is present in both the hosted image and the App Service build:
+
+- D-ID humanoid avatar subsystem (`src/voice/didConfig.ts`, `didAvatarService.ts`, `didAvatarRoutes.ts`, `didWebSocketHandler.ts`, `did-voice.html`) at `/voice/did` and `/api/avatar/did/*`, plus the Mission Control avatar toggle (`avatarToggleManager.ts` + `avatar-toggle-ui.js`).
+- HITL L2/L3 approvals (`src/mission/hitlApprovals.ts` + `hitl-approvals.html`) at `/approvals`, with routes `/api/hitl/approvals(/surface,/send-mod-card,/:id/decision)` and tools `listHitlApprovalRequests`, `getHitlApprovalSurface`, `recordHitlApprovalDecision`, and `sendHitlApprovalCardToModAdministrator`. Honest caveat: gating is prompt-level (persona rules), not a hard dispatcher interceptor, and decisions persist in process memory only.
+- Agentic kanban link (`src/mission/agenticKanban.ts`) at `/agentic-kanban` and `/api/mission-control/agentic-kanban`.
+- Retrospectives (`src/tools/retrospectiveTools.ts`: `generateCfoRetrospective`, `getRetrospectiveHistory`) at `/api/mission-control/retrospectives`.
+- Governance observability at `/api/mission-control/governance`.
+- WorkIQ status at `/api/workiq/status`; avatar config/readiness at `/api/avatar/config` (now with `voiceStyle` and `agenticKanban`) and `/api/avatar/readiness`; CorpGen report download at `/api/mission-control/corpgen-report`.
+- Sub-agent registry `kind` field (`specialist` or `bridge`).
+
+Build/SDK changes shipped with this image:
+
+- Agent SDK upgraded to `@microsoft/agents-a365-tooling` 1.0.0, `@microsoft/agents-hosting` 1.5.2, and `@microsoft/agents-activity` 1.5.1.
+- The Dockerfile installs with `npm install` (not `npm ci`) for cross-platform lockfile resilience, and `.dockerignore` was tightened so the build context dropped from roughly 1 GB to about 8 MB.
+
+The hosted payload kept the same verified-minimal environment as v10 (`NODE_ENV`, `HOST`, `MORGAN_FOUNDRY_RESPONSES_ONLY`, `AUTONOMOUS_WORKDAY_*`, `AZURE_CLIENT_ID`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT=gpt-5-mini`, `AZURE_OPENAI_API_VERSION`). Graph/MCP, voice, observability, and durable storage are intentionally still absent from the hosted payload. Version 17 re-passed all four hosted P0 smoke prompts through the direct REST route `/agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1` with header `Foundry-Features: HostedAgents=V1Preview`, so this refresh proves hosted reachability, Azure OpenAI routing, and bounded smoke behavior only — not connector parity.
 
 ## Live Flightdeck State Found
 
@@ -480,8 +512,8 @@ az rest --method POST --url "$base/agents/morgan-digital-cfo-hosted/endpoint/pro
 - Do not run `agent_update` for Morgan against Flightdeck; that project is in unsupported `uksouth` for hosted agents preview.
 - Do not place live Azure OpenAI, Graph/MCP, ACS/Teams, observability, storage, or scheduled secrets into a hosted-agent payload without explicit review, because hosted env vars are captured in immutable versions.
 - Do not claim production parity from version 4 alone; version 4 is a hosted smoke proving readiness and `/responses` routing without live integration values.
-- Do not treat version 7 or version 10 model text as Graph/MCP proof; the hosted payload intentionally lacks Graph/MCP connector settings.
-- Do not treat the version 10 local P0 smoke as managed Foundry batch evaluation; it proves direct REST smoke behavior, not production connector parity.
+- Do not treat version 7, version 10, or version 17 model text as Graph/MCP proof; the hosted payload intentionally lacks Graph/MCP connector settings.
+- Do not treat the version 10 or version 17 local P0 smoke as managed Foundry batch evaluation; it proves direct REST smoke behavior, not production connector parity.
 - Do not run Rowen hosted deployment from these Morgan notes; Rowen still needs its own generated source and environment review.
 
 ## Current Execution Status
@@ -492,4 +524,4 @@ This VS Code agent session still does not expose a working terminal execution co
 Unable to run commands because no run_in_terminal tool or active terminal IDs are available in this session.
 ```
 
-Cloud Shell can run Azure and npm commands, and was used to build the `cp4`, `cp5`, `cp6`, and `cp7` images. Morgan is now active as `morgan-digital-cfo-hosted:10` in the North Central US project. Version 10 is live-model invokable through the direct hosted Responses endpoint with `gpt-5-mini` and passed the four-prompt P0 smoke dataset through direct REST. The MCP `agent_invoke` helper previously returned an internal error on this vNext route, so direct REST remains the verified proof path. The next real deployment step is reviewing and adding Graph/MCP, voice, observability, durable storage, scheduler, and sub-agent values, followed by managed Foundry batch evaluation.
+Cloud Shell can run Azure and npm commands, and was used to build the `cp4`, `cp5`, `cp6`, and `cp7` images. Morgan is now active as `morgan-digital-cfo-hosted:17` in the North Central US project, running image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227` (digest `sha256:46506783a7036fd7d5337cd749fb51650df6f195beeb4546d00e40d5104a7064`) with the feature-parity port and upgraded Agent SDK. Versions 10 and 16 are the prior known-good restore points. Version 17 is live-model invokable through the direct hosted Responses endpoint with `gpt-5-mini` and re-passed the four-prompt P0 smoke dataset through direct REST. The MCP `agent_invoke` helper previously returned an internal error on this vNext route, so direct REST remains the verified proof path. The next real deployment step is reviewing and adding Graph/MCP, voice, observability, durable storage, scheduler, and sub-agent values, followed by managed Foundry batch evaluation.

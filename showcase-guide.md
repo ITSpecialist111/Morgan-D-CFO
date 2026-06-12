@@ -161,6 +161,89 @@ If live triggers are unreliable in the demo environment, show a 60-second screen
 
 ---
 
+## New Demo Surfaces (Feature-Parity Additions)
+
+The scenarios below cover surfaces added in the recent feature-parity work: the human-in-the-loop approval queue, governance observability, end-of-cycle retrospectives, the live finance Kanban, and the dual avatar platforms. They keep the same persona and honesty discipline as the rest of this guide — finance figures are deterministic Contoso demo data when tenant systems are not connected.
+
+For a timed, follow-along recording script see [docs/dragons-den-talk-track.md](docs/dragons-den-talk-track.md); for the repeatable daily run order see [docs/daily-showcase-runbook.md](docs/daily-showcase-runbook.md).
+
+---
+
+## Demo Scenario 3F: Human-in-the-Loop Approvals (4 minutes)
+
+**Goal:** Show that Morgan acts autonomously inside the finance desk but stops at a human gate before anything leaves the building or commits money.
+
+### Step-by-Step
+
+| # | Presenter Action | Morgan Response | Talking Point |
+|---|---|---|---|
+| 1 | Open `/approvals` (also reachable at `/hitl-approvals`) | The HITL approval queue loads with four seeded finance decisions waiting | "This is Morgan's governance gate. She's autonomous inside the desk, but she pauses here before acting outside it." |
+| 2 | Type to Morgan: *"Send the board-ready P&L to the external distribution list."* | Morgan does **not** send — she raises (or points to) an **L2** approval because the report is leaving Finance to an external list | "L2 is the external-send gate. Nothing leaves the tenant on Morgan's word alone." |
+| 3 | Type: *"Approve the $250k budget reforecast."* | Morgan routes it to an **L3** gate — a material, dollar-bearing commitment | "L3 is the money gate. Any dollar-bearing action needs a human decision first." |
+| 4 | On a queued item choose **Approve**, **Approve with edits**, **Decline**, or **Cancel** | Morgan records the decision (decision only — no external send happens from the card itself) and writes it to the audit ledger | "Approve, edit, decline, or cancel — and every decision is captured with who decided and why." |
+
+**Optional:** Ask Morgan *"send the L2 approval card to the finance approver"* to push a Microsoft Teams Adaptive Card carrying the same Approve / Approve with edits / Decline / Cancel actions.
+
+**Audience Takeaway:** Morgan is **autonomous internally, gated externally and financially.** Four seeded scenarios — two L2 external sends (board P&L, Q3 variance summary to a Teams channel) and two L3 dollar-bearing actions ($250k reforecast, vendor payment memo) — make the safety model concrete in every demo.
+
+---
+
+## Demo Scenario 3G: Governance Observability (3 minutes)
+
+**Goal:** Show the audit-grade view of *how* Morgan reached a decision — the additional governance layer beyond the Beta Starfield.
+
+1. Open `/mission-control` and switch to the **Governance Observability** view (backed by `/api/mission-control/governance`).
+2. Pick a recent run. For that `correlationId`, show the joined trace: the **prompt**, the **chain-of-thought summary**, the **tools Morgan selected**, any **HITL gate** that fired, and the matching **audit ledger** entries.
+3. Point out the run stats: reasoning turns, tool calls, governance gates, warnings, and errors.
+4. Contrast with Beta Starfield: Starfield shows the operating model; this view shows the receipts for a specific decision, joined end-to-end by correlation ID.
+
+**Talking Point:** "When a customer's risk or audit team asks 'why did the agent do that?', Morgan answers with the prompt, the reasoning summary, the tools chosen, the human gate, and the audit entry — all tied together by one correlation ID."
+
+---
+
+## Demo Scenario 3H: Retrospectives & Experiential Learning (3 minutes)
+
+**Goal:** Show that Morgan reflects at the end of a cycle and carries lessons forward, rather than repeating the same gaps.
+
+1. Run an autonomous workday (see Scenario 3C) or ask Morgan: *"Generate your CFO retrospective."* (tool: `generateCfoRetrospective`).
+2. Ask: *"What would you do differently next cycle?"* Morgan returns recommendations grounded in this cycle's blocked/failed patterns — month-end close timing, approval SLA chasing, budget-vs-forecast checks, and anomaly grounding.
+3. Open `/api/mission-control/retrospectives` to show the learning history — the most recent retrospectives on record and how the recommendations have evolved.
+4. Point out that each recommendation is tied to real task counts (completed / blocked / failed) for the period, not generic advice.
+
+**Talking Point:** "Morgan doesn't just finish the work — she reviews it. Each cycle's lessons are persisted so the next cycle starts smarter."
+
+**Honesty note:** Retrospectives are grounded in Morgan's Mission Control task ledger for the period (deterministic demo data when tenant systems are not connected).
+
+---
+
+## Demo Scenario 3I: Agentic Kanban — Live Finance Work Board (2 minutes)
+
+**Goal:** Show Morgan's workload as a live, inspectable board rather than a black box.
+
+1. In `/mission-control`, find the **Live Finance Kanban** card and click **Open live board** (route `/agentic-kanban`).
+2. `/agentic-kanban` redirects to the configured board — Power Platform / FlightDeck when configured, an internal fallback otherwise.
+3. Walk the columns — finance work items moving through the cycle — and tie a card back to a Mission Control task record.
+4. Note the same link is surfaced from the avatar/voice experience, so the board is one click away during a spoken demo.
+
+**Talking Point:** "Morgan's backlog isn't hidden. The Live Finance Kanban is the same work you see in Mission Control, presented as a board a finance manager would recognise."
+
+---
+
+## Demo Scenario 3J: Dual Avatar Platforms (3 minutes)
+
+**Goal:** Show Morgan as a present, on-screen colleague — with a choice of avatar platform.
+
+1. From `/mission-control`, use the **Avatar** toggle in the header. It offers two platforms: **Morgan (Standard)** → `/voice` (Azure Voice Live avatar) and **Mia Elegant (D-ID)** → `/voice/did` (D-ID humanoid avatar).
+2. Open `/voice` and show the Azure Voice Live avatar speaking Morgan's finance points.
+3. Switch to `/voice/did` for the D-ID humanoid variant — same UI shell, different avatar engine. The toggle checks `/api/avatar/did/status` first and, if D-ID isn't configured on the deployment, alerts and stays on the standard avatar.
+4. Ask the avatar a finance question (e.g. *"What's the latest P&L?"*) and let it answer out loud.
+
+**Talking Point:** "Morgan can show up as a face and a voice, not just a chat box — and the platform is swappable, so customers can pick the avatar experience that fits their brand."
+
+**Honesty note:** The D-ID humanoid platform is optional and configured per deployment; when it isn't configured the experience falls back to the standard Azure Voice Live avatar.
+
+---
+
 ## Demo Scenario 4: Multi-Agent Collaboration (advanced, 3 minutes)
 
 **Goal:** Show how Morgan fits into a broader agent ecosystem — not a standalone tool.
@@ -206,6 +289,10 @@ CFO receives hedging options memo at 7:55 AM
 | **Customisation** | Prompt tuning, SharePoint grounding | Full system prompt, tool registry, and agent logic control |
 | **Deployment** | Microsoft-managed cloud | Customer-controlled Azure deployment |
 | **Audit trail** | Basic activity logs | Full tool call trace per conversation turn |
+| **Human-in-the-loop** | No native approval gates | L2 external-send and L3 dollar-bearing approval queue, every decision audited |
+| **Decision transparency** | Basic activity logs | Governance Observability: prompt, reasoning summary, tool selection, HITL gate, and audit ledger joined by correlation ID |
+| **Self-improvement** | No | End-of-cycle retrospectives grounded in the task ledger |
+| **Agent presence** | Text only | Dual avatar platforms — Azure Voice Live and D-ID humanoid — plus voice |
 | **Scheduling** | No | Yes — Azure Functions timer triggers |
 
 ---

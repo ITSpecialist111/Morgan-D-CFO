@@ -1,6 +1,6 @@
 # Morgan Foundry Hosted Agent
 
-Date: 2026-05-07
+Date: 2026-05-07 (updated 2026-06-12)
 
 Morgan D-CFO should be represented in Microsoft Foundry as a hosted agent, not only as an App Service web app.
 
@@ -21,7 +21,7 @@ Morgan already has the important hosted-agent pieces:
 - `.foundry/datasets/morgan-digital-cfo-hosted-smoke-v1.jsonl` contains the P0 hosted-agent smoke dataset.
 - `.foundry/evaluators/morgan-hosted-p0-smoke.yaml` defines the local evaluator cache.
 
-The Dockerfile now handles both lockfile and no-lockfile cases, because this repository currently does not include `package-lock.json`; using `npm ci` unconditionally would fail in ACR. The Docker command starts `dist/foundryHost.js` for Foundry rather than the full App Service/Teams entry point.
+The Dockerfile installs dependencies with `npm install` (not `npm ci`) for cross-platform lockfile resilience, so the image builds cleanly in ACR even though the committed `package-lock.json` may have been generated on a different platform. The `.dockerignore` was tightened so the build context dropped from roughly 1 GB to about 8 MB. The Docker command starts `dist/foundryHost.js` for Foundry rather than the full App Service/Teams entry point.
 
 ## Working Hosted Environment
 
@@ -33,16 +33,17 @@ Morgan is now created and invokable as a Microsoft Foundry hosted agent in North
 - Project: `ai-project-morgan-hosted-ncus`
 - ACR: `crbdoregvn6di7y.azurecr.io`
 - Hosted agent name: `morgan-digital-cfo-hosted`
-- Active version: `10`
+- Active version: `17`
 - Container protocol: `responses/1.0.0`
-- Image: `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507204912`
-- Image digest: `sha256:675d09bee0e7880d927a7f810f3e1c0f6ecb613eb3c35ad3e991e17937ae6b04`
-- ACR run ID: `cp7`
+- Image: `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227`
+- Image digest: `sha256:46506783a7036fd7d5337cd749fb51650df6f195beeb4546d00e40d5104a7064`
 - Model deployment: `gpt-5-mini` (`2025-08-07`)
 - Azure OpenAI endpoint: `https://ai-account-bdoregvn6di7y.cognitiveservices.azure.com/`
 - Hosted runtime identity: `4f0bb8b4-4ebd-497b-bc7c-a20cb72a8663`
 
-Version 4 proved smoke-mode hosting with no Azure OpenAI endpoint configured. Version 7 proved live model routing through the real Foundry Responses endpoint. Version 10 is the current active version and passed the four-prompt hosted P0 smoke set through direct REST.
+Version 4 proved smoke-mode hosting with no Azure OpenAI endpoint configured. Version 7 proved live model routing through the real Foundry Responses endpoint. Version 10 passed the four-prompt hosted P0 smoke set through direct REST and, with version 16, remains a prior known-good restore point. Version 17 is the current active version: it carries the feature-parity port and upgraded Agent SDK described below, and re-passed all four hosted P0 smoke prompts through the same direct REST Responses route (header `Foundry-Features: HostedAgents=V1Preview`).
+
+Version 17 brings Morgan's full feature-parity port into the hosted image so it matches the App Service surface: the D-ID humanoid avatar subsystem (`/voice/did`, `/api/avatar/did/*`) and Mission Control avatar toggle, HITL L2/L3 approvals (`/approvals`, `/api/hitl/approvals*`), the agentic kanban link (`/agentic-kanban`), CFO retrospectives (`/api/mission-control/retrospectives`), governance observability (`/api/mission-control/governance`), and the WorkIQ/avatar status and CorpGen report endpoints. HITL gating remains prompt-level and approval decisions persist only in process memory, so those surfaces are wired but not yet durably enforced. The Agent SDK was upgraded to `@microsoft/agents-a365-tooling` 1.0.0, `@microsoft/agents-hosting` 1.5.2, and `@microsoft/agents-activity` 1.5.1, and the sub-agent registry now records a `kind` field (`specialist` or `bridge`).
 
 Version 4 smoke response:
 
@@ -163,6 +164,6 @@ az rest --method POST --url "$base/agents/morgan-digital-cfo-hosted/endpoint/pro
 
 ## Current Gate
 
-Morgan hosted version 10 is active in North Central US and passed the local P0 smoke dataset through the direct Foundry Responses endpoint with `gpt-5-mini`. This proves hosted reachability, Azure OpenAI routing, and bounded smoke behavior.
+Morgan hosted version 17 is active in North Central US and passed the local P0 smoke dataset through the direct Foundry Responses endpoint with `gpt-5-mini`. This proves hosted reachability, Azure OpenAI routing, and bounded smoke behavior. Versions 10 and 16 remain prior known-good restore points.
 
 The remaining gates are live Graph/MCP, ACS/Teams voice, observability, durable storage, scheduler secret, sub-agent endpoints, and a managed Foundry batch evaluation run. Do not claim full production parity with the App Service Morgan until those surfaces are configured and verified.
