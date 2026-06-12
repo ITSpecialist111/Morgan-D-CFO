@@ -373,7 +373,7 @@ const MORGAN_JOB_DESCRIPTION: MissionInstructionSet = {
   ],
   successMeasures: [
     'Daily CFO summary delivered with completed tasks, blocked work, and tomorrow priorities.',
-    'CorpGen runs end with a digest document, Mod Administrator email, Teams summary, and delivery status in Mission Control.',
+    'CorpGen runs end with a digest document, CFO / finance approver email, Teams summary, and delivery status in Mission Control.',
     'Variance, anomaly, and KPI checks run on schedule.',
     'Material risks surfaced before the CFO asks for them.',
     'Reports and documents created with links or fallback content visible to the requester.',
@@ -1376,7 +1376,7 @@ async function resolveDigestRecipient(rawTarget: string | undefined, managerName
   const evidence: string[] = [];
   if (rawTarget?.includes('@')) return { target: rawTarget, evidence: [`Digest email target configured as ${rawTarget}.`] };
 
-  const query = rawTarget || managerName || 'Mod Administrator';
+  const query = rawTarget || managerName || 'CFO / finance approver';
   try {
     const lookup = await findUser({ query });
     if (lookup.success && lookup.results[0]?.email) {
@@ -1420,7 +1420,7 @@ async function deliverCorpGenDigest(input: {
   subAgentHandoffs: SubAgentHandoffResult[];
   artifact: ArtifactEvaluationResult;
 }): Promise<CorpGenDigestDeliveryStatus> {
-  const managerName = firstConfiguredValue(process.env.CORPGEN_DIGEST_MANAGER_NAME, process.env.MOD_ADMINISTRATOR_NAME) || 'Mod Administrator';
+  const managerName = firstConfiguredValue(process.env.CORPGEN_DIGEST_MANAGER_NAME, process.env.MOD_ADMINISTRATOR_NAME, process.env.CFO_DISPLAY_NAME) || 'CFO / finance approver';
   const enabled = boolFromEnv('CORPGEN_DIGEST_ENABLED', true);
   const scheduledEnabled = boolFromEnv('CORPGEN_DIGEST_SEND_ON_SCHEDULE', false);
   const shouldDeliver = enabled && (input.forceDigestDelivery || input.source !== 'scheduled_job' || scheduledEnabled);
@@ -1905,6 +1905,376 @@ function persistTaskRecords(): void {
     console.warn('[mission-control] Failed to persist task records:', error instanceof Error ? error.message : String(error));
   }
 }
+
+// ---------------------------------------------------------------------------
+// Persistent CFO work-card backlog
+// ---------------------------------------------------------------------------
+// Concrete, named CFO finance work that Morgan actually advances each autonomous
+// cycle (queue -> active -> review/waiting -> done). Persisted to $HOME/data on
+// App Service (durable Azure Files), so progress survives restarts and redeploys.
+
+export type CfoWorkLane = 'queue' | 'active' | 'waiting' | 'review' | 'done';
+
+interface CfoWorkCardHistoryEntry {
+  at: string;
+  from: CfoWorkLane | 'new';
+  to: CfoWorkLane;
+  note: string;
+}
+
+export interface CfoWorkCard {
+  id: string;
+  templateId: string;
+  title: string;
+  category: string;
+  lane: CfoWorkLane;
+  summary: string;
+  tools: string[];
+  subAgents: string[];
+  owner: string;
+  hitlLevel?: 'L2' | 'L3';
+  evidence: string[];
+  history: CfoWorkCardHistoryEntry[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+interface CfoWorkTemplate {
+  templateId: string;
+  title: (ctx: { quarter: string; period: string }) => string;
+  category: string;
+  summary: string;
+  tools: string[];
+  subAgents: string[];
+  owner: string;
+  hitlLevel?: 'L2' | 'L3';
+  activeNote: string;
+  reviewNote: string;
+  doneNote: string;
+  waitingNote?: string;
+}
+
+const CFO_WORK_TEMPLATES: CfoWorkTemplate[] = [
+  {
+    templateId: 'board-pack',
+    title: (ctx) => `${ctx.quarter} board pack — revenue & margin bridge`,
+    category: 'Board reporting',
+    summary: 'Assemble the board-ready P&L: revenue bridge, gross-margin walk, EBITDA, and CFO commentary.',
+    tools: ['getLatestPnL', 'analyzeBudgetVsActuals', 'createWeeklyBriefingContent'],
+    subAgents: ['Avatar'], owner: 'Morgan',
+    activeNote: 'Pulled P&L and budget actuals; drafting the revenue and margin bridge.',
+    reviewNote: 'Board pack drafted; running the artifact proof gate before distribution.',
+    doneNote: 'Board pack ready for review with revenue bridge, margin walk, EBITDA, and commentary.',
+  },
+  {
+    templateId: 'marketing-overspend',
+    title: () => 'Marketing budget overspend review',
+    category: 'FP&A variance',
+    summary: 'Marketing is tracking over budget; quantify the variance and draft the cost-centre note.',
+    tools: ['analyzeBudgetVsActuals', 'detectAnomalies'],
+    subAgents: ['Cassidy'], owner: 'Morgan',
+    activeNote: 'Quantifying the Marketing variance against plan by sub-category.',
+    reviewNote: 'Variance note drafted; checking evidence before sending to the cost-centre owner.',
+    doneNote: 'Marketing overspend quantified with a cost-centre note and recommended action.',
+  },
+  {
+    templateId: 'month-end-close',
+    title: () => 'Month-end close — variance commentary',
+    category: 'Close',
+    summary: 'Draft variance commentary across cost centres for the month-end close pack.',
+    tools: ['analyzeBudgetVsActuals', 'calculateTrend', 'getFinancialKPIs'],
+    subAgents: ['Cassidy'], owner: 'Morgan',
+    activeNote: 'Walking cost-centre variances and trends for the close pack.',
+    reviewNote: 'Close commentary drafted; validating against KPI snapshot.',
+    doneNote: 'Month-end variance commentary completed across cost centres.',
+  },
+  {
+    templateId: 'cash-runway',
+    title: () => 'Cash position & runway review',
+    category: 'Treasury',
+    summary: 'Review cash on hand, monthly burn, and runway months against plan.',
+    tools: ['getFinancialKPIs', 'calculateTrend'],
+    subAgents: ['Cassidy'], owner: 'Morgan',
+    activeNote: 'Checking cash on hand, burn rate, and runway against the plan.',
+    reviewNote: 'Runway summary drafted; confirming the burn-rate trend.',
+    doneNote: 'Cash position and runway reviewed; runway within expected range.',
+  },
+  {
+    templateId: 'anomaly-cogs',
+    title: () => 'Anomaly investigation — COGS movement',
+    category: 'Risk surveillance',
+    summary: 'A COGS variance breached the alert threshold; investigate and classify severity.',
+    tools: ['detectAnomalies', 'analyzeBudgetVsActuals'],
+    subAgents: ['Cassidy'], owner: 'Morgan',
+    activeNote: 'Investigating the COGS movement and classifying severity.',
+    reviewNote: 'Anomaly findings drafted; deciding whether escalation is warranted.',
+    doneNote: 'COGS anomaly investigated and classified; no further escalation required this cycle.',
+  },
+  {
+    templateId: 'headcount-cost',
+    title: () => 'Headcount cost trend review',
+    category: 'FP&A',
+    summary: 'Review headcount cost trend and flag drift against the workforce plan.',
+    tools: ['getFinancialKPIs', 'calculateTrend'],
+    subAgents: ['Cassidy'], owner: 'Morgan',
+    activeNote: 'Reviewing headcount cost trend against the workforce plan.',
+    reviewNote: 'Headcount trend drafted; confirming the people-cost figures.',
+    doneNote: 'Headcount cost trend reviewed; drift within tolerance.',
+  },
+  {
+    templateId: 'weekly-digest',
+    title: () => 'Weekly finance digest assembly',
+    category: 'Reporting',
+    summary: 'Assemble the weekly finance digest: KPI dashboard, top variances, and week-ahead events.',
+    tools: ['createWeeklyBriefingContent', 'getFinancialKPIs', 'detectAnomalies'],
+    subAgents: ['Avatar'], owner: 'Morgan',
+    activeNote: 'Assembling the weekly digest from KPIs, variances, and the week ahead.',
+    reviewNote: 'Weekly digest drafted; running the proof gate before posting.',
+    doneNote: 'Weekly finance digest assembled and ready to post.',
+  },
+  {
+    templateId: 'board-pnl-l2',
+    title: () => 'Board P&L distribution to exec list',
+    category: 'Governed delivery',
+    summary: 'Sending the board-ready P&L to the external distribution list needs L2 human sign-off.',
+    tools: ['getHitlApprovalSurface', 'sendHitlApprovalCardToModAdministrator'],
+    subAgents: ['Morgan'], owner: 'CFO / Finance Approver', hitlLevel: 'L2',
+    activeNote: 'Prepared the board P&L for external distribution; routing for L2 approval.',
+    waitingNote: 'Holding at L2 human-in-the-loop approval before any external send.',
+    reviewNote: 'L2 approval granted; preparing the governed send.',
+    doneNote: 'Board P&L distribution approved (L2) and released through the governed path.',
+  },
+  {
+    templateId: 'reforecast-l3',
+    title: () => 'Budget reforecast commitment ($250k)',
+    category: 'Governed delivery',
+    summary: 'A $250k budget reforecast commitment is dollar-bearing and requires L3 approval before Morgan proceeds.',
+    tools: ['getHitlApprovalSurface', 'recordHitlApprovalDecision'],
+    subAgents: ['Morgan'], owner: 'CFO / Finance Approver', hitlLevel: 'L3',
+    activeNote: 'Prepared the reforecast rationale and evidence; routing for L3 approval.',
+    waitingNote: 'Holding at L3 human-in-the-loop approval (dollar-bearing) before commitment.',
+    reviewNote: 'L3 approval granted; recording the committed reforecast.',
+    doneNote: 'Budget reforecast committed after L3 approval and audit entry.',
+  },
+  {
+    templateId: 'vendor-payment-l3',
+    title: () => 'Vendor payment memo release ($180k)',
+    category: 'Governed delivery',
+    summary: 'Releasing the vendor payment memo is dollar-bearing and requires L3 approval.',
+    tools: ['getHitlApprovalSurface', 'recordHitlApprovalDecision'],
+    subAgents: ['Morgan'], owner: 'CFO / Finance Approver', hitlLevel: 'L3',
+    activeNote: 'Prepared the vendor payment memo; routing for L3 approval.',
+    waitingNote: 'Holding at L3 human-in-the-loop approval (dollar-bearing) before release.',
+    reviewNote: 'L3 approval granted; finalising the payment memo.',
+    doneNote: 'Vendor payment memo released after L3 approval and audit entry.',
+  },
+];
+
+let cfoWorkBacklog: CfoWorkCard[] | null = null;
+
+function cfoWorkBacklogFilePath(): string {
+  if (process.env.MORGAN_WORK_BACKLOG_FILE) return path.resolve(process.env.MORGAN_WORK_BACKLOG_FILE);
+  const home = process.env.HOME || process.env.USERPROFILE;
+  const stateRoot = home ? path.join(home, 'data') : path.join(process.cwd(), '.morgan-state');
+  return path.join(stateRoot, 'morgan-cfo-workcards.json');
+}
+
+function quarterLabel(date = new Date()): string {
+  return `Q${Math.floor(date.getMonth() / 3) + 1}`;
+}
+
+function instantiateWorkCard(template: CfoWorkTemplate, lane: CfoWorkLane): CfoWorkCard {
+  const now = new Date().toISOString();
+  const ctx = { quarter: quarterLabel(), period: currentPeriod() };
+  return {
+    id: `work-${template.templateId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    templateId: template.templateId,
+    title: template.title(ctx),
+    category: template.category,
+    lane,
+    summary: template.summary,
+    tools: template.tools,
+    subAgents: template.subAgents,
+    owner: template.owner,
+    hitlLevel: template.hitlLevel,
+    evidence: [],
+    history: [{ at: now, from: 'new', to: lane, note: 'Created on the CFO work backlog.' }],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function templateById(templateId: string): CfoWorkTemplate | undefined {
+  return CFO_WORK_TEMPLATES.find((template) => template.templateId === templateId);
+}
+
+function loadCfoWorkBacklog(): CfoWorkCard[] {
+  try {
+    const filePath = cfoWorkBacklogFilePath();
+    if (!fs.existsSync(filePath)) return [];
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((value): value is CfoWorkCard => Boolean(value && typeof value === 'object' && (value as CfoWorkCard).id && (value as CfoWorkCard).templateId && (value as CfoWorkCard).lane));
+  } catch (error) {
+    console.warn('[mission-control] Failed to load CFO work backlog:', error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
+function persistCfoWorkBacklog(): void {
+  try {
+    const filePath = cfoWorkBacklogFilePath();
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    const tempPath = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tempPath, JSON.stringify(cfoWorkBacklog || [], null, 2), 'utf8');
+    fs.renameSync(tempPath, filePath);
+  } catch (error) {
+    console.warn('[mission-control] Failed to persist CFO work backlog:', error instanceof Error ? error.message : String(error));
+  }
+}
+
+function seedInitialBacklog(): CfoWorkCard[] {
+  const initial: Array<{ templateId: string; lane: CfoWorkLane }> = [
+    { templateId: 'board-pack', lane: 'active' },
+    { templateId: 'month-end-close', lane: 'active' },
+    { templateId: 'board-pnl-l2', lane: 'waiting' },
+    { templateId: 'reforecast-l3', lane: 'waiting' },
+    { templateId: 'marketing-overspend', lane: 'queue' },
+    { templateId: 'cash-runway', lane: 'queue' },
+    { templateId: 'anomaly-cogs', lane: 'queue' },
+  ];
+  return initial
+    .map((seed) => { const t = templateById(seed.templateId); return t ? instantiateWorkCard(t, seed.lane) : null; })
+    .filter((card): card is CfoWorkCard => Boolean(card));
+}
+
+function ensureCfoWorkBacklog(): CfoWorkCard[] {
+  if (cfoWorkBacklog) return cfoWorkBacklog;
+  const loaded = loadCfoWorkBacklog();
+  if (loaded.length) {
+    cfoWorkBacklog = loaded;
+  } else {
+    cfoWorkBacklog = seedInitialBacklog();
+    persistCfoWorkBacklog();
+  }
+  return cfoWorkBacklog;
+}
+
+function transitionCard(card: CfoWorkCard, to: CfoWorkLane, note: string): void {
+  const now = new Date().toISOString();
+  card.history.push({ at: now, from: card.lane, to, note });
+  if (card.history.length > 12) card.history.splice(0, card.history.length - 12);
+  card.lane = to;
+  card.updatedAt = now;
+  card.evidence = [...card.evidence, `${now.slice(11, 16)} ${note}`].slice(-6);
+  if (to === 'done') card.completedAt = now;
+}
+
+function replenishBacklog(backlog: CfoWorkCard[]): string[] {
+  const created: string[] = [];
+  const queued = backlog.filter((card) => card.lane === 'queue').length;
+  if (queued >= 3) return created;
+  const activeTemplateIds = new Set(backlog.filter((card) => card.lane !== 'done').map((card) => card.templateId));
+  const candidates = CFO_WORK_TEMPLATES.filter((template) => !activeTemplateIds.has(template.templateId));
+  const pool = candidates.length ? candidates : CFO_WORK_TEMPLATES;
+  const toAdd = Math.min(2, 3 - queued);
+  for (let i = 0; i < toAdd && pool.length; i += 1) {
+    const template = pool[(Date.now() + i) % pool.length];
+    const card = instantiateWorkCard(template, 'queue');
+    backlog.push(card);
+    created.push(card.title);
+  }
+  return created;
+}
+
+export interface CfoWorkAdvanceResult {
+  advanced: Array<{ title: string; from: CfoWorkLane; to: CfoWorkLane }>;
+  replenished: string[];
+}
+
+export function advanceCfoWorkCards(maxToAdvance = 2): CfoWorkAdvanceResult {
+  const backlog = ensureCfoWorkBacklog();
+  const advanced: CfoWorkAdvanceResult['advanced'] = [];
+
+  // 1) Resolve a waiting (HITL) card that has waited at least one cycle, ~half the time,
+  //    simulating an approval being granted through the governed path.
+  const waitingCard = backlog.find((card) => card.lane === 'waiting' && Date.now() - new Date(card.updatedAt).getTime() >= 60_000);
+  if (waitingCard && (Date.now() % 2 === 0)) {
+    const t = templateById(waitingCard.templateId);
+    transitionCard(waitingCard, 'review', t?.reviewNote || 'Approval granted; preparing the governed action.');
+    advanced.push({ title: waitingCard.title, from: 'waiting', to: 'review' });
+  }
+
+  // 2) Advance up to N non-waiting cards one step each (most-recently-updated last).
+  const movable = backlog
+    .filter((card) => card.lane === 'queue' || card.lane === 'active' || card.lane === 'review')
+    .sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+  for (const card of movable) {
+    if (advanced.length >= maxToAdvance) break;
+    const t = templateById(card.templateId);
+    if (card.lane === 'queue') {
+      transitionCard(card, 'active', t?.activeNote || 'Picked up the work and started.');
+      advanced.push({ title: card.title, from: 'queue', to: 'active' });
+    } else if (card.lane === 'active') {
+      if (card.hitlLevel) {
+        transitionCard(card, 'waiting', t?.waitingNote || `Holding at ${card.hitlLevel} human approval.`);
+        advanced.push({ title: card.title, from: 'active', to: 'waiting' });
+      } else {
+        transitionCard(card, 'review', t?.reviewNote || 'Work drafted; running the proof gate.');
+        advanced.push({ title: card.title, from: 'active', to: 'review' });
+      }
+    } else if (card.lane === 'review') {
+      transitionCard(card, 'done', t?.doneNote || 'Completed and recorded.');
+      advanced.push({ title: card.title, from: 'review', to: 'done' });
+    }
+  }
+
+  const replenished = replenishBacklog(backlog);
+
+  // Keep the done lane bounded (most recent 12 completed cards).
+  const doneCards = backlog.filter((card) => card.lane === 'done').sort((a, b) => new Date(a.completedAt || a.updatedAt).getTime() - new Date(b.completedAt || b.updatedAt).getTime());
+  if (doneCards.length > 12) {
+    const removeIds = new Set(doneCards.slice(0, doneCards.length - 12).map((card) => card.id));
+    cfoWorkBacklog = backlog.filter((card) => !removeIds.has(card.id));
+  }
+
+  persistCfoWorkBacklog();
+  return { advanced, replenished };
+}
+
+function workCardStatus(lane: CfoWorkLane): AutonomousKanbanCard['status'] {
+  switch (lane) {
+    case 'queue': return 'pending';
+    case 'active': return 'in_progress';
+    case 'waiting': return 'blocked';
+    case 'review': return 'review';
+    case 'done': return 'completed';
+    default: return 'pending';
+  }
+}
+
+function workCardToKanbanCard(card: CfoWorkCard): AutonomousKanbanCard {
+  return {
+    id: card.id,
+    title: card.title,
+    state: card.lane,
+    status: workCardStatus(card.lane),
+    priority: card.hitlLevel ? 1 : 2,
+    summary: card.summary,
+    reason: card.hitlLevel ? `Human-in-the-loop ${card.hitlLevel} approval gate.` : card.category,
+    tools: card.tools,
+    subAgents: card.subAgents,
+    evidence: card.evidence.length ? card.evidence.slice(-4) : [card.category],
+    owner: card.owner,
+    updatedAt: card.updatedAt,
+  };
+}
+
+export function getCfoWorkBacklog(): CfoWorkCard[] {
+  return ensureCfoWorkBacklog().slice();
+}
+
 
 function todayKey(date = new Date()): string {
   return date.toISOString().slice(0, 10);
@@ -2393,17 +2763,9 @@ export function getAutonomousKanbanBoard(): AutonomousKanbanBoard {
 
   const aiKanbanAgent = getSubAgentRegistry().find((agent) => agent.id === 'ai-kanban');
   const columns: AutonomousKanbanColumn[] = [
-    { id: 'queue', title: 'Autonomous Queue', intent: 'Runnable CFO work Morgan can pick from next.', cards: [
-      { id: 'queue-board-pack', title: 'Q3 board pack — revenue & margin bridge', taskId: 'executive-briefing', state: 'queue', status: 'pending', priority: 1, cadence: 'weekly', summary: 'Assemble the board-ready P&L: revenue bridge, gross-margin walk, EBITDA, and CFO commentary.', tools: ['getLatestPnL', 'analyzeBudgetVsActuals', 'createWeeklyBriefingContent'], subAgents: ['Avatar'], evidence: ['period: current quarter', 'board prep'], owner: 'Morgan' },
-      { id: 'queue-marketing-overspend', title: 'Marketing budget overspend review', taskId: 'finance-health-check', state: 'queue', status: 'pending', priority: 1, cadence: 'daily', summary: 'Marketing is tracking over budget; quantify the variance and draft the cost-centre note.', tools: ['analyzeBudgetVsActuals', 'detectAnomalies'], subAgents: ['Cassidy'], evidence: ['category: Marketing', 'variance flag'], owner: 'Morgan' },
-    ] },
-    { id: 'active', title: 'In Cycle', intent: 'Work selected for the current autonomous CFO loop.', wipLimit: 3, cards: [
-      { id: 'active-month-end-close', title: 'Month-end close — variance commentary', taskId: 'finance-health-check', state: 'active', status: 'in_progress', priority: 1, cadence: 'daily', summary: 'Draft variance commentary across cost centres for the month-end close pack.', tools: ['analyzeBudgetVsActuals', 'calculateTrend', 'getFinancialKPIs'], subAgents: ['Cassidy'], evidence: ['close cycle', 'top variances'], owner: 'Morgan' },
-    ] },
-    { id: 'waiting', title: 'Waiting / Escalate', intent: 'Blocked work, missing integrations, and human decisions.', cards: [
-      { id: 'waiting-board-pnl-l2', title: 'Board P&L distribution — L2 approval', taskId: 'executive-briefing', state: 'waiting', status: 'blocked', priority: 1, cadence: 'weekly', summary: 'Sending the board-ready P&L to the external distribution list needs L2 human sign-off.', tools: ['getHitlApprovalSurface', 'sendHitlApprovalCardToModAdministrator'], subAgents: ['Morgan'], evidence: ['HITL L2', 'external send'], owner: 'CFO / Finance Approver' },
-      { id: 'waiting-reforecast-l3', title: '$250k budget reforecast — L3 approval', taskId: 'corpgen-planning-loop', state: 'waiting', status: 'blocked', priority: 1, cadence: 'continuous', summary: 'A $250k budget reforecast commitment is dollar-bearing and requires L3 approval before Morgan proceeds.', tools: ['getHitlApprovalSurface', 'recordHitlApprovalDecision'], subAgents: ['Morgan'], evidence: ['HITL L3', 'dollar-bearing'], owner: 'CFO / Finance Approver' },
-    ] },
+    { id: 'queue', title: 'Autonomous Queue', intent: 'Runnable CFO work Morgan can pick from next.', cards: [] },
+    { id: 'active', title: 'In Cycle', intent: 'Work selected for the current autonomous CFO loop.', wipLimit: 3, cards: [] },
+    { id: 'waiting', title: 'Waiting / Escalate', intent: 'Blocked work, missing integrations, and human decisions.', cards: [] },
     { id: 'review', title: 'Proof / Review', intent: 'Artifacts, evidence gates, and approval checks before delivery.', cards: [] },
     { id: 'done', title: 'Done Today', intent: 'Recorded autonomous work completed today.', cards: [] },
   ];
@@ -2413,6 +2775,11 @@ export function getAutonomousKanbanBoard(): AutonomousKanbanBoard {
     if (!column || column.cards.some((existing) => existing.id === card.id)) return;
     column.cards.push(card);
   };
+
+  // Concrete, persistent CFO work cards that Morgan advances each autonomous cycle.
+  for (const card of getCfoWorkBacklog()) {
+    pushCard(card.lane, workCardToKanbanCard(card));
+  }
 
   for (const record of records.filter((item) => item.status === 'in_progress')) {
     pushCard('active', cardFromRecord(record, 'active'));
@@ -2744,6 +3111,29 @@ export async function runAutonomousCfoWorkday(params: { source?: MissionTaskReco
     source,
   }));
 
+  // Advance concrete CFO work cards on the autonomous Kanban (queue -> active ->
+  // review/waiting -> done), so each cycle performs specific board work and the
+  // board reflects real progress. Persisted to $HOME/data so it survives restarts.
+  const workAdvance = advanceCfoWorkCards(2);
+  const advanceSummary = workAdvance.advanced.length
+    ? workAdvance.advanced.map((item) => `${item.title}: ${item.from} -> ${item.to}`).join('; ')
+    : 'No card movement this cycle.';
+  records.push(createRecord({
+    taskId: 'corpgen-planning-loop',
+    status: 'completed',
+    summary: `Advanced ${workAdvance.advanced.length} CFO work card(s) on the autonomous Kanban.`,
+    evidence: [
+      ...workAdvance.advanced.map((item) => `${item.title}: ${item.from} -> ${item.to}`),
+      ...(workAdvance.replenished.length ? [`Replenished queue: ${workAdvance.replenished.join(', ')}`] : []),
+    ].slice(0, 10),
+    source,
+  }));
+  recordAuditEvent({
+    kind: 'mission.kanban.advanced',
+    label: 'Autonomous Kanban work cards advanced',
+    data: { advanced: workAdvance.advanced.length, replenished: workAdvance.replenished.length, detail: advanceSummary },
+  });
+
   const budget = analyzeBudgetVsActuals({ period });
   records.push(createRecord({
     taskId: 'finance-health-check',
@@ -2980,7 +3370,7 @@ export const MISSION_TOOL_DEFINITIONS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'getCorpGenDigestDeliveryStatus',
-      description: 'Return the latest CorpGen run digest delivery status, including Word document, Mod Administrator email, and Teams summary channels.',
+      description: 'Return the latest CorpGen run digest delivery status, including Word document, CFO / finance approver email, and Teams summary channels.',
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },
