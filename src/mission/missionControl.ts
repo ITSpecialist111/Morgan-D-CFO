@@ -1049,7 +1049,7 @@ const KEY_TASKS: MissionTaskDefinition[] = [
     description: 'Record completed autonomous work, generate the CorpGen digest, and send manager handoffs through Microsoft 365.',
     cadence: 'daily',
     priority: 1,
-    expectedOutputs: ['Completed task list', 'Blocked items', 'Word digest', 'Mod Administrator email', 'Teams summary', 'Tomorrow priorities'],
+    expectedOutputs: ['Completed task list', 'Blocked items', 'Word digest', 'CFO / finance approver email', 'Teams summary', 'Tomorrow priorities'],
     tools: ['recordMissionTaskCompletion', 'getEndOfDayReport', 'createWordDocument', 'sendTeamsMessage', 'sendEmail'],
     subAgents: ['Cassidy', 'AI_Kanban summary-agent'],
     autonomousTrigger: 'End of working day or explicit CFO request.',
@@ -2393,9 +2393,17 @@ export function getAutonomousKanbanBoard(): AutonomousKanbanBoard {
 
   const aiKanbanAgent = getSubAgentRegistry().find((agent) => agent.id === 'ai-kanban');
   const columns: AutonomousKanbanColumn[] = [
-    { id: 'queue', title: 'Autonomous Queue', intent: 'Runnable CFO work Morgan can pick from next.', cards: [] },
-    { id: 'active', title: 'In Cycle', intent: 'Work selected for the current autonomous CFO loop.', wipLimit: 3, cards: [] },
-    { id: 'waiting', title: 'Waiting / Escalate', intent: 'Blocked work, missing integrations, and human decisions.', cards: [] },
+    { id: 'queue', title: 'Autonomous Queue', intent: 'Runnable CFO work Morgan can pick from next.', cards: [
+      { id: 'queue-board-pack', title: 'Q3 board pack — revenue & margin bridge', taskId: 'executive-briefing', state: 'queue', status: 'pending', priority: 1, cadence: 'weekly', summary: 'Assemble the board-ready P&L: revenue bridge, gross-margin walk, EBITDA, and CFO commentary.', tools: ['getLatestPnL', 'analyzeBudgetVsActuals', 'createWeeklyBriefingContent'], subAgents: ['Avatar'], evidence: ['period: current quarter', 'board prep'], owner: 'Morgan' },
+      { id: 'queue-marketing-overspend', title: 'Marketing budget overspend review', taskId: 'finance-health-check', state: 'queue', status: 'pending', priority: 1, cadence: 'daily', summary: 'Marketing is tracking over budget; quantify the variance and draft the cost-centre note.', tools: ['analyzeBudgetVsActuals', 'detectAnomalies'], subAgents: ['Cassidy'], evidence: ['category: Marketing', 'variance flag'], owner: 'Morgan' },
+    ] },
+    { id: 'active', title: 'In Cycle', intent: 'Work selected for the current autonomous CFO loop.', wipLimit: 3, cards: [
+      { id: 'active-month-end-close', title: 'Month-end close — variance commentary', taskId: 'finance-health-check', state: 'active', status: 'in_progress', priority: 1, cadence: 'daily', summary: 'Draft variance commentary across cost centres for the month-end close pack.', tools: ['analyzeBudgetVsActuals', 'calculateTrend', 'getFinancialKPIs'], subAgents: ['Cassidy'], evidence: ['close cycle', 'top variances'], owner: 'Morgan' },
+    ] },
+    { id: 'waiting', title: 'Waiting / Escalate', intent: 'Blocked work, missing integrations, and human decisions.', cards: [
+      { id: 'waiting-board-pnl-l2', title: 'Board P&L distribution — L2 approval', taskId: 'executive-briefing', state: 'waiting', status: 'blocked', priority: 1, cadence: 'weekly', summary: 'Sending the board-ready P&L to the external distribution list needs L2 human sign-off.', tools: ['getHitlApprovalSurface', 'sendHitlApprovalCardToModAdministrator'], subAgents: ['Morgan'], evidence: ['HITL L2', 'external send'], owner: 'CFO / Finance Approver' },
+      { id: 'waiting-reforecast-l3', title: '$250k budget reforecast — L3 approval', taskId: 'corpgen-planning-loop', state: 'waiting', status: 'blocked', priority: 1, cadence: 'continuous', summary: 'A $250k budget reforecast commitment is dollar-bearing and requires L3 approval before Morgan proceeds.', tools: ['getHitlApprovalSurface', 'recordHitlApprovalDecision'], subAgents: ['Morgan'], evidence: ['HITL L3', 'dollar-bearing'], owner: 'CFO / Finance Approver' },
+    ] },
     { id: 'review', title: 'Proof / Review', intent: 'Artifacts, evidence gates, and approval checks before delivery.', cards: [] },
     { id: 'done', title: 'Done Today', intent: 'Recorded autonomous work completed today.', cards: [] },
   ];

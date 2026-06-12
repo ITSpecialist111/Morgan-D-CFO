@@ -110,6 +110,26 @@
     .iq-card b { font-size: 13px; }
     .iq-card .tag { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
     .iq-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .iq-card.work { border-left-color: var(--teal); }
+    .subagent-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    @media (max-width: 1100px) { .subagent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .subagent-card { border: 1px solid var(--border); border-top: 3px solid var(--teal); border-radius: 0 0 8px 8px; padding: 12px; background: #151922; display: grid; gap: 8px; align-content: start; min-width: 0; }
+    .subagent-card.bridge { border-top-color: var(--blue); }
+    .subagent-card .subagent-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .subagent-card b { font-size: 13px; line-height: 1.25; }
+    .subagent-card .subagent-stage { color: var(--teal); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    .subagent-card.bridge .subagent-stage { color: var(--blue); }
+    .subagent-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .subagent-card .subagent-caps { color: #cfd6e2; font-size: 11px; }
+    .economics-summary { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; }
+    .economics-card { border: 1px solid var(--border); background: #151922; border-radius: 8px; padding: 11px 12px; min-width: 0; }
+    .economics-card b { display: block; font-size: 18px; margin-bottom: 4px; overflow-wrap: anywhere; }
+    .economics-card span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .economics-card.verdict b { font-size: 16px; }
+    .economics-card.positive { border-color: rgba(54, 194, 180, .45); }
+    .economics-card.watch { border-color: rgba(240, 180, 41, .45); }
+    .economics-card.negative { border-color: rgba(224, 88, 88, .5); }
+    .economics-body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; align-items: start; }
     .iq-metric-grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; }
     .iq-metric { border: 1px solid var(--border); background: #111620; border-radius: 8px; padding: 10px 12px; min-width: 0; }
     .iq-metric b { display: block; font-size: 16px; margin-bottom: 4px; overflow-wrap: anywhere; }
@@ -506,7 +526,8 @@
       .kanban-live-proof, .kanban-proof-grid { grid-template-columns: 1fr; }
       .kanban-live-actions { justify-content: flex-start; }
       .approval-summary { grid-template-columns: 1fr; }
-      .cost-summary, .cost-body, .cost-bar-row { grid-template-columns: 1fr; }
+      .cost-summary, .cost-body, .cost-bar-row, .economics-summary, .economics-body { grid-template-columns: 1fr; }
+      .subagent-grid { grid-template-columns: 1fr; }
       .roi-summary, .roi-body, .roi-detail-grid, .roi-research { grid-template-columns: 1fr; }
       .roi-graph-shell { min-height: 360px; }
       .roi-graph { height: 360px; }
@@ -597,6 +618,25 @@
         </div>
       </div>
     </section>
+    <section class="wide" id="agentUnitEconomics">
+      <div class="section-head"><h2>Agent Unit Economics</h2><span class="status-dot partial" id="economicsBadge">loading</span></div>
+      <div class="body">
+        <div class="economics-summary">
+          <div class="economics-card verdict" id="economicsVerdictCard"><b id="economicsVerdict">Checking</b><span>economics verdict</span></div>
+          <div class="economics-card"><b id="economicsWeeklyNet">$0</b><span>weekly net value</span></div>
+          <div class="economics-card"><b id="economicsWeeklyRatio">0x</b><span>observed value/cost</span></div>
+          <div class="economics-card"><b id="economicsAnnualNet">$0</b><span>annual net value</span></div>
+          <div class="economics-card"><b id="economicsAnnualRatio">0x</b><span>business-case value/cost</span></div>
+          <div class="economics-card"><b id="economicsBreakEven">0</b><span>break-even workstreams/month</span></div>
+        </div>
+        <div class="economics-body">
+          <div class="compact-list" id="economicsFormulae"></div>
+          <div class="compact-list">
+            <div class="compact-item"><p><b>Cost mix behind the economics</b></p><div class="cost-bars" id="economicsCostMix"></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
     <section class="wide" id="cfoImpactGraph">
       <div class="section-head"><h2>CFO ROI Work Graph</h2><span class="status-dot live" id="roiBadge">research model</span></div>
       <div class="body">
@@ -649,7 +689,7 @@
         <div class="mindmap-detail" id="mindmapDetail">
           <div class="type">Morgan beta starfield</div>
           <h3>Click a node</h3>
-          <p>Cassidy-style starfield view of Morgan's mission, instructions, finance signals, tools, sub-agents, avatar stack, task records, and audit memory.</p>
+          <p>Cassidy-style starfield view of Morgan's mission, the human stakeholders Morgan is engaging (CFO sponsor, finance contacts, function leads, HITL approvers), instructions, finance signals, tools, sub-agents, avatar stack, task records, and audit memory. Pick "People" to focus the agent-to-human team.</p>
         </div>
       </div>
     </section>
@@ -714,6 +754,25 @@
         <div class="iq-metric-grid" id="microsoftIqMetrics"></div>
         <div class="compact-list" id="microsoftIqActions"></div>
       </div>
+    </section>
+    <section class="wide" id="subAgents">
+      <div class="section-head"><h2>Specialist Sub-Agents</h2><span class="status-dot live" id="subAgentsBadge">orchestrated team</span></div>
+      <div class="body">
+        <p class="small" style="margin:0 0 12px">Morgan is the orchestrator. For focused work it delegates to a registry of specialist sub-agents over agent-to-agent (A2A) calls — Cassidy for operations and chief-of-staff coordination, Avatar for visible spoken presence, and AI Kanban for task-board intelligence.</p>
+        <div class="subagent-grid" id="subAgentsGrid"></div>
+      </div>
+    </section>
+    <section class="wide" id="workIqGraphProof">
+      <div class="section-head"><h2>WorkIQ + Graph Production Proof</h2><span class="status-dot partial" id="workIqProofBadge">checking</span></div>
+      <div class="body">
+        <div class="compact-list" id="workIqIdentity"></div>
+        <div class="iq-grid" id="workIqPillars"></div>
+        <div class="compact-list" id="workIqNotes"></div>
+      </div>
+    </section>
+    <section class="wide" id="avatarProductionProof">
+      <div class="section-head"><h2>Avatar Production Proof</h2><span class="status-dot partial" id="avatarProofBadge">checking</span></div>
+      <div class="body"><div class="compact-list" id="avatarProof"></div></div>
     </section>
     <section>
       <div class="section-head"><h2>Instructions Morgan Follows</h2></div>
@@ -878,7 +937,9 @@
       governance: '#fb7185',
       evaluation: '#c4b5fd',
       communication: '#60a5fa',
-      audit: '#cbd5e1'
+      audit: '#cbd5e1',
+      stakeholder: '#f0abfc',
+      workstream: '#34d399'
     };
     const mindmapModes = {
       all: { label: 'All', groups: null, phase: 'Enterprise operating graph', activity: ['Plan', 'Execute', 'Delegate', 'Govern', 'Prove'], speed: 1 },
@@ -887,6 +948,7 @@
       tools: { label: 'Tools', groups: ['tool', 'agent', 'voice', 'communication'], phase: 'Tool and sub-agent calls', activity: ['Discover tools', 'Call finance APIs', 'Use M365', 'Present in avatar'], speed: 1.55 },
       governance: { label: 'Governance', groups: ['governance', 'instruction', 'evaluation'], phase: 'Approval and evidence controls', activity: ['Check rules', 'Verify source', 'Escalate', 'Judge result'], speed: 1.08 },
       memory: { label: 'Memory', groups: ['memory', 'audit'], phase: 'Reflection and reusable context', activity: ['Capture evidence', 'Recall records', 'Consolidate lessons'], speed: 0.95 },
+      people: { label: 'People', groups: ['stakeholder', 'workstream'], phase: 'Human-in-the-loop stakeholder map', activity: ['Identify stakeholder', 'Draft outreach', 'Route HITL approval', 'Confirm decision'], speed: 1.12 },
       live: { label: 'Live Run', groups: [], phase: 'Live black-box trace', activity: ['Prompt', 'Reasoning summary', 'Tool/action', 'Response'], speed: 1.85 }
     };
     let mindmapGraph = {
@@ -1264,6 +1326,7 @@
       if (node.type === 'instruction' || node.type === 'task' || node.type === 'agent') return 230;
       if (node.type === 'tool' || node.type === 'finance' || node.type === 'voice' || node.type === 'communication') return 305;
       if (node.type === 'memory' || node.type === 'audit') return 390;
+      if (node.type === 'stakeholder' || node.type === 'workstream') return 360;
       return 330;
     }
 
@@ -1293,7 +1356,7 @@
             x: cx + Math.cos(angle) * radius,
             y: cy + Math.sin(angle) * radius,
             phase: (seed % 360) / 57.2958,
-            size: node.id === 'morgan-core' ? 12 : node.id.startsWith('hub-') ? 7 : Math.max(2.4, Math.min(6.2, 2.2 + Math.sqrt(node.importance || 2)))
+            size: node.id === 'morgan-core' ? 12 : node.id.startsWith('hub-') ? 7 : node.type === 'stakeholder' ? 9.5 : node.type === 'workstream' ? 6 : Math.max(2.4, Math.min(6.2, 2.2 + Math.sqrt(node.importance || 2)))
           });
         });
       }
@@ -1350,9 +1413,73 @@
       if (node.type === 'governance' || node.type === 'instruction') return ['Check guardrail', 'Escalate if needed', 'Explain rule'];
       if (node.type === 'memory' || node.type === 'audit') return ['Recall event', 'Use in reflection', 'Add proof'];
       if (node.type === 'voice' || node.type === 'communication') return ['Open avatar', 'Brief stakeholder', 'Use Teams'];
+      if (node.type === 'stakeholder') return ['Open Teams chat', 'Send HITL card', 'Brief stakeholder'];
+      if (node.type === 'workstream') return ['Review workstream', 'Check proof signals', 'Brief CFO'];
       if (node.type === 'evaluation') return ['Judge artifact', 'Score evidence', 'Track outcome'];
       if (node.type === 'finance') return ['Analyze signal', 'Flag variance', 'Brief CFO'];
       return ['Inspect detail', 'Connect workflow', 'Record outcome'];
+    }
+
+    const avatarImageCache = new Map();
+    function getAvatarImage(url) {
+      if (!url) return null;
+      let entry = avatarImageCache.get(url);
+      if (!entry) {
+        entry = { status: 'loading', img: new Image() };
+        entry.img.addEventListener('load', () => { entry.status = 'loaded'; });
+        entry.img.addEventListener('error', () => { entry.status = 'error'; });
+        entry.img.src = url;
+        avatarImageCache.set(url, entry);
+      }
+      return entry;
+    }
+    function initialsFromLabel(label) {
+      const parts = String(label || '').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return '?';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    const AVATAR_PALETTE = [['#6d28d9', '#a78bfa'], ['#0e7490', '#22d3ee'], ['#9d174d', '#fb7185'], ['#1d4ed8', '#60a5fa'], ['#047857', '#34d399'], ['#b45309', '#fbbf24'], ['#7c2d12', '#fb923c'], ['#3730a3', '#818cf8']];
+    function avatarAccent(label) {
+      const seed = Array.from(String(label || '')).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+      return AVATAR_PALETTE[seed % AVATAR_PALETTE.length];
+    }
+    function drawStakeholderAvatar(x, y, r, node, ringColor, active, emphasised) {
+      const ctx = mindmapCtx;
+      ctx.save();
+      ctx.globalAlpha = active ? 1 : 0.46;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      const entry = getAvatarImage(node.image);
+      if (entry && entry.status === 'loaded') {
+        const img = entry.img;
+        const scale = Math.max((r * 2) / img.width, (r * 2) / img.height);
+        const dw = img.width * scale;
+        const dh = img.height * scale;
+        ctx.drawImage(img, x - dw / 2, y - dh / 2, dw, dh);
+      } else {
+        const accent = avatarAccent(node.label);
+        const grad = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+        grad.addColorStop(0, accent[0]);
+        grad.addColorStop(1, accent[1]);
+        ctx.fillStyle = grad;
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.font = `600 ${Math.max(8, r * 0.92)}px Segoe UI, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(initialsFromLabel(node.label), x, y + r * 0.04);
+      }
+      ctx.restore();
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.lineWidth = emphasised ? 2.4 : 1.5;
+      ctx.strokeStyle = emphasised ? '#ffffff' : ringColor;
+      ctx.stroke();
+      ctx.restore();
     }
 
     function drawMindmap() {
@@ -1431,26 +1558,37 @@
         const active = nodeMatchesMode(node);
         const pulse = 1 + Math.sin(time * (active ? 1.9 : 1.1) + pos.phase) * (active ? 0.12 : 0.04);
         const radius = (selected || hovered ? pos.size * 1.45 : pos.size) * pulse * Math.min(1.8, 0.78 + camera.zoom * 0.24);
+        // Stakeholders drift as compact stars when zoomed out, and resolve into profile
+        // photos once the user zooms in (or hovers/selects them).
+        const isStakeholderNode = node.type === 'stakeholder' && !hub;
+        const showStakeholderPhoto = isStakeholderNode && node.image && (selected || hovered || camera.zoom > 1.18);
+        const effectiveRadius = (isStakeholderNode && !showStakeholderPhoto) ? Math.max(2.4, radius * 0.42) : radius;
 
         if (selected || hovered || hub || active) {
           mindmapCtx.beginPath();
-          mindmapCtx.arc(point.x, point.y, radius * (selected || hovered ? 3.4 : active ? 2.65 : 2.1), 0, Math.PI * 2);
+          mindmapCtx.arc(point.x, point.y, effectiveRadius * (selected || hovered ? 3.4 : active ? 2.65 : 2.1), 0, Math.PI * 2);
           mindmapCtx.fillStyle = hexToRgba(color, selected || hovered ? 0.22 : active ? 0.13 : 0.06);
           mindmapCtx.fill();
         }
         if (selected || hovered) {
           mindmapCtx.beginPath();
-          mindmapCtx.arc(point.x, point.y, radius * (4.2 + camera.cinematicBoost * 1.5), 0, Math.PI * 2);
+          mindmapCtx.arc(point.x, point.y, effectiveRadius * (4.2 + camera.cinematicBoost * 1.5), 0, Math.PI * 2);
           mindmapCtx.strokeStyle = hexToRgba(color, 0.32);
           mindmapCtx.lineWidth = 1.2;
           mindmapCtx.stroke();
         }
-        mindmapCtx.globalAlpha = active ? 1 : 0.32;
-        mindmapCtx.beginPath();
-        mindmapCtx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-        mindmapCtx.fillStyle = color;
-        mindmapCtx.fill();
-        mindmapCtx.globalAlpha = 1;
+        let drawRadius = effectiveRadius;
+        if (showStakeholderPhoto) {
+          drawRadius = Math.max(radius, 11);
+          drawStakeholderAvatar(point.x, point.y, drawRadius, node, color, active, selected || hovered);
+        } else {
+          mindmapCtx.globalAlpha = active ? 1 : 0.32;
+          mindmapCtx.beginPath();
+          mindmapCtx.arc(point.x, point.y, effectiveRadius, 0, Math.PI * 2);
+          mindmapCtx.fillStyle = color;
+          mindmapCtx.fill();
+          mindmapCtx.globalAlpha = 1;
+        }
 
         if (hovered || selected
           || node.id === 'morgan-core'
@@ -1462,7 +1600,7 @@
           mindmapCtx.textAlign = 'center';
           mindmapCtx.textBaseline = 'top';
           const label = node.label.length > 34 ? node.label.slice(0, 32) + '...' : node.label;
-          mindmapCtx.fillText(label, point.x, point.y + radius + 5);
+          mindmapCtx.fillText(label, point.x, point.y + drawRadius + 5);
         }
       }
       requestAnimationFrame(drawMindmap);
@@ -1969,12 +2107,187 @@
         `<div class="compact-item"><p><b>Realtime avatar:</b> ${displayCostMoney(cost?.summary?.avatarWeeklyCost, currency)} this week, currently ${cost?.summary?.avatarSharePct || 0}% of Morgan's run-rate.</p></div>`,
         `<div class="compact-item"><p><b>Detail:</b> <a class="cost-link" href="${cost?.detailDashboard || '/mission-control/costs'}">Open cost dashboard</a></p></div>`,
       ].join('');
+      renderAgentEconomics(cost);
     }
 
     async function loadMorganCosts() {
       const data = await authedJson('/api/mission-control/costs');
       renderMorganCosts(data);
       return data;
+    }
+
+    function displayMultiplier(value) {
+      const numeric = Number(value || 0);
+      return `${numeric >= 10 ? numeric.toFixed(0) : numeric.toFixed(1)}x`;
+    }
+
+    function renderAgentEconomics(cost) {
+      const economics = cost?.economics;
+      const badge = document.getElementById('economicsBadge');
+      if (!badge) return;
+      const currency = economics?.currency || cost?.currency || 'USD';
+      if (!economics) {
+        badge.className = 'status-dot partial';
+        badge.textContent = 'pending';
+        document.getElementById('economicsVerdict').textContent = 'Pending';
+        document.getElementById('economicsFormulae').innerHTML = '<div class="compact-item"><p>Unit economics will appear when the cost model returns a calculated economics block.</p></div>';
+        document.getElementById('economicsCostMix').innerHTML = '<div class="small">No cost mix yet.</div>';
+        return;
+      }
+      const positive = economics.verdict === 'cost-effective' || economics.verdict === 'business-case-positive';
+      const watch = economics.verdict === 'watch';
+      badge.className = `status-dot ${positive ? 'live' : watch ? 'partial' : 'blocked'}`;
+      badge.textContent = economics.verdictLabel || 'Calculated';
+      const verdictCard = document.getElementById('economicsVerdictCard');
+      verdictCard.className = `economics-card verdict ${positive ? 'positive' : watch ? 'watch' : 'negative'}`;
+      document.getElementById('economicsVerdict').textContent = economics.verdictLabel || 'Calculated';
+      document.getElementById('economicsWeeklyNet').textContent = displayCostMoney(economics.weekly?.netValue, currency);
+      document.getElementById('economicsWeeklyRatio').textContent = displayMultiplier(economics.weekly?.benefitCostRatio);
+      document.getElementById('economicsAnnualNet').textContent = displayCompactMoney(economics.annualBusinessCase?.netValue);
+      document.getElementById('economicsAnnualRatio').textContent = displayMultiplier(economics.annualBusinessCase?.benefitCostRatio);
+      document.getElementById('economicsBreakEven').textContent = Number(economics.unit?.breakEvenWorkstreamsPerMonth || 0).toFixed(2);
+
+      document.getElementById('economicsFormulae').innerHTML = [
+        `<div class="compact-item"><span class="status-dot ${economics.weekly?.costEffective ? 'live' : 'partial'}">Observed week</span><p><b>${displayCostMoney(economics.weekly?.observedValue, currency)}</b> value - <b>${displayCostMoney(economics.weekly?.operatingCost, currency)}</b> cost = <b>${displayCostMoney(economics.weekly?.netValue, currency)}</b> net.</p><p>${escapeHtml(economics.weekly?.formula || '')}</p></div>`,
+        `<div class="compact-item"><span class="status-dot ${economics.annualBusinessCase?.costEffective ? 'live' : 'partial'}">Annual business case</span><p><b>${displayCompactMoney(economics.annualBusinessCase?.riskAdjustedValue)}</b> risk-adjusted value - <b>${displayCompactMoney(economics.annualBusinessCase?.operatingCost)}</b> run-rate = <b>${displayCompactMoney(economics.annualBusinessCase?.netValue)}</b> net.</p><p>${escapeHtml(economics.annualBusinessCase?.formula || '')}</p></div>`,
+        `<div class="compact-item"><span class="status-dot configured">Unit basis</span><p><b>${Number(economics.unit?.breakEvenWorkstreamsPerMonth || 0).toFixed(2)}</b> active CFO workstreams/month pays for Morgan at the current run-rate; this is <b>${Number(economics.unit?.breakEvenPctOfCurrentPortfolio || 0).toFixed(2)}%</b> of the visible active portfolio.</p><p>Current active CFO workstreams: ${Number(economics.unit?.activeWorkstreams || 0)}. Cost per active workstream/month: ${displayCostMoney(economics.unit?.costPerWorkstreamMonthly, currency)}.</p></div>`,
+      ].join('');
+
+      const mix = (economics.costMix || []).slice(0, 7);
+      const max = Math.max(1, ...mix.map((item) => item.weeklyCost || 0));
+      document.getElementById('economicsCostMix').innerHTML = mix.map((item) => {
+        const width = Math.max(3, Math.round(((item.weeklyCost || 0) / max) * 100));
+        const cls = item.id === 'voice-avatar' ? 'avatar' : item.id === 'foundry-ai' ? 'ai' : '';
+        return `<div class="cost-bar-row"><b>${escapeHtml(item.label)}</b><div class="cost-track"><div class="cost-fill ${cls}" style="width:${width}%"></div></div><span>${displayCostMoney(item.weeklyCost, currency)} / ${Number(item.sharePct || 0).toFixed(1)}%</span></div>`;
+      }).join('') || '<div class="small">Cost mix is initializing.</div>';
+    }
+
+    function renderWorkIqProof(data) {
+      const badge = document.getElementById('workIqProofBadge');
+      const identity = document.getElementById('workIqIdentity');
+      const pillars = document.getElementById('workIqPillars');
+      const notes = document.getElementById('workIqNotes');
+      if (!badge || !identity || !pillars || !notes) return;
+      if (!data || !data.workIQ) {
+        badge.className = 'status-dot partial';
+        badge.textContent = 'unavailable';
+        identity.innerHTML = '<div class="compact-item"><p><b>WorkIQ proof unavailable.</b></p></div>';
+        pillars.innerHTML = '';
+        notes.innerHTML = '';
+        return;
+      }
+      const work = data.workIQ;
+      const graph = data.graph || {};
+      const morgan = data.identity || {};
+      const graphLive = Boolean(graph.graphClientCredentialsConfigured || graph.graphSendMailConfigured);
+      const mcpLive = Boolean(work.available && work.serverCount > 0);
+      const live = mcpLive || graphLive;
+      badge.className = `status-dot ${live ? 'ready' : 'partial'}`;
+      badge.textContent = live ? 'live WorkIQ' : 'tenant pending';
+      identity.innerHTML = `<div class="compact-item"><span class="status-dot ${live ? 'ready' : 'partial'}">${live ? 'live' : 'pending'}</span><p><b>${escapeHtml(morgan.displayName || 'Morgan')} · ${escapeHtml(morgan.agentRole || 'Digital CFO')}</b></p><p>Mailbox: ${escapeHtml(morgan.mailboxUpn || 'set MORGAN_MAILBOX_UPN / Agent 365 mailbox')}</p><p>Auth: ${escapeHtml(work.authConnection || 'AgenticAuthConnection')} · ${escapeHtml(graph.peopleLookupPath || 'Graph/MCP path pending')}</p></div>`;
+      const expected = ['Mail', 'Calendar', 'Teams', 'SharePoint', 'OneDrive', 'Planner', 'Word', 'Excel', 'People'];
+      const staticPillarExamples = {
+        Mail: ['sendEmail', 'readMail', 'searchMessages', 'replyToEmail'],
+        Calendar: ['listEvents', 'createMeeting', 'findMeetingTimes', 'getCalendar'],
+        Teams: ['sendTeamsMessage', 'createTeamsChannel', 'listTeamsChats', 'postToChannel'],
+        SharePoint: ['readSharePointData', 'uploadToSharePoint', 'searchSiteContent', 'listDocumentLibrary'],
+        OneDrive: ['listOneDriveFiles', 'uploadFile', 'downloadFile', 'searchOneDrive'],
+        Planner: ['createPlannerTask', 'listTasks', 'updateTaskStatus', 'assignTask'],
+        Word: ['createWordDocument', 'readWordDocument', 'updateWordContent', 'exportDocx'],
+        Excel: ['readExcelWorkbook', 'updateExcelSheet', 'createExcelChart', 'exportXlsx'],
+        People: ['searchPeople', 'getUserProfile', 'resolveUserIdentity', 'getOrgChart'],
+      };
+      pillars.innerHTML = (work.pillars || [])
+        .filter((pillar) => expected.includes(pillar.pillar))
+        .map((pillar) => {
+          const liveExamples = pillar.examples || [];
+          const fallbackExamples = staticPillarExamples[pillar.pillar] || [];
+          const examples = (liveExamples.length ? liveExamples : fallbackExamples).join('<br>') || 'Pending Agent 365 MCP connection';
+          return `<div class="iq-card work"><div class="tag">${escapeHtml(pillar.cassidyParity)}</div><b>${escapeHtml(pillar.pillar)}</b><p>${examples}</p></div>`;
+        }).join('');
+      notes.innerHTML = `<div class="compact-item"><p><b>Production proof contract</b></p><p>${escapeHtml(data.statement || 'WorkIQ is the production proof point for Microsoft 365 and Graph access.')}</p></div>` +
+        `<div class="compact-item"><p><b>Graph readiness</b></p><p>MCP endpoint: ${graph.mcpPlatformEndpointConfigured ? 'configured' : 'pending'}<br>Graph client credentials: ${graph.graphClientCredentialsConfigured ? 'configured' : 'pending'}<br>Graph sendMail: ${graph.graphSendMailConfigured ? 'configured' : 'pending'}</p></div>` +
+        `<div class="compact-item"><p><b>Mock policy</b></p><p>WorkIQ/Graph should be live for production proof. Foundry IQ and Fabric IQ may remain deterministic for the executive demo.</p></div>` +
+        (work.notes || []).map((note) => `<div class="compact-item"><p>${escapeHtml(note)}</p></div>`).join('');
+    }
+
+    function renderAvatarProof(data) {
+      const badge = document.getElementById('avatarProofBadge');
+      const root = document.getElementById('avatarProof');
+      if (!badge || !root) return;
+      if (!data) {
+        badge.className = 'status-dot partial';
+        badge.textContent = 'unavailable';
+        root.innerHTML = '<div class="compact-item"><p><b>Avatar readiness unavailable.</b></p></div>';
+        return;
+      }
+      const speech = data.speechAvatar || {};
+      const voice = data.voiceLive || {};
+      const teams = data.teamsCalling || {};
+      const ready = speech.configured && voice.configured;
+      badge.className = `status-dot ${ready ? 'ready' : 'partial'}`;
+      badge.textContent = ready ? 'production path' : 'settings pending';
+      root.innerHTML = [
+        `<div class="compact-item"><span class="status-dot ${speech.configured ? 'ready' : 'partial'}">${speech.configured ? 'ready' : 'pending'}</span><p><b>Microsoft Speech Avatar</b></p><p>Region: ${speech.regionConfigured ? 'configured' : 'pending'} · Auth: ${speech.authConfigured ? 'configured' : 'pending'} · ICE: ${escapeHtml(speech.relayTokenEndpoint || '/api/avatar/ice')}</p></div>`,
+        `<div class="compact-item"><span class="status-dot ${voice.configured ? 'ready' : 'partial'}">${voice.configured ? 'ready' : 'pending'}</span><p><b>Voice Live</b></p><p>Realtime WebSocket: ${escapeHtml(voice.websocketEndpoint || '/api/voice')}</p></div>`,
+        `<div class="compact-item"><span class="status-dot ${teams.configured ? 'ready' : 'partial'}">${teams.configured ? 'ready' : 'pending'}</span><p><b>Teams calling</b></p><p>${escapeHtml(teams.bridge || 'Azure Communication Services to Microsoft Teams federation')}</p></div>`,
+        `<div class="compact-item"><p><b>Proof points</b></p><p>${(data.proofPoints || []).map(escapeHtml).join('<br>')}</p></div>`,
+      ].join('');
+    }
+
+    async function loadProductionProof() {
+      const [workIq, avatar] = await Promise.all([
+        authedJson('/api/workiq/status'),
+        authedJson('/api/avatar/readiness'),
+      ]);
+      renderWorkIqProof(workIq);
+      renderAvatarProof(avatar);
+    }
+
+    function subAgentStatusLabel(status) {
+      if (status === 'configured') return { cls: 'ready', text: 'ready' };
+      if (status === 'missing_endpoint') return { cls: 'partial', text: 'standby' };
+      return { cls: 'live', text: 'specialist' };
+    }
+
+    const SUBAGENT_ROSTER = [
+      { id: 'cassidy', name: 'Cassidy', stage: 'Operations · Chief of Staff', kind: 'specialist', description: 'Autonomous Chief of Staff and operations coordinator. Drives the autonomous work loop and handles operations escalation for Morgan.', capabilities: ['Teams calling', 'autonomous work loop', 'operations escalation', 'MCP orchestration'] },
+      { id: 'avatar', name: 'Avatar', stage: 'Visible Voice Presence', kind: 'specialist', description: 'Visible spoken agent interface that gives Morgan a human-facing voice and avatar for live CFO conversations and demos.', capabilities: ['WebRTC avatar', 'Voice Live', 'visual customer demos', 'spoken status updates'] },
+      { id: 'ai-kanban', name: 'AI Kanban', stage: 'Task-Board Intelligence', kind: 'specialist', description: 'Mission-board and task intelligence agent that summarizes the task board, predicts completion, and tracks delivery.', capabilities: ['task-board summary', 'workload context', 'completion prediction', 'delivery tracking'] },
+    ];
+
+    function renderSubAgents(statusById) {
+      const grid = document.getElementById('subAgentsGrid');
+      if (!grid) return;
+      grid.innerHTML = SUBAGENT_ROSTER.map((agent) => {
+        const status = subAgentStatusLabel(statusById ? statusById[agent.id] : undefined);
+        return `<div class="subagent-card ${agent.kind === 'bridge' ? 'bridge' : ''}">
+          <div class="subagent-head"><span class="subagent-stage">${escapeHtml(agent.stage)}</span><span class="status-dot ${status.cls}">${status.text}</span></div>
+          <b>${escapeHtml(agent.name)}</b>
+          <p>${escapeHtml(agent.description)}</p>
+          <p class="subagent-caps">${(agent.capabilities || []).map(escapeHtml).join(' · ')}</p>
+        </div>`;
+      }).join('');
+    }
+
+    async function loadSubAgentStatus() {
+      try {
+        const response = await fetch('/api/health', { credentials: 'include' });
+        if (!response.ok) { renderSubAgents(null); return; }
+        const health = await response.json();
+        const statusById = {};
+        for (const agent of health?.configuration?.subAgents || []) {
+          statusById[agent.id] = agent.status;
+        }
+        renderSubAgents(statusById);
+        const badge = document.getElementById('subAgentsBadge');
+        if (badge) {
+          const ready = (health?.configuration?.subAgents || []).filter((a) => a.status === 'configured').length;
+          badge.textContent = ready ? `${ready} specialists ready` : 'orchestrated team';
+        }
+      } catch {
+        renderSubAgents(null);
+      }
     }
 
     function renderIqCard(kind, title, subtitle, rows) {
@@ -2577,7 +2890,7 @@
       document.getElementById('corpgenDigestStatus').innerHTML = `
         <div class="compact-item"><p><b>${escapeHtml(digest.summary || 'No digest delivery has run yet.')}</b></p><p>Run: ${escapeHtml(digest.runId || 'not-run-yet')} ${digest.period ? `· Period: ${escapeHtml(digest.period)}` : ''}</p></div>
         <div class="compact-item"><span class="status-dot ${digestClass(documentStatus.status, documentStatus.enabled)}">${escapeHtml(documentStatus.status || 'skipped')}</span><p><b>Word digest</b></p><p>${docRef}</p><p>Source: ${escapeHtml(documentStatus.source || 'not available')}</p></div>
-        <div class="compact-item"><span class="status-dot ${digestClass(emailStatus.status, emailStatus.enabled)}">${escapeHtml(emailStatus.status || 'skipped')}</span><p><b>Email to Mod Administrator</b></p><p>${escapeHtml(emailStatus.target || emailStatus.error || 'Waiting for a CorpGen run.')}</p><p>Source: ${escapeHtml(emailStatus.source || 'not available')}</p></div>
+        <div class="compact-item"><span class="status-dot ${digestClass(emailStatus.status, emailStatus.enabled)}">${escapeHtml(emailStatus.status || 'skipped')}</span><p><b>Email to CFO / finance approver</b></p><p>${escapeHtml(emailStatus.target || emailStatus.error || 'Waiting for a CorpGen run.')}</p><p>Source: ${escapeHtml(emailStatus.source || 'not available')}</p></div>
         <div class="compact-item"><span class="status-dot ${digestClass(teamsStatus.status, teamsStatus.enabled)}">${escapeHtml(teamsStatus.status || 'skipped')}</span><p><b>Teams summary</b></p><p>${escapeHtml(teamsStatus.target || teamsStatus.error || 'Configure CORPGEN_TEAMS_CHANNEL_ID or CORPGEN_TEAMS_WEBHOOK_URL for live Teams delivery.')}</p><p>Source: ${escapeHtml(teamsStatus.source || 'not available')}</p></div>`;
     }
 
@@ -2772,6 +3085,12 @@
       const readiness = document.getElementById('readiness');
       readiness.innerHTML = (data.enterpriseReadiness || []).map((item) => `<div class="compact-item"><span class="status-dot ${item.status}">${item.status}</span><p><b>${item.area}</b></p><p>${item.signal}</p><p><b>Control:</b> ${item.control}</p></div>`).join('');
       renderMicrosoftIQ(data.microsoftIQ);
+      await loadProductionProof().catch((error) => {
+        renderWorkIqProof(null);
+        renderAvatarProof(null);
+        const workIqNotes = document.getElementById('workIqNotes');
+        if (workIqNotes) workIqNotes.innerHTML = `<div class="compact-item"><p><b>Production proof unavailable.</b></p><p>${escapeHtml(error.message || 'Unable to load WorkIQ and avatar readiness.')}</p></div>`;
+      });
       renderCfoImpactRoadmap(data.cfoImpactRoadmap);
       renderCorpgenDigestDelivery(data.corpgenDigestDelivery);
       await loadMorganCosts().catch((error) => {
@@ -2872,6 +3191,8 @@
       renderGovernanceDetail(trace, getSelectedGovernanceStep(trace));
     });
     setupMindmapCameraControls();
+    renderSubAgents(null);
+    loadSubAgentStatus().catch(() => {});
     refresh().catch((error) => { document.getElementById('subtitle').textContent = error.message; });
     setInterval(() => {
       if (!document.getElementById('appMain').hidden) loadMindmap().catch(() => {});
