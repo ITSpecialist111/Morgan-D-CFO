@@ -29,6 +29,8 @@ export interface DidEnvironmentConfig {
   elevenLabsStability?: number;
   elevenLabsSimilarityBoost?: number;
   elevenLabsStyle?: string;
+  elevenLabsUseSpeakerBoost?: boolean;
+  elevenLabsRate?: string;
 
   // UI Background
   backgroundUrl: string;
@@ -41,6 +43,13 @@ export interface DidPresenterConfig {
     type: 'elevenlabs';
     voice_id: string;
     model_id: string;
+    voice_config?: {
+      stability?: number;
+      similarity_boost?: number;
+      style?: string;
+      use_speaker_boost?: boolean;
+      rate?: string;
+    };
   };
 }
 
@@ -83,10 +92,12 @@ export function loadDidConfig(): DidEnvironmentConfig | null {
     voiceId: process.env.DID_VOICE_ID || 'yV421IFuyZtM5nbmHxOl',
 
     elevenLabsApiKey: process.env.ELEVENLABS_API_KEY || '',
-    elevenLabsModelId: process.env.ELEVENLABS_MODEL_ID || 'eleven_flash_v2_5',
+    elevenLabsModelId: process.env.ELEVENLABS_MODEL_ID || 'eleven_turbo_v2_5',
     elevenLabsStability: process.env.ELEVENLABS_STABILITY ? parseFloat(process.env.ELEVENLABS_STABILITY) : undefined,
     elevenLabsSimilarityBoost: process.env.ELEVENLABS_SIMILARITY_BOOST ? parseFloat(process.env.ELEVENLABS_SIMILARITY_BOOST) : undefined,
     elevenLabsStyle: process.env.ELEVENLABS_STYLE,
+    elevenLabsUseSpeakerBoost: process.env.ELEVENLABS_USE_SPEAKER_BOOST ? process.env.ELEVENLABS_USE_SPEAKER_BOOST.toLowerCase() !== 'false' : undefined,
+    elevenLabsRate: process.env.ELEVENLABS_RATE,
 
     backgroundUrl: process.env.AVATAR_BACKGROUND_URL || 'https://raw.githubusercontent.com/ITSpecialist111/Aria-Avatar-Foundry-WorkIQ/main/background.jpg',
   };
@@ -94,14 +105,29 @@ export function loadDidConfig(): DidEnvironmentConfig | null {
 
 /**
  * Get the desired voice configuration for D-ID presenter
- * This is the target state that the agent should have
+ * This is the target state that the agent should have.
+ *
+ * Includes an expressive-but-executive voice_config so Morgan delivers with
+ * emotional range and emphasis instead of the flat ElevenLabs default. Every
+ * value is env-tunable (ELEVENLABS_STABILITY / _STYLE / _SIMILARITY_BOOST /
+ * _USE_SPEAKER_BOOST / _RATE); the defaults below are applied when unset.
  */
 export function getDesiredDidVoiceConfig(config: DidEnvironmentConfig): DidPresenterConfig['voice'] {
-  return {
+  const voice: DidPresenterConfig['voice'] = {
     type: config.voiceType,
     voice_id: config.voiceId,
     model_id: config.elevenLabsModelId,
+    voice_config: {
+      stability: config.elevenLabsStability ?? 0.4,
+      similarity_boost: config.elevenLabsSimilarityBoost ?? 0.85,
+      style: config.elevenLabsStyle ?? '0.4',
+      use_speaker_boost: config.elevenLabsUseSpeakerBoost ?? true,
+    },
   };
+  if (config.elevenLabsRate && voice.voice_config) {
+    voice.voice_config.rate = config.elevenLabsRate;
+  }
+  return voice;
 }
 
 /**

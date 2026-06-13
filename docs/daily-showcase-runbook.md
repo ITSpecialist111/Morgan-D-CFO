@@ -32,6 +32,45 @@ and verifies. Secrets are never printed.
 
 ---
 
+## D-ID humanoid avatar — expressiveness (voice delivery)
+
+How "expressive" Morgan sounds (emotional range, warmth, emphasis) is driven by the D-ID
+agent's **presenter voice config**, not by the page. Out of the box the agent used
+`eleven_flash_v2_5` with **no** `voice_config`, which is ElevenLabs' fastest but flattest /
+most monotone profile. Morgan now uses an expressive-but-executive profile:
+
+| Setting | Value | Effect |
+|---|---|---|
+| `model_id` | `eleven_turbo_v2_5` | Richer emotion than `flash`, still low-latency for streaming |
+| `stability` | `0.4` | Lower = more emotional variation (default is ~0.5/flat) |
+| `style` | `0.4` | Style exaggeration — the main "expressiveness" dial |
+| `similarity_boost` | `0.85` | Keeps Morgan's voice identity strong |
+| `use_speaker_boost` | `true` | More vocal presence |
+
+These are env-tunable (`ELEVENLABS_MODEL_ID`, `ELEVENLABS_STABILITY`, `ELEVENLABS_STYLE`,
+`ELEVENLABS_SIMILARITY_BOOST`, `ELEVENLABS_USE_SPEAKER_BOOST`, `ELEVENLABS_RATE`) and baked into
+the app's desired-state (`getDesiredDidVoiceConfig`), so the `/api/avatar/did/session`
+enforcement reinforces them instead of resetting to flat.
+
+Apply / dial / revert the live agent voice with the helper:
+
+```powershell
+# apply the expressive profile (defaults, or .env values)
+node scripts/did-set-voice-expressiveness.cjs
+# dial it further (more emotion)
+node scripts/did-set-voice-expressiveness.cjs --style 0.6 --stability 0.3
+# slow her down slightly
+node scripts/did-set-voice-expressiveness.cjs --rate 0.95
+# back to the flat default
+node scripts/did-set-voice-expressiveness.cjs --revert
+```
+
+> Note: this D-ID agent (`v2_agt_vXoxDzYG`) is **shared with the ECIF Director**, so a voice
+> change here applies to both Morgan personas. After changing, reload `/voice/did` and
+> reconnect to hear the new delivery.
+
+---
+
 ## 1. Current deployed state (verified 2026-06-12)
 
 - **Hosted agent**: version **17**, image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227` (digest `sha256:46506783…`), protocol `responses/1.0.0`, model `gpt-5-mini`. P0 smoke: **all 4 prompts passed** via direct REST. Verified-minimal env (Azure OpenAI routing only; Graph/MCP/voice/storage intentionally not configured).
