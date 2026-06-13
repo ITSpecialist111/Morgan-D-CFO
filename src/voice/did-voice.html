@@ -2807,7 +2807,32 @@
         console.error('[did] connect failed', error);
         btnConnect.disabled = false;
         stageEl.classList.remove('is-connecting');
-        setStatus((error && error.message) || 'D-ID connection failed');
+        const raw = (error && error.message) || String(error || '');
+        // A successful /api/avatar/did/config means the server has valid D-ID keys.
+        // If the browser then fails to connect with a network/auth error, the cause is
+        // almost always that this website's domain is not on the D-ID agent's allowed
+        // (embed) domains in D-ID Studio — the agent + keys are valid, the origin is not.
+        const looksLikeDomainBlock = /network request failed|failed to fetch|unauthorized|401|403|cors|forbidden/i.test(raw);
+        if (looksLikeDomainBlock) {
+          const origin = location.origin;
+          const guidance = [
+            'Morgan\u2019s D-ID humanoid avatar could not connect from this site.',
+            '',
+            'The D-ID agent is valid, but it does not yet allow this website\u2019s domain:',
+            '    ' + origin,
+            '',
+            'Fix (one-time, in the D-ID account that owns this agent):',
+            '  1. Open D-ID Studio \u2192 Agents \u2192 this agent \u2192 Embed / Share.',
+            '  2. Add ' + location.host + ' to the allowed domains.',
+            '  3. Reload this page and click the humanoid avatar again.',
+            '',
+            'Until then, use the \u201CMorgan (Standard)\u201D avatar \u2014 it works on this domain.',
+          ].join('\n');
+          setStatus('D-ID blocked this domain \u2014 add ' + location.host + ' in D-ID Studio');
+          try { window.alert(guidance); } catch {}
+        } else {
+          setStatus(raw || 'D-ID connection failed');
+        }
       }
     }
 
