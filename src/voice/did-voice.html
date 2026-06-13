@@ -2818,17 +2818,19 @@
           const guidance = [
             'Morgan\u2019s D-ID humanoid avatar could not connect from this site.',
             '',
-            'The D-ID agent is valid, but it does not yet allow this website\u2019s domain:',
+            'The D-ID agent and keys are valid, but this site\u2019s domain is not on the',
+            'D-ID client key\u2019s allowed_domains list:',
             '    ' + origin,
             '',
-            'Fix (one-time, in the D-ID account that owns this agent):',
-            '  1. Open D-ID Studio \u2192 Agents \u2192 this agent \u2192 Embed / Share.',
-            '  2. Add ' + location.host + ' to the allowed domains.',
-            '  3. Reload this page and click the humanoid avatar again.',
+            'Fix (from the repo, using the account API key in .env):',
+            '    node scripts/did-allow-domain.cjs ' + origin,
             '',
-            'Until then, use the \u201CMorgan (Standard)\u201D avatar \u2014 it works on this domain.',
+            'That adds this domain to the existing client key (no redeploy needed).',
+            'Then reload this page and click the humanoid avatar again.',
+            '',
+            'Meanwhile, use the \u201CMorgan (Standard)\u201D avatar \u2014 it works on this domain.',
           ].join('\n');
-          setStatus('D-ID blocked this domain \u2014 add ' + location.host + ' in D-ID Studio');
+          setStatus('D-ID blocked this domain \u2014 run scripts/did-allow-domain.cjs ' + location.host);
           try { window.alert(guidance); } catch {}
         } else {
           setStatus(raw || 'D-ID connection failed');

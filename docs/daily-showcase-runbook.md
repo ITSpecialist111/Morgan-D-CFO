@@ -9,6 +9,29 @@ A working, repeatable daily showcase. Two surfaces are live:
 
 ---
 
+## D-ID humanoid avatar — domain authorization
+
+The D-ID browser SDK authorizes connections with a **client key** that is scoped to an
+explicit `allowed_domains` list (a D-ID **API-only** feature — there is no such setting in the
+D-ID Studio UI). If a deployment's domain is not on that list, the browser gets **HTTP 401**
+and a CORS-looking error when connecting, even though the API key, agent, and client key are all valid.
+
+Morgan's client key already authorizes:
+`studio.d-id.com`, `morgan-ecif-director-webapp.azurewebsites.net`, `localhost:3978`, and
+`morganfinanceagent-webapp.azurewebsites.net`.
+
+To authorize a **new** domain (no redeploy needed — the key value doesn't change):
+
+```powershell
+node scripts/did-allow-domain.cjs https://your-app.azurewebsites.net
+```
+
+The script reads `DID_API_KEY` / `DID_AGENT_ID` / `DID_CLIENT_KEY` from `.env`, PATCHes the
+client key to add the domain (preserving existing domains, so other deployments keep working),
+and verifies. Secrets are never printed.
+
+---
+
 ## 1. Current deployed state (verified 2026-06-12)
 
 - **Hosted agent**: version **17**, image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227` (digest `sha256:46506783…`), protocol `responses/1.0.0`, model `gpt-5-mini`. P0 smoke: **all 4 prompts passed** via direct REST. Verified-minimal env (Azure OpenAI routing only; Graph/MCP/voice/storage intentionally not configured).
