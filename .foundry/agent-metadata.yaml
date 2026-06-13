@@ -134,7 +134,7 @@ environments:
     latestBuiltImageDigest: sha256:46506783a7036fd7d5337cd749fb51650df6f195beeb4546d00e40d5104a7064
     latestAcrRunId: cpq
     priorBuiltImage: crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260507204912
-    v17Notes: SDK upgrade (agents-a365-tooling 1.0.0, agents-hosting 1.5.2, agents-activity 1.5.1) + ECIF->CFO feature-parity port (D-ID avatar, HITL approvals, agentic kanban, retrospectives, governance observability, WorkIQ status). Dockerfile switched npm ci->npm install for cross-platform lockfile resilience. P0 smoke v17 passed all 4 cases via direct REST.
+    v17Notes: SDK upgrade (agents-a365-tooling 1.0.0, agents-hosting 1.5.2, agents-activity 1.5.1) + feature-parity port (D-ID avatar, HITL approvals, agentic kanban, retrospectives, governance observability, WorkIQ status). Dockerfile switched npm ci->npm install for cross-platform lockfile resilience. P0 smoke v17 passed all 4 cases via direct REST.
     protocol: responses/1.0.0
     cpu: "1"
     memory: 2Gi

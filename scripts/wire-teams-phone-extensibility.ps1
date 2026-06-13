@@ -1,7 +1,6 @@
 param(
   [string]$ResourceGroup = 'rg-morgan-finance-agent',
   [string]$WebApp = 'morganfinanceagent-webapp',
-  [string]$ForbiddenWebApp = 'morgan-ecif-director-webapp',
   [string]$Domain = $(if ($env:MORGAN_TENANT_DOMAIN) { $env:MORGAN_TENANT_DOMAIN } else { '<your-tenant>.onmicrosoft.com' }),
   [string]$ResourceAccountLocalPart = 'morgan-cfo-tpe',
   [string]$DisplayName = 'Morgan Digital CFO',
@@ -67,10 +66,6 @@ function New-AcsHmacHeaders {
     'x-ms-content-sha256' = $contentHash
     'Authorization' = "HMAC-SHA256 SignedHeaders=x-ms-date;host;x-ms-content-sha256&Signature=$signature"
   }
-}
-
-if ($WebApp -eq $ForbiddenWebApp) {
-  throw "Refusing forbidden web app target '$ForbiddenWebApp'."
 }
 
 foreach ($commandName in @('Get-CsOnlineApplicationInstance', 'New-CsOnlineApplicationInstance', 'Set-CsOnlineApplicationInstance', 'Sync-CsOnlineApplicationInstance')) {

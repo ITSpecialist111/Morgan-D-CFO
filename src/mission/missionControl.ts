@@ -1570,19 +1570,11 @@ export function getCorpGenDigestDeliveryStatus(): CorpGenDigestDeliveryStatus {
 }
 
 // Persona-protective text replacements applied to outbound Mission Control payloads.
-// Ported from the Morgan ECIF Director repo (which re-skins CFO -> ECIF) and re-skinned
-// here to neutralize any stray ECIF/other-persona wording back to the Digital CFO persona.
-// Patterns are intentionally narrow (anchored on "ECIF") so legitimate CFO content is untouched.
-const MISSION_CONTROL_TEXT_REPLACEMENTS: Array<[RegExp, string]> = [
-  [/Morgan ECIF Director reviewed/g, 'Morgan Digital CFO reviewed'],
-  [/Morgan ECIF funding Teams update/g, 'Morgan Digital CFO Teams update'],
-  [/Morgan ECIF funding consult/g, 'Morgan Digital CFO budget consult'],
-  [/Morgan ECIF Director/g, 'Morgan Digital CFO'],
-  [/Morgan ECIF funding/g, 'Morgan Digital CFO'],
-  [/ECIF funding consult/g, 'Digital CFO consult'],
-  [/ECIF Director/g, 'Digital CFO'],
-  [/ECIF funding/g, 'Digital CFO'],
-];
+// Defensive guard: neutralizes any stray non-CFO persona wording back to the Digital
+// CFO persona. Patterns must be narrowly anchored so legitimate CFO content is untouched.
+// Currently empty (no known leak sources); add patterns here only if a future import
+// introduces persona-mismatched text.
+const MISSION_CONTROL_TEXT_REPLACEMENTS: Array<[RegExp, string]> = [];
 
 function sanitizeMissionControlText(value: string): string {
   return MISSION_CONTROL_TEXT_REPLACEMENTS.reduce((current, [pattern, replacement]) => current.replace(pattern, replacement), value);

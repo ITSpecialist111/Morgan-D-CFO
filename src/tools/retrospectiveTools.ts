@@ -3,7 +3,7 @@ import * as path from 'path';
 import type { ChatCompletionTool } from 'openai/resources/chat';
 import type { MissionTaskRecord } from '../mission/missionControl';
 
-export interface EcifRetrospective {
+export interface CfoRetrospective {
   date: string;
   period: string;
   generatedAt: string;
@@ -19,16 +19,16 @@ export interface EcifRetrospective {
 const RETRO_PATH = path.resolve(process.cwd(), '.data/morgan-cfo-retrospectives.json');
 const MAX_ENTRIES = 12;
 
-function loadRetroFile(): EcifRetrospective[] {
+function loadRetroFile(): CfoRetrospective[] {
   try {
     if (!fs.existsSync(RETRO_PATH)) return [];
-    return JSON.parse(fs.readFileSync(RETRO_PATH, 'utf-8')) as EcifRetrospective[];
+    return JSON.parse(fs.readFileSync(RETRO_PATH, 'utf-8')) as CfoRetrospective[];
   } catch {
     return [];
   }
 }
 
-function saveRetroFile(entries: EcifRetrospective[]): void {
+function saveRetroFile(entries: CfoRetrospective[]): void {
   try {
     fs.mkdirSync(path.dirname(RETRO_PATH), { recursive: true });
     fs.writeFileSync(RETRO_PATH, JSON.stringify(entries.slice(-MAX_ENTRIES), null, 2), 'utf-8');
@@ -101,14 +101,14 @@ export function deriveRecommendations(records: MissionTaskRecord[]): { recommend
   return { recommendations, patterns };
 }
 
-export function generateAndSaveRetrospective(records: MissionTaskRecord[]): EcifRetrospective {
+export function generateAndSaveRetrospective(records: MissionTaskRecord[]): CfoRetrospective {
   const completedCount = records.filter((r) => r.status === 'completed').length;
   const blockedCount = records.filter((r) => r.status === 'blocked').length;
   const failedCount = records.filter((r) => r.status === 'failed').length;
 
   const { recommendations, patterns } = deriveRecommendations(records);
 
-  const retro: EcifRetrospective = {
+  const retro: CfoRetrospective = {
     date: todayKey(),
     period: periodKey(),
     generatedAt: new Date().toISOString(),
@@ -123,11 +123,11 @@ export function generateAndSaveRetrospective(records: MissionTaskRecord[]): Ecif
   return retro;
 }
 
-export function getRetrospectiveHistory(): EcifRetrospective[] {
+export function getRetrospectiveHistory(): CfoRetrospective[] {
   return loadRetroFile().slice().reverse().slice(0, 6);
 }
 
-export function getLatestRetrospective(): EcifRetrospective | null {
+export function getLatestRetrospective(): CfoRetrospective | null {
   const history = getRetrospectiveHistory();
   return history[0] ?? null;
 }

@@ -358,16 +358,6 @@ npm run server
 npm run cli
 npm run check:m365
 npm run configure:foundry
-npm run configure:rowen-ecif
-npm run configure:rowen-ecif:noninteractive
-npm run configure:rowen-ecif:greenfield
-npm run setup:rowen-cloud
-npm run provision:rowen-foundry
-npm run deploy:rowen-model
-npm run build:rowen-image
-npm run prepare:rowen-hosted-definition
-npm run seed:rowen-evals
-npm run prepare:rowen-foundry-deploy
 npm run diagnose:morgan-hosted
 npm run prepare:morgan-hosted
 npm run inventory:morgan
@@ -375,17 +365,11 @@ npm run matrix:morgan
 npm run plan:coo
 npm run plan:cfo
 npm run plan:ceo
-npm run plan:rowen-ecif
 npm run generate:coo
 npm run generate:cfo
 npm run generate:ceo
-npm run generate:rowen-ecif
 npm run verify:workspace
 npm run verify:generated
-npm run verify:generated:rowen
-npm run diagnose:rowen-cloud
-npm run prepare:rowen-source
-npm run prepare:rowen-ecif
 npm run verify:e2e
 ```
 

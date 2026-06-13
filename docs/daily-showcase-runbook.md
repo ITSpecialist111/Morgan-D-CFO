@@ -16,9 +16,8 @@ explicit `allowed_domains` list (a D-ID **API-only** feature — there is no suc
 D-ID Studio UI). If a deployment's domain is not on that list, the browser gets **HTTP 401**
 and a CORS-looking error when connecting, even though the API key, agent, and client key are all valid.
 
-Morgan's client key already authorizes:
-`studio.d-id.com`, `morgan-ecif-director-webapp.azurewebsites.net`, `localhost:3978`, and
-`morganfinanceagent-webapp.azurewebsites.net`.
+Morgan's client key already authorizes its production domains, for example:
+`studio.d-id.com`, `morganfinanceagent-webapp.azurewebsites.net`, and `localhost:3978`.
 
 To authorize a **new** domain (no redeploy needed — the key value doesn't change):
 
@@ -65,8 +64,8 @@ node scripts/did-set-voice-expressiveness.cjs --rate 0.95
 node scripts/did-set-voice-expressiveness.cjs --revert
 ```
 
-> Note: this D-ID agent (`v2_agt_vXoxDzYG`) is **shared with the ECIF Director**, so a voice
-> change here applies to both Morgan personas. After changing, reload `/voice/did` and
+> Note: this D-ID agent (`v2_agt_vXoxDzYG`) is shared with another Morgan deployment, so a voice
+> change here applies to both. After changing, reload `/voice/did` and
 > reconnect to hear the new delivery.
 
 ---
@@ -74,9 +73,9 @@ node scripts/did-set-voice-expressiveness.cjs --revert
 ## 1. Current deployed state (verified 2026-06-13)
 
 - **Hosted agent**: version **19**, image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227` (digest `sha256:46506783…`), protocol `responses/1.0.0`, model `gpt-5-mini`. Version 19 restores this known-good image after a transient platform-side Responses 500 affected v18 (image/model/protocol unchanged). P0 smoke: **all 4 prompts passed** via direct REST. Verified-minimal env (Azure OpenAI routing only; Graph/MCP/voice/storage intentionally not configured).
-- **App Service**: **Basic B1** tier with **Always On enabled**, **healthy**, running the latest code (SDK upgrade + ECIF→CFO feature-parity port + LLM-driven Kanban work selection). `AUTONOMOUS_WORKDAY_ENABLED=true`, timezone **Europe/London**, window **09:00–17:00**.
-- **D-ID humanoid avatar**: connected — the App Service domain is authorized on the D-ID client key, and the voice runs the expressive `eleven_turbo_v2_5` profile (see the two D-ID sections above). The D-ID agent is shared with the ECIF Director.
-- Plan `rg-morgan-finance-agent-plan` (Australia East, B1) is shared with `morgan-ecif-director-webapp`; Always On is enabled only on the D-CFO app.
+- **App Service**: **Basic B1** tier with **Always On enabled**, **healthy**, running the latest code (SDK upgrade + digital-worker capability port + LLM-driven Kanban work selection). `AUTONOMOUS_WORKDAY_ENABLED=true`, timezone **Europe/London**, window **09:00–17:00**.
+- **D-ID humanoid avatar**: connected — the App Service domain is authorized on the D-ID client key, and the voice runs the expressive `eleven_turbo_v2_5` profile (see the two D-ID sections above). The D-ID agent is shared with another Morgan deployment.
+- Plan `rg-morgan-finance-agent-plan` (Australia East, B1) is shared with one other web app; Always On is enabled only on the D-CFO app.
 - Both built from the same repo. The hosted image's Dockerfile uses `npm install` (not `npm ci`) for cross-platform lockfile resilience.
 
 ---

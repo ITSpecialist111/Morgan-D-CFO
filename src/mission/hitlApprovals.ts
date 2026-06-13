@@ -250,7 +250,6 @@ function modAdministratorRecipient(): { target?: string; teamsUserAadOid?: strin
     process.env.CFO_UPN,
     process.env.CFO_EMAIL,
     process.env.GRAHAM_EMAIL,
-    process.env.ECIF_SPONSOR_EMAIL,
   );
   return {
     target,
@@ -363,7 +362,7 @@ function hitlFallbackText(requests: HitlApprovalRequest[], surfaceUrl: string): 
 
 // ---------------------------------------------------------------------------
 // Morgan Digital CFO adaptation
-// The ECIF source imported sendTeamsDirectMessage (from tools/mcpToolSetup) and
+// The original source imported sendTeamsDirectMessage (from tools/mcpToolSetup) and
 // sendProactiveActivityToLatestConversation (from scheduler/proactiveMonitor).
 // Neither helper is exported by Morgan Digital CFO yet, and this port may only
 // touch its own files. To stay self-contained and keep behavior intact:
