@@ -2,6 +2,19 @@
 
 > Morgan is an enterprise Digital CFO showcase built around the CorpGen digital-worker model: a persistent finance worker with a visible job contract, autonomous 09:00-17:00 operating loop, Microsoft IQ tools, Mission Control proof, Teams/voice presence, cost transparency, and auditable evidence for every meaningful action.
 
+## What's New
+
+_Latest release: 2026-06-13. Morgan reached feature parity with the Morgan ECIF Director, went live as a daily showcase, and became genuinely more agentic._
+
+- **LLM-driven autonomous Kanban** — Each workday cycle Morgan now *reasons* about which 1-2 CFO cards to advance next and why, instead of following a fixed coded order, with a deterministic fallback when the model is unavailable. (`src/mission/cfoWorkReasoner.ts`, `advanceCfoWorkCardsAutonomously`, audit event `mission.kanban.advanced` with `reasoningMode: "llm" | "deterministic"`.)
+- **Persistent card-driven CFO work backlog** — Concrete CFO cards (board pack, month-end close, marketing overspend, cash/runway, anomaly scan, headcount, weekly digest, plus HITL gates) advance through `queue → active → review → done` each cycle and persist to `$HOME/data` (durable Azure Files), so progress and history survive restarts and redeploys.
+- **Runs every day on its own** — App Service upgraded to **Basic B1 + Always On**; the in-process scheduler runs the workday automatically, **09:00–17:00 Europe/London**, every 25 min, with an end-of-day report. No external trigger needed.
+- **Expressive D-ID humanoid avatar** — Mia Elegant now speaks with an expressive-but-executive ElevenLabs profile (`eleven_turbo_v2_5` with tuned `stability`/`style`/`speaker_boost`, all env-tunable) instead of a flat read. Two API-only ops helpers ship with it: `scripts/did-allow-domain.cjs` (authorize a deployment domain on the D-ID client key) and `scripts/did-set-voice-expressiveness.cjs` (apply/dial/revert the voice).
+- **Visual + work parity with the ECIF Director** — Beta Starfield renders stakeholder profile photos, the Kanban carries CFO-specific work (not generic tasks), and four Mission Control sections were ported (sub-agents, avatar production proof, WorkIQ graph proof, agent unit economics).
+- **Feature-parity port (ECIF → CFO)** — D-ID avatar, HITL L2/L3 approvals (`/approvals`), agentic Kanban, operational retrospectives, governance observability, and WorkIQ status, all re-skinned to the Digital CFO persona on the upgraded Agent SDK.
+- **Hosted Foundry agent live at version 19** — Active in North Central US (`gpt-5-mini`, `responses/1.0.0`); v19 restores the v17 known-good image after a transient platform-side Responses 500 hit v18. P0 smoke passes via the direct REST Responses route.
+- **Docs & dragon's-den kit** — New [daily showcase runbook](docs/daily-showcase-runbook.md), [Dragon's Den talk track](docs/dragons-den-talk-track.md) (6/3/1.5-min cuts + Q&A battlecard), and a refreshed [CorpGen operating model](docs/corpgen-operating-model.md).
+
 ## What is Morgan?
 
 Morgan is a purpose-built autonomous **Digital CFO** for CFO-office workflows, not a general-purpose chatbot. Morgan plans and executes repeatable finance work, explains which instructions she is following, calls tools before making financial claims, records evidence as she works, escalates material risk, and closes the day with a CFO-readable breakdown of completed work, blocked work, and next priorities.
