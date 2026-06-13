@@ -3,7 +3,7 @@
 
 import type { ChatCompletionTool } from 'openai/resources/chat';
 import { TurnContext } from '@microsoft/agents-hosting';
-import { getMcpTools } from './mcpToolSetup';
+import { getMcpTools, type McpToolInfo } from './mcpToolSetup';
 
 // ---------------------------------------------------------------------------
 // Morgan's Microsoft 365 identity (mailbox, calendar, meeting invitation)
@@ -153,8 +153,39 @@ export interface WorkIQStatus {
   notes: string[];
 }
 
+// Live MCP discovery is bounded per-call (4s discovery + 3s/server) but runs
+// sequentially, so a tenant with many slow/unreachable WorkIQ servers can stack
+// past the Mission Control fetch budget on a cold start. For the status surface
+// we cap the whole discovery: if it exceeds the budget we return a still-valid,
+// configured-but-empty snapshot (the page renders WorkIQ live from Graph creds
+// and falls back to baseline pillar examples) instead of hanging the request.
+const WORKIQ_STATUS_DISCOVERY_BUDGET_MS = Number(process.env.WORKIQ_STATUS_DISCOVERY_BUDGET_MS || 8_000);
+
+async function getMcpToolsWithinBudget(context?: TurnContext): Promise<McpToolInfo> {
+  const fallback: McpToolInfo = {
+    available: Boolean(process.env.MCP_PLATFORM_ENDPOINT),
+    endpoint: process.env.MCP_PLATFORM_ENDPOINT || '',
+    serverCount: 0,
+    toolCount: 0,
+    servers: [],
+    tools: [],
+    discoveryTimedOut: true,
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const budget = new Promise<McpToolInfo>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), WORKIQ_STATUS_DISCOVERY_BUDGET_MS);
+  });
+  try {
+    return await Promise.race([getMcpTools(context), budget]);
+  } catch {
+    return fallback;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function getWorkIQStatus(_params: Record<string, unknown> = {}, context?: TurnContext): Promise<WorkIQStatus> {
-  const info = await getMcpTools(context);
+  const info = await getMcpToolsWithinBudget(context);
   const pillarMap = new Map<WorkIQPillar, { servers: Set<string>; tools: Set<string> }>();
 
   for (const tool of info.tools) {
@@ -194,7 +225,9 @@ export async function getWorkIQStatus(_params: Record<string, unknown> = {}, con
   }
 
   const notes: string[] = [];
-  if (!info.available) {
+  if (info.discoveryTimedOut) {
+    notes.push(`Live WorkIQ MCP discovery exceeded the ${Math.round(WORKIQ_STATUS_DISCOVERY_BUDGET_MS / 1000)}s status fast-path budget, so this view shows baseline coverage. Graph readiness above reflects the real production path; reload to retry live discovery (results cache for 5 minutes once they complete).`);
+  } else if (!info.available) {
     notes.push('MCP_PLATFORM_ENDPOINT is not configured. Set it to https://agent365.svc.cloud.microsoft to enable Cassidy-parity WorkIQ tools.');
   } else if (info.serverCount === 0) {
     notes.push('Agent 365 MCP discovery returned zero servers. Verify the agentic connection (agentic_connectionName) is granted access to the WorkIQ MCP catalog in Microsoft Foundry.');

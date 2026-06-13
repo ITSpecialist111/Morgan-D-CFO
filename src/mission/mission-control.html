@@ -2236,12 +2236,30 @@
     }
 
     async function loadProductionProof() {
-      const [workIq, avatar] = await Promise.all([
-        authedJson('/api/workiq/status'),
+      // Render WorkIQ and Avatar proofs independently so a slow/failed call to one
+      // never hides the other. WorkIQ status can include live MCP discovery, so it
+      // gets a longer client budget than the default fetch timeout.
+      const [workIqResult, avatarResult] = await Promise.allSettled([
+        authedJson('/api/workiq/status', { timeoutMs: 45000 }),
         authedJson('/api/avatar/readiness'),
       ]);
-      renderWorkIqProof(workIq);
-      renderAvatarProof(avatar);
+
+      if (workIqResult.status === 'fulfilled') {
+        renderWorkIqProof(workIqResult.value);
+      } else {
+        renderWorkIqProof(null);
+        const workIqNotes = document.getElementById('workIqNotes');
+        if (workIqNotes) {
+          const reason = workIqResult.reason && workIqResult.reason.message ? workIqResult.reason.message : 'Unable to load WorkIQ status.';
+          workIqNotes.innerHTML = `<div class="compact-item"><p><b>WorkIQ proof unavailable.</b></p><p>${escapeHtml(reason)}</p></div>`;
+        }
+      }
+
+      if (avatarResult.status === 'fulfilled') {
+        renderAvatarProof(avatarResult.value);
+      } else {
+        renderAvatarProof(null);
+      }
     }
 
     function subAgentStatusLabel(status) {

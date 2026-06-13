@@ -307,6 +307,7 @@ export interface McpToolInfo {
   toolCount: number;
   servers: string[];
   tools: string[];
+  discoveryTimedOut?: boolean;
 }
 
 export async function getMcpTools(context?: TurnContext): Promise<McpToolInfo> {

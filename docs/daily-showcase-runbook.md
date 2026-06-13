@@ -70,6 +70,55 @@ node scripts/did-set-voice-expressiveness.cjs --revert
 
 ---
 
+## Teams call rejected — 403/10391 (ACS↔Teams federation)
+
+If Mission Control's Teams Call shows **"Last Teams call failed 403/10391 — Forbidden"**, the
+app is working correctly — it placed the ACS call and **Teams rejected it** because the *tenant*
+has not allow-listed Morgan's ACS resource for federation (and/or the target user isn't enabled
+for ACS federation). The app side is already correct: `ACS_TEAMS_FEDERATION_RESOURCE_ID` is the
+immutable ACS resource ID and `ACS_TEAMS_FEDERATION_POLICY_ACKNOWLEDGED=true`. The remaining two
+steps are **Teams admin** operations the web app cannot perform.
+
+Run, as a Teams Administrator:
+
+```powershell
+# Preview (no changes); reads the immutable ACS id from the App Service
+./scripts/enable-teams-acs-federation.ps1 -TargetUserUpn cfo@yourtenant.com
+
+# Apply
+./scripts/enable-teams-acs-federation.ps1 -TargetUserUpn cfo@yourtenant.com -Apply
+```
+
+It performs (and verifies) the two required cmdlets:
+
+1. `Set-CsTeamsAcsFederationConfiguration -EnableAcsUsers $true -AllowedAcsResources @{Add='<immutable ACS id>'}` — tenant allow-lists the ACS resource.
+2. `Set-CsExternalAccessPolicy -EnableAcsFederationAccess $true` (+ `Grant-CsExternalAccessPolicy`) — enables ACS federation for the target user.
+
+The target user must also be **Teams Phone / Enterprise Voice** eligible. Teams policy changes can
+take up to ~1 hour to propagate; re-run the call from Mission Control afterwards to confirm.
+
+---
+
+## WorkIQ proof not showing in Mission Control
+
+The **WorkIQ + Graph Production Proof** section is wired (`/api/workiq/status`,
+`getWorkIQStatus`, the Microsoft IQ WorkIQ pillar). If it ever rendered "unavailable", the cause
+was load coupling + cold-start latency: the status endpoint runs live Agent 365 MCP discovery
+(bounded per call, but sequential across pillars), and the dashboard previously fetched WorkIQ and
+the avatar proof together — so a slow WorkIQ call could hide both. This is fixed in code:
+
+- Mission Control now loads the WorkIQ and avatar proofs **independently** (`Promise.allSettled`),
+  each with its own error/timeout handling, and gives WorkIQ a longer client budget.
+- `getWorkIQStatus` caps live MCP discovery with a fast-path budget
+  (`WORKIQ_STATUS_DISCOVERY_BUDGET_MS`, default 8s) and returns a still-valid baseline snapshot if
+  discovery is slow, so the section always renders. Graph readiness reflects the real production
+  path, and full live coverage appears on reload once discovery completes (cached 5 min).
+
+WorkIQ shows **"live WorkIQ"** when Agent 365 MCP servers are discovered *or* Graph client
+credentials are configured; it shows **"tenant pending"** until those are granted.
+
+---
+
 ## 1. Current deployed state (verified 2026-06-13)
 
 - **Hosted agent**: version **19**, image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227` (digest `sha256:46506783…`), protocol `responses/1.0.0`, model `gpt-5-mini`. Version 19 restores this known-good image after a transient platform-side Responses 500 affected v18 (image/model/protocol unchanged). P0 smoke: **all 4 prompts passed** via direct REST. Verified-minimal env (Azure OpenAI routing only; Graph/MCP/voice/storage intentionally not configured).
