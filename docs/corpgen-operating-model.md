@@ -23,6 +23,8 @@ Morgan acts as an autonomous Digital CFO for the CFO office. During the configur
 
 Morgan follows a repeatable control loop that maps directly to the CorpGen worker architecture.
 
+> **Update:** the autonomous loop is now LLM-driven for work selection. Each cycle, `runAutonomousCfoWorkday` calls `advanceCfoWorkCardsAutonomously`, which asks Azure OpenAI (the same model behind Morgan) to reason about which 1-2 Kanban cards to advance next and why, given the current board state. The chosen moves, the model's one-line focus summary, and a per-card rationale are recorded into the task record and the `mission.kanban.advanced` audit event (`reasoningMode: "llm"`). When Azure OpenAI is not configured, times out, or returns nothing actionable, it falls back to the deterministic prioritisation routine so the daily loop always makes progress (`reasoningMode: "deterministic"`). The finance tool calls, memory, artifact judging, and IQ synthesis within each cycle remain the same; what changed is that *which work Morgan picks up is now a model decision, not a fixed coded order*.
+
 | Loop step | Runtime behavior | Primary implementation |
 |---|---|---|
 | Identity and job contract | Morgan loads the Digital CFO role, mandate, autonomy principles, escalation rules, and success measures. | `src/mission/missionControl.ts` |
@@ -40,6 +42,7 @@ Morgan follows a repeatable control loop that maps directly to the CorpGen worke
 | Persistent worker identity | Morgan Digital CFO, CFO reporting line, configured work window, tenant/app identity | Mission Control agent block, README, `.env.template` |
 | Multi-horizon planning | Strategic, tactical, and operational CFO plan with dependencies and proof requirements | CFO Operating Plan, Beta Starfield planning mode |
 | Autonomous schedule | In-process scheduler plus Azure Function timers for workday cycles and day-end report | `/api/mission-control/run-workday`, `azure-function-trigger` |
+| LLM-driven work selection | Each autonomous cycle, Morgan (Azure OpenAI) reasons about which 1-2 Kanban cards to advance next and why, with a deterministic fallback when the model is unavailable | `src/mission/cfoWorkReasoner.ts`, `advanceCfoWorkCardsAutonomously`, `mission.kanban.advanced` audit event |
 | Cognitive tools | Plan generation, open-task list, task recording, memory summary, learning playbook, artifact judge | Mission Control Cognitive Toolchain |
 | Tiered memory | Working context, structured task records, semantic recall cues, critical content preservation | Adaptive Memory, Completed Work Log |
 | Experiential learning | Reusable finance workflow patterns and production cutover lessons | Experiential Learning panel |
