@@ -10,6 +10,7 @@ import {
 import { synthesizeMicrosoftIQBriefing, type MicrosoftIQBriefing } from '../tools/iqTools';
 import { createWordDocument, findUser, sendEmail, sendTeamsMessage } from '../tools/mcpToolSetup';
 import { getObservabilityStatus, getRecentAuditEvents, recordAuditEvent } from '../observability/agentAudit';
+import { decideCardAdvances, type WorkCardSummary, type ReasonedAdvanceDecision } from './cfoWorkReasoner';
 import { recordAgentEvent } from '../observability/agentEvents';
 import { callSubAgent, getSubAgentRegistry } from '../orchestrator/subAgents';
 import { getAgentStorageStatus } from '../storage/agentStorage';
@@ -166,6 +167,12 @@ export interface AutonomousKanbanBoard {
     status: 'configured' | 'missing_endpoint';
     endpointConfigured: boolean;
     capabilities: string[];
+  };
+  reasoning?: {
+    mode: 'llm' | 'deterministic';
+    summary?: string;
+    rationales: Array<{ title: string; rationale: string }>;
+    at: string;
   };
   metrics: {
     queued: number;
@@ -2191,6 +2198,61 @@ function replenishBacklog(backlog: CfoWorkCard[]): string[] {
 export interface CfoWorkAdvanceResult {
   advanced: Array<{ title: string; from: CfoWorkLane; to: CfoWorkLane }>;
   replenished: string[];
+  reasoningMode?: 'llm' | 'deterministic';
+  reasoningSummary?: string;
+  rationales?: Array<{ title: string; rationale: string }>;
+}
+
+// Remember how the most recent cards were chosen so Mission Control / the board API
+// can show whether Morgan reasoned about the work (LLM) or used the deterministic rule.
+interface LastWorkReasoning {
+  mode: 'llm' | 'deterministic';
+  summary?: string;
+  rationales: Array<{ title: string; rationale: string }>;
+  at: string;
+}
+let lastWorkReasoning: LastWorkReasoning = { mode: 'deterministic', rationales: [], at: new Date(0).toISOString() };
+
+export function getLastWorkReasoning(): LastWorkReasoning {
+  return { ...lastWorkReasoning, rationales: lastWorkReasoning.rationales.slice() };
+}
+
+// Advance a single card exactly one legal step through the work state machine.
+// Shared by both the deterministic routine and the LLM-driven path so the
+// transition semantics are identical regardless of who chose the card.
+function advanceOneCard(card: CfoWorkCard, note?: string): { from: CfoWorkLane; to: CfoWorkLane } | null {
+  const t = templateById(card.templateId);
+  if (card.lane === 'queue') {
+    transitionCard(card, 'active', note || t?.activeNote || 'Picked up the work and started.');
+    return { from: 'queue', to: 'active' };
+  }
+  if (card.lane === 'active') {
+    if (card.hitlLevel) {
+      transitionCard(card, 'waiting', note || t?.waitingNote || `Holding at ${card.hitlLevel} human approval.`);
+      return { from: 'active', to: 'waiting' };
+    }
+    transitionCard(card, 'review', note || t?.reviewNote || 'Work drafted; running the proof gate.');
+    return { from: 'active', to: 'review' };
+  }
+  if (card.lane === 'review') {
+    transitionCard(card, 'done', note || t?.doneNote || 'Completed and recorded.');
+    return { from: 'review', to: 'done' };
+  }
+  if (card.lane === 'waiting') {
+    // Waiting cards advance only when their HITL gate is resolved (modelled as
+    // an approval being granted through the governed path once the card has aged).
+    transitionCard(card, 'review', note || t?.reviewNote || 'Approval granted; preparing the governed action.');
+    return { from: 'waiting', to: 'review' };
+  }
+  return null;
+}
+
+function boundDoneLane(backlog: CfoWorkCard[]): void {
+  const doneCards = backlog.filter((card) => card.lane === 'done').sort((a, b) => new Date(a.completedAt || a.updatedAt).getTime() - new Date(b.completedAt || b.updatedAt).getTime());
+  if (doneCards.length > 12) {
+    const removeIds = new Set(doneCards.slice(0, doneCards.length - 12).map((card) => card.id));
+    cfoWorkBacklog = backlog.filter((card) => !removeIds.has(card.id));
+  }
 }
 
 export function advanceCfoWorkCards(maxToAdvance = 2): CfoWorkAdvanceResult {
@@ -2201,9 +2263,8 @@ export function advanceCfoWorkCards(maxToAdvance = 2): CfoWorkAdvanceResult {
   //    simulating an approval being granted through the governed path.
   const waitingCard = backlog.find((card) => card.lane === 'waiting' && Date.now() - new Date(card.updatedAt).getTime() >= 60_000);
   if (waitingCard && (Date.now() % 2 === 0)) {
-    const t = templateById(waitingCard.templateId);
-    transitionCard(waitingCard, 'review', t?.reviewNote || 'Approval granted; preparing the governed action.');
-    advanced.push({ title: waitingCard.title, from: 'waiting', to: 'review' });
+    const move = advanceOneCard(waitingCard);
+    if (move) advanced.push({ title: waitingCard.title, from: move.from, to: move.to });
   }
 
   // 2) Advance up to N non-waiting cards one step each (most-recently-updated last).
@@ -2212,35 +2273,73 @@ export function advanceCfoWorkCards(maxToAdvance = 2): CfoWorkAdvanceResult {
     .sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
   for (const card of movable) {
     if (advanced.length >= maxToAdvance) break;
-    const t = templateById(card.templateId);
-    if (card.lane === 'queue') {
-      transitionCard(card, 'active', t?.activeNote || 'Picked up the work and started.');
-      advanced.push({ title: card.title, from: 'queue', to: 'active' });
-    } else if (card.lane === 'active') {
-      if (card.hitlLevel) {
-        transitionCard(card, 'waiting', t?.waitingNote || `Holding at ${card.hitlLevel} human approval.`);
-        advanced.push({ title: card.title, from: 'active', to: 'waiting' });
-      } else {
-        transitionCard(card, 'review', t?.reviewNote || 'Work drafted; running the proof gate.');
-        advanced.push({ title: card.title, from: 'active', to: 'review' });
-      }
-    } else if (card.lane === 'review') {
-      transitionCard(card, 'done', t?.doneNote || 'Completed and recorded.');
-      advanced.push({ title: card.title, from: 'review', to: 'done' });
-    }
+    const move = advanceOneCard(card);
+    if (move) advanced.push({ title: card.title, from: move.from, to: move.to });
   }
 
   const replenished = replenishBacklog(backlog);
+  boundDoneLane(backlog);
+  persistCfoWorkBacklog();
+  lastWorkReasoning = { mode: 'deterministic', summary: undefined, rationales: [], at: new Date().toISOString() };
+  return { advanced, replenished, reasoningMode: 'deterministic' };
+}
 
-  // Keep the done lane bounded (most recent 12 completed cards).
-  const doneCards = backlog.filter((card) => card.lane === 'done').sort((a, b) => new Date(a.completedAt || a.updatedAt).getTime() - new Date(b.completedAt || b.updatedAt).getTime());
-  if (doneCards.length > 12) {
-    const removeIds = new Set(doneCards.slice(0, doneCards.length - 12).map((card) => card.id));
-    cfoWorkBacklog = backlog.filter((card) => !removeIds.has(card.id));
+// LLM-driven autonomous advance: Morgan (the model) reasons about which 1-2
+// cards to work next this cycle. Falls back to the deterministic routine when
+// Azure OpenAI is not configured or the model returns nothing actionable, so
+// the daily loop always makes progress.
+export async function advanceCfoWorkCardsAutonomously(maxToAdvance = 2): Promise<CfoWorkAdvanceResult> {
+  const backlog = ensureCfoWorkBacklog();
+  const now = Date.now();
+  const summaries: WorkCardSummary[] = backlog
+    .filter((card) => card.lane !== 'done')
+    .map((card) => ({
+      id: card.id,
+      title: card.title,
+      lane: card.lane,
+      category: card.category,
+      hitlLevel: card.hitlLevel,
+      summary: card.summary,
+      minutesSinceUpdate: Math.round((now - new Date(card.updatedAt).getTime()) / 60_000),
+    }));
+
+  let decision: ReasonedAdvanceDecision = { reasoningMode: 'unavailable', summary: '', decisions: [] };
+  try {
+    decision = await decideCardAdvances(summaries);
+  } catch {
+    decision = { reasoningMode: 'unavailable', summary: '', decisions: [] };
   }
 
+  // Fallback: no model / no actionable decision -> deterministic routine.
+  if (decision.reasoningMode !== 'llm' || !decision.decisions.length) {
+    const result = advanceCfoWorkCards(maxToAdvance);
+    return { ...result, reasoningMode: 'deterministic', reasoningSummary: decision.summary || undefined };
+  }
+
+  const byId = new Map(backlog.map((card) => [card.id, card]));
+  const advanced: CfoWorkAdvanceResult['advanced'] = [];
+  const rationales: Array<{ title: string; rationale: string }> = [];
+  for (const choice of decision.decisions.slice(0, maxToAdvance)) {
+    const card = byId.get(choice.cardId);
+    if (!card || card.lane === 'done') continue;
+    const move = advanceOneCard(card, choice.rationale);
+    if (move) {
+      advanced.push({ title: card.title, from: move.from, to: move.to });
+      rationales.push({ title: card.title, rationale: choice.rationale });
+    }
+  }
+
+  // If the model chose only invalid/no-op cards, fall back so the cycle still progresses.
+  if (!advanced.length) {
+    const result = advanceCfoWorkCards(maxToAdvance);
+    return { ...result, reasoningMode: 'deterministic', reasoningSummary: decision.summary || undefined };
+  }
+
+  const replenished = replenishBacklog(backlog);
+  boundDoneLane(backlog);
   persistCfoWorkBacklog();
-  return { advanced, replenished };
+  lastWorkReasoning = { mode: 'llm', summary: decision.summary || undefined, rationales: rationales.slice(), at: new Date().toISOString() };
+  return { advanced, replenished, reasoningMode: 'llm', reasoningSummary: decision.summary || undefined, rationales };
 }
 
 function workCardStatus(lane: CfoWorkLane): AutonomousKanbanCard['status'] {
@@ -2880,6 +2979,7 @@ export function getAutonomousKanbanBoard(): AutonomousKanbanBoard {
       endpointConfigured: Boolean(aiKanbanAgent?.endpoint),
       capabilities: aiKanbanAgent?.capabilities || ['task-board summary', 'workload context', 'completion prediction', 'delivery tracking'],
     },
+    reasoning: getLastWorkReasoning(),
     metrics,
     columns,
   };
@@ -3114,24 +3214,42 @@ export async function runAutonomousCfoWorkday(params: { source?: MissionTaskReco
   // Advance concrete CFO work cards on the autonomous Kanban (queue -> active ->
   // review/waiting -> done), so each cycle performs specific board work and the
   // board reflects real progress. Persisted to $HOME/data so it survives restarts.
-  const workAdvance = advanceCfoWorkCards(2);
+  // Advance concrete CFO work cards on the autonomous Kanban (queue -> active ->
+  // review/waiting -> done). Morgan (the LLM) reasons about which 1-2 cards to work
+  // next this cycle and why; if Azure OpenAI is unavailable it falls back to the
+  // deterministic routine so the daily loop always progresses. Persisted to
+  // $HOME/data so it survives restarts.
+  const workAdvance = await advanceCfoWorkCardsAutonomously(2);
   const advanceSummary = workAdvance.advanced.length
     ? workAdvance.advanced.map((item) => `${item.title}: ${item.from} -> ${item.to}`).join('; ')
     : 'No card movement this cycle.';
+  const reasoningMode = workAdvance.reasoningMode || 'deterministic';
+  const reasoningLine = reasoningMode === 'llm'
+    ? `Morgan reasoned about the board${workAdvance.reasoningSummary ? `: ${workAdvance.reasoningSummary}` : '.'}`
+    : 'Deterministic prioritisation (LLM reasoning unavailable this cycle).';
   records.push(createRecord({
     taskId: 'corpgen-planning-loop',
     status: 'completed',
-    summary: `Advanced ${workAdvance.advanced.length} CFO work card(s) on the autonomous Kanban.`,
+    summary: `Advanced ${workAdvance.advanced.length} CFO work card(s) on the autonomous Kanban (${reasoningMode}-driven).`,
     evidence: [
-      ...workAdvance.advanced.map((item) => `${item.title}: ${item.from} -> ${item.to}`),
+      reasoningLine,
+      ...(workAdvance.rationales?.length
+        ? workAdvance.rationales.map((item) => `${item.title}: ${item.rationale}`)
+        : workAdvance.advanced.map((item) => `${item.title}: ${item.from} -> ${item.to}`)),
       ...(workAdvance.replenished.length ? [`Replenished queue: ${workAdvance.replenished.join(', ')}`] : []),
     ].slice(0, 10),
     source,
   }));
   recordAuditEvent({
     kind: 'mission.kanban.advanced',
-    label: 'Autonomous Kanban work cards advanced',
-    data: { advanced: workAdvance.advanced.length, replenished: workAdvance.replenished.length, detail: advanceSummary },
+    label: `Autonomous Kanban work cards advanced (${reasoningMode}-driven)`,
+    data: {
+      advanced: workAdvance.advanced.length,
+      replenished: workAdvance.replenished.length,
+      reasoningMode,
+      reasoningSummary: workAdvance.reasoningSummary || null,
+      detail: advanceSummary,
+    },
   });
 
   const budget = analyzeBudgetVsActuals({ period });
