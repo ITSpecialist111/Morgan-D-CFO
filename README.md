@@ -125,51 +125,57 @@ flowchart LR
 
 ## Showcase Screenshot Walkthrough
 
-The screenshots below are captured from the live Morgan showcase. Together they tell the customer story end-to-end: the digital worker contract, the mind behind the briefings, the instruction set, the enterprise readiness controls, the cognitive toolchain and operating cadence, the autonomous Kanban, the human-facing avatar, and how Morgan appears inside the Microsoft 365 admin surface.
+The screenshots below are captured from the live Morgan showcase. Together they tell the customer story end-to-end: the digital worker contract and operating graph, the Microsoft IQ intelligence behind the briefings, the autonomous work board, the governance and audit trail, the ROI and cost case, the human-facing avatar, Morgan inside Microsoft Teams, and how Morgan appears in the Microsoft 365 admin surface.
 
 For a shareable static preview, open [src/mission/mission-control-mockup.html](src/mission/mission-control-mockup.html). After build or deployment, the same mockup is served at `/mission-control/mockup` with fixed demo data so reviewers can see the dashboard shape without a live signed-in session.
 
 ### Mission Control and Beta Starfield
 
-![Morgan Mission Control with Beta Starfield, identity strip, daily counters, and customer-visible job description](docs/screenshots/mission-control-beta-starfield.png)
+![Morgan Mission Control with the Beta Starfield operating graph, stakeholder profile photos, identity strip, and daily counters](docs/screenshots/mission-control-beta-starfield.png)
 
-The top of Mission Control shows Morgan's Digital CFO identity, the 09:00-17:00 seven-day work window, the live Beta Starfield operating graph (180 nodes / 318 paths across plan, execute, delegate, govern, prove), today's task counters, and the customer-visible job description. It proves Morgan is a worker with a visible contract, not a hidden chat agent.
+Mission Control is Morgan's cockpit. The header pins the Digital CFO identity, the avatar toggle, and the 09:00-17:00 seven-day window; the top navigation jumps to Agent Mind, Governance, Cost, CFO ROI, Digest, Microsoft IQ, Teams Call, Approvals, Retrospectives, and the D-CFO Kanban. The Beta Starfield renders Morgan's operating graph (228 nodes / 414 paths across plan, execute, delegate, govern, prove) with live stakeholder profile photos of the people Morgan is reasoning about (for example Sofia Costa, the HITL approver). It proves Morgan is a worker with a visible contract, not a hidden chat agent.
 
-### Agent Mind and Microsoft IQ Command Layer
+### Microsoft IQ Command Layer
 
-![Agent Mind tool-calling telemetry above the Microsoft IQ command layer with WorkIQ, Foundry IQ, Fabric IQ, CFO metrics, and autonomous actions](docs/screenshots/agent-mind-microsoft-iq.png)
+![Microsoft IQ command layer with WorkIQ, Foundry IQ, and Fabric IQ pillars, CFO metrics, autonomous actions, and production path](docs/screenshots/microsoft-iq-command-layer.png)
 
-Agent Mind exposes prompts, LLM turns, tool calls, MCP/Graph activity, and tool results in real time. Below it, the Microsoft IQ Command Layer aligns Morgan's CFO briefing with WorkIQ work signals, Foundry IQ model and evaluation context, and Fabric IQ semantic figures (revenue, gross margin, EBITDA, cash runway, NRR, headcount cost), then lists the autonomous actions Morgan will run through the day.
-
-### Instructions and Enterprise Capabilities
-
-![Instructions Morgan follows alongside CorpGen-mapped enterprise capability cards for planning, memory, sub-agents, tools, evaluation, and communication](docs/screenshots/instructions-enterprise-capabilities.png)
-
-The left panel lists the autonomous instructions Morgan follows; the right panel maps Morgan's enterprise capabilities to the CorpGen architecture (hierarchical planning, autonomous workday cycles, tiered memory, isolated specialist sub-agents, Microsoft 365 tool execution, WorkIQ context, Foundry IQ evaluation, Fabric IQ analytics, avatar presence, Teams federation calling). Each card includes the proof artifact reviewers can inspect.
-
-### Enterprise Readiness
-
-![Enterprise Readiness panel with Agent 365 SDK, MCP tooling, Application Insights, Foundry IQ, Fabric IQ, Purview, and Aria-as-Morgan avatar status](docs/screenshots/enterprise-readiness.png)
-
-The Enterprise Readiness panel separates ready/configured/partial controls so a customer can see what is genuinely live (Agent 365 runtime, MCP tooling, App Insights, voice avatar) versus what is configured for tenant data (Foundry IQ project, Fabric IQ semantic model, Purview audit posture). Each row states the operational control behind the status.
-
-### Cognitive Toolchain and Operating Cadence
-
-![Cognitive Toolchain of CFO planning, memory, learning, and artifact tools next to Morgan's daily Operating Cadence](docs/screenshots/cognitive-toolchain-operating-cadence.png)
-
-The Cognitive Toolchain lists the live CorpGen-style tools Morgan can call (operating plan generation, mission task completion, open-task selection, adaptive memory summary, experiential learning playbook, artifact judge, WorkIQ signal queries) with their outputs. The Operating Cadence on the right grounds those tools in a real workday: 09:00 Day Init, recurring 20-25 minute Execution Cycles, 13:00 Cross-Functional IQ Refresh, 16:30 Proof and Artifact Review, 17:00 Day-End Reflection, and Monthly Planning at month start.
+The Microsoft IQ Command Layer aligns Morgan's CFO briefing across three intelligence sources: WorkIQ (Microsoft 365 work graph), Foundry IQ (model, knowledge, trace, eval), and Fabric IQ (the Contoso CFO semantic model). It surfaces the headline finance metrics (revenue, gross margin, EBITDA, cash runway, pipeline coverage, NRR, headcount cost), the autonomous actions Morgan runs through the day, the Foundry IQ evaluation signals, and the production path that swaps demo adapters for live tenant data without changing the tool contracts.
 
 ### Autonomous Kanban (D-CFO Work Board)
 
-![Morgan's autonomous D-CFO Kanban with queue, in-cycle, waiting/escalate, proof/review, and done-today lanes](docs/screenshots/autonomous-kanban.png)
+![Morgan's autonomous D-CFO Kanban with queue, in-cycle, waiting/escalate, proof/review, and done-today lanes of CFO work](docs/screenshots/autonomous-cfo-kanban.png)
 
-The Autonomous Kanban is the proof-of-work surface. CFO work flows from the autonomous queue into in-cycle execution, with blocked items escalated, artifacts gated through proof/review, and completed work logged in done-today with the sub-agents and tools that ran. This makes Morgan's autonomy auditable rather than opaque.
+The Autonomous Kanban is the proof-of-work surface. CFO-specific cards flow from the Autonomous Queue into In Cycle, with blocked items escalated, artifacts gated through Proof/Review, and finished work logged in Done Today. Real finance work is visible here: marketing-overspend review, cash and runway, the board P&L distribution waiting on L2 sign-off, the $250k reforecast held for L3 approval, and month-end close variance commentary, each tagged with the sub-agents and tools that ran.
 
-### Aria-as-Morgan Avatar
+### Governance Observability and Audit
 
-![Aria-as-Morgan HD avatar in business attire with chat/activity tabs, starfield background, and quick CFO prompts](docs/screenshots/avatar-aria-as-morgan.png)
+![Governance Observability and Audit run timeline with decision traces, reasoning turns, tool selections, HITL gates, and audit events](docs/screenshots/governance-observability-audit.png)
 
-The avatar surface gives Morgan a human-facing presence powered by Azure Voice Live and Speech avatar with WebRTC media. The header pins Morgan's Digital CFO role, quick prompts launch morning briefing / CFO checks / end-of-day wrap-up / readiness check, and the chat panel preserves the spoken conversation as written evidence. A direct link back to Mission Control keeps the underlying work visible and governed.
+The governance layer goes beyond the starfield thought view. It gives a full run timeline for every CFO decision, joined by correlation ID with its prompt, chain-of-thought reasoning, tool selection, response, HITL gate, and audit severity. Decision-trace, reasoning-turn, tool-selection, HITL-gate, and audit-event counters sit above the timeline, with Purview compliance-audit status, so finance, audit, and compliance teams get board-grade evidence.
+
+### CFO ROI Work Graph
+
+![CFO ROI Work Graph plotting seven CFO workstreams by risk-adjusted value against weeks to first value with a per-workstream drill-down](docs/screenshots/cfo-roi-work-graph.png)
+
+The CFO ROI Work Graph frames the business case. It plots Morgan's seven CFO workstreams by risk-adjusted annual value against weeks-to-first-value, with headline ROI (risk-adjusted annual value, monthly finance hours saved, fastest time to value, average payback) and a per-workstream drill-down covering value, hours saved, payback, effort, ROI score, what Morgan does, proof signals, and dependencies.
+
+### Cost of Morgan and Agent Unit Economics
+
+![Cost of Morgan run-rate and Agent Unit Economics with cost mix by service and value-to-cost ratios](docs/screenshots/cost-of-morgan-unit-economics.png)
+
+Cost transparency closes the loop. The Cost of Morgan panel shows daily and weekly run-rate, avatar share, value-to-cost ratio, Azure actuals, and the cost mix by service (Foundry + AI inference, Agent 365 + Microsoft IQ, Fabric IQ, finance tools, storage/observability, realtime avatar/Teams voice). The Agent Unit Economics block turns that into a verdict: weekly and annual net value, observed and business-case value-to-cost, and the break-even number of workstreams.
+
+### D-ID Humanoid Avatar (Mia Elegant)
+
+![Morgan's connected D-ID humanoid avatar in business attire with chat/activity tabs, quick CFO prompts, and a live P&L answer](docs/screenshots/did-avatar-mia-elegant.png)
+
+Morgan's photoreal humanoid avatar (Mia Elegant) at `/voice/did` gives the digital CFO a human face and voice, connected and speaking with the expressive ElevenLabs delivery against a Microsoft visitor-centre backdrop. Quick prompts launch morning briefing, CFO checks, WorkIQ proof, end-of-day wrap-up, and readiness check, and the chat panel keeps the spoken conversation (here a live P&L answer) as written evidence.
+
+### Morgan in Microsoft Teams
+
+![Morgan Digital CFO running as an Agent 365 agent in Microsoft Teams, returning a detailed P&L report and budget-vs-actuals analysis](docs/screenshots/teams-agent-finance-chat.png)
+
+Morgan also shows up where the finance team already works. Running as a governed Agent 365 agent in Microsoft Teams, Morgan answers finance questions inline, here returning a detailed P&L report and a budget-vs-actuals analysis with anomalies flagged, so the digital CFO is reachable from everyday chat, not just the showcase surfaces.
 
 ### Microsoft 365 Admin: Agents and Shadow AI
 
