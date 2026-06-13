@@ -192,7 +192,7 @@ This is how Morgan and other agentic workloads are governed inside the Microsoft
 - **Autonomous Briefings** — Scheduled weekly financial digests generated and distributed without human intervention
 - **Mission Control** — Customer-visible job description, autonomous instructions, key tasks, operating cadence, and daily work log
 - **CorpGen Paper Alignment** — Mission Control maps Morgan against the CorpGen paper: MHTE/MOMA capabilities, hierarchical planning, isolated sub-agents, tiered memory, adaptive summarization, cognitive tools, experiential learning posture, emergent collaboration, artifact evaluation, and safety rails
-- **Next-Gen CorpGen Runtime** — Agent-callable operating plan, open-task selection, adaptive memory summary, experiential learning playbook, enterprise readiness checks, and artifact judge
+- **Next-Gen CorpGen Runtime** — Agent-callable operating plan, open-task selection, adaptive memory summary, experiential learning playbook, enterprise readiness checks, and artifact judge. The autonomous workday's Kanban work selection is **LLM-driven** (`cfoWorkReasoner.ts`): each cycle Morgan reasons about which 1-2 cards to advance and why, with a deterministic fallback when the model is unavailable
 - **Microsoft IQ Showcase** — Working WorkIQ, Foundry IQ, and Fabric IQ tools for Microsoft 365 work context, Foundry model/eval/knowledge intelligence, Fabric-style financial figures, and cross-functional business insight
 - **Beta Starfield** — Aria-style interactive enterprise mode with autonomy, workflow, tools, governance, memory, and live-run views over Morgan's operating graph
 - **Agent Mind and Active Starfield** — Active-only live event visibility for prompts, responses, tool calls, MCP/Graph calls, voice sessions, Teams calls, and autonomous task records
@@ -316,6 +316,7 @@ Morgan-D-CFO/
 │       └── did-voice.html    # D-ID humanoid avatar UI (/voice/did)
 ├── azure-function-trigger/   # Azure Functions timer trigger (weekly briefing)
 ├── docs/                     # CorpGen docs, Dragon's Den talk track, daily showcase runbook
+├── scripts/                  # Ops helpers (deploy, daily workday, D-ID domain auth + voice tuning)
 ├── .foundry/                 # Foundry metadata, evaluator seeds, datasets, results
 ├── .github/workflows/        # morgan-daily-workday.yml (optional daily trigger backup)
 ├── agent.yaml                # Hosted agent manifest for Foundry
@@ -413,7 +414,7 @@ Morgan has a browser-based avatar interface powered by Azure Voice Live API and 
 - **Interactive Starfield** — Wheel or button zoom, drag pan, reset, cursor-reactive particle links, and state-aware intensity while Morgan listens, thinks, and speaks
 - **Aria-Style Avatar Shell** — Chat and Activity tabs, prompt chips, text composer, avatar/camera presets, background swatches, accessible mode, text-size controls, high contrast, aura states, quick-launch prompts, and a live tool-call overlay
 - **Showcase Session Guard** — Morgan keeps one active avatar session per app instance and disconnects stale duplicate tabs so Speech avatar capacity is not exhausted during demos
-- **D-ID Humanoid Avatar** — An alternative photoreal humanoid avatar at `/voice/did`, switchable from the Mission Control avatar toggle. Configure with the `.env.did-template` keys (`DID_API_KEY`, `DID_AGENT_ID`, `DID_CLIENT_KEY`, optional ElevenLabs voice). When D-ID keys are absent, `/api/avatar/did/status` reports it as not configured and the Voice Live avatar remains the default.
+- **D-ID Humanoid Avatar** — An alternative photoreal humanoid avatar at `/voice/did`, switchable from the Mission Control avatar toggle. Configure with the `.env.did-template` keys (`DID_API_KEY`, `DID_AGENT_ID`, `DID_CLIENT_KEY`, optional ElevenLabs voice). When D-ID keys are absent, `/api/avatar/did/status` reports it as not configured and the Voice Live avatar remains the default. The voice uses an expressive-but-executive ElevenLabs profile (`eleven_turbo_v2_5` with tuned `stability`/`style`/`speaker_boost`, all env-tunable). Two ops helpers manage the D-ID agent without the Studio UI: `scripts/did-allow-domain.cjs` authorizes a deployment domain on the client key (domains are API-scoped, not a Studio setting), and `scripts/did-set-voice-expressiveness.cjs` applies/dials/reverts the voice delivery
 
 **Voice Gate**: Voice is disabled by default. Enable/disable from Teams:
 - `"enable avatar"` or `"enable voice"` — Activates the avatar page
@@ -477,7 +478,7 @@ Morgan is packaged for Microsoft Foundry Hosted Agent deployment:
 - `POST /responses` provides a Responses-compatible hosted-agent endpoint
 - `GET /responses/health` provides the hosted-agent readiness probe
 
-**Current hosted state:** `morgan-digital-cfo-hosted` is active at **version 17** in project `ai-project-morgan-hosted-ncus` (North Central US), image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227`, model `gpt-5-mini`, protocol `responses/1.0.0`. The hosted env is intentionally minimal (Azure OpenAI routing + identity only; Graph/MCP, voice, observability, and durable storage are not configured in the hosted payload). P0 smoke passes via the direct REST route `/agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1` with header `Foundry-Features: HostedAgents=V1Preview`. See [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md) and [docs/daily-showcase-runbook.md](docs/daily-showcase-runbook.md).
+**Current hosted state:** `morgan-digital-cfo-hosted` is active at **version 19** in project `ai-project-morgan-hosted-ncus` (North Central US), image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227`, model `gpt-5-mini`, protocol `responses/1.0.0`. Version 19 restores this known-good image after a transient platform-side Responses 500 affected v18 (the image, model, and protocol are unchanged). The hosted env is intentionally minimal (Azure OpenAI routing + identity only; Graph/MCP, voice, observability, and durable storage are not configured in the hosted payload). P0 smoke passes via the direct REST route `/agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1` with header `Foundry-Features: HostedAgents=V1Preview`. See [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md) and [docs/daily-showcase-runbook.md](docs/daily-showcase-runbook.md).
 
 Build images for Foundry with `--platform linux/amd64` and use a timestamped image tag when pushing to Azure Container Registry.
 
@@ -694,7 +695,7 @@ Morgan runs the autonomous CFO workday checks, records the tasks in Mission Cont
 |---|---|
 | [docs/daily-showcase-runbook.md](docs/daily-showcase-runbook.md) | Operate the daily showcase: deployed state, daily-run mechanism, demo flow, rebuild/redeploy |
 | [docs/dragons-den-talk-track.md](docs/dragons-den-talk-track.md) | Follow-along video talk track (6/3/1.5-min cuts), use case, Q&A battlecard |
-| [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md) | Foundry hosted-agent deployment (current: version 17) |
+| [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md) | Foundry hosted-agent deployment (current: version 19) |
 | [docs/hosted-agent-command-research.md](docs/hosted-agent-command-research.md) | Researched hosted-agent command sequences and guardrails |
 | [morgan-tools-reference.md](morgan-tools-reference.md) | Full tool reference (incl. HITL + retrospective tools) |
 | [showcase-guide.md](showcase-guide.md) | Demo scenarios and timings |

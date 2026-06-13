@@ -71,10 +71,11 @@ node scripts/did-set-voice-expressiveness.cjs --revert
 
 ---
 
-## 1. Current deployed state (verified 2026-06-12)
+## 1. Current deployed state (verified 2026-06-13)
 
-- **Hosted agent**: version **17**, image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227` (digest `sha256:46506783…`), protocol `responses/1.0.0`, model `gpt-5-mini`. P0 smoke: **all 4 prompts passed** via direct REST. Verified-minimal env (Azure OpenAI routing only; Graph/MCP/voice/storage intentionally not configured).
-- **App Service**: **Basic B1** tier with **Always On enabled**, **healthy**, running the latest code (SDK upgrade + ECIF→CFO feature-parity port). `AUTONOMOUS_WORKDAY_ENABLED=true`, timezone **Europe/London**, window **09:00–17:00**.
+- **Hosted agent**: version **19**, image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227` (digest `sha256:46506783…`), protocol `responses/1.0.0`, model `gpt-5-mini`. Version 19 restores this known-good image after a transient platform-side Responses 500 affected v18 (image/model/protocol unchanged). P0 smoke: **all 4 prompts passed** via direct REST. Verified-minimal env (Azure OpenAI routing only; Graph/MCP/voice/storage intentionally not configured).
+- **App Service**: **Basic B1** tier with **Always On enabled**, **healthy**, running the latest code (SDK upgrade + ECIF→CFO feature-parity port + LLM-driven Kanban work selection). `AUTONOMOUS_WORKDAY_ENABLED=true`, timezone **Europe/London**, window **09:00–17:00**.
+- **D-ID humanoid avatar**: connected — the App Service domain is authorized on the D-ID client key, and the voice runs the expressive `eleven_turbo_v2_5` profile (see the two D-ID sections above). The D-ID agent is shared with the ECIF Director.
 - Plan `rg-morgan-finance-agent-plan` (Australia East, B1) is shared with `morgan-ecif-director-webapp`; Always On is enabled only on the D-CFO app.
 - Both built from the same repo. The hosted image's Dockerfile uses `npm install` (not `npm ci`) for cross-platform lockfile resilience.
 
@@ -164,5 +165,5 @@ node scripts/deploy-appservice-zip.cjs --skip-settings --skip-auth --skip-roles
 ## 7. Honesty caveats (do not overclaim on camera)
 
 - Financial figures are **deterministic Contoso demo data**; IQ pillars run on demo adapters. Methods/cadence/governance/cost economics are real. Point Morgan at a Fabric/Power BI model, GL/ERP, Agent 365 MCP, and Cosmos to run on live data (contracts are production-shaped).
-- The hosted agent (v17) proves **reachability, Azure OpenAI routing, and bounded behavior** — not Graph/MCP, voice, observability, durable storage, or sub-agent production parity.
+- The hosted agent (v19) proves **reachability, Azure OpenAI routing, and bounded behavior** — not Graph/MCP, voice, observability, durable storage, or sub-agent production parity.
 - App Service runs on **B1 with Always On**, so it stays warm (no cold-start) and the in-process scheduler runs daily. Note durable state is still process-local until Cosmos is wired, so an app restart/redeploy resets the in-memory task ledger.

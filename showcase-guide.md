@@ -236,7 +236,7 @@ For a timed, follow-along recording script see [docs/dragons-den-talk-track.md](
 1. From `/mission-control`, use the **Avatar** toggle in the header. It offers two platforms: **Morgan (Standard)** → `/voice` (Azure Voice Live avatar) and **Mia Elegant (D-ID)** → `/voice/did` (D-ID humanoid avatar).
 2. Open `/voice` and show the Azure Voice Live avatar speaking Morgan's finance points.
 3. Switch to `/voice/did` for the D-ID humanoid variant — same UI shell, different avatar engine. The toggle checks `/api/avatar/did/status` first and, if D-ID isn't configured on the deployment, alerts and stays on the standard avatar.
-4. Ask the avatar a finance question (e.g. *"What's the latest P&L?"*) and let it answer out loud.
+4. Ask the avatar a finance question (e.g. *"What's the latest P&L?"*) and let it answer out loud. The D-ID voice runs an expressive ElevenLabs profile (`eleven_turbo_v2_5` with tuned style/stability), so Mia delivers with emotional range rather than a flat read.
 
 **Talking Point:** "Morgan can show up as a face and a voice, not just a chat box — and the platform is swappable, so customers can pick the avatar experience that fits their brand."
 
