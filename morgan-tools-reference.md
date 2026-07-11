@@ -57,7 +57,7 @@ Set `ACS_TEAMS_FEDERATION_RESOURCE_ID` to the allowed ACS resource marker so Mor
 
 **Approval queue URL:** `https://<your-app-name>.azurewebsites.net/approvals`
 
-Material finance actions route through an L2/L3 human-in-the-loop (HITL) approval surface before Morgan completes them. **L2** covers external sends; **L3** covers dollar-bearing actions. Morgan lists requests with `listHitlApprovalRequests`, hands the CFO / Finance Approver the queue URL with `getHitlApprovalSurface`, pushes a Microsoft Teams Adaptive Card with approve / approve-with-edits / decline / cancel buttons via `sendHitlApprovalCardToModAdministrator`, and writes the outcome back with `recordHitlApprovalDecision`. Four seeded finance scenarios ship for demos: send a board-ready P&L to the CFO distribution list (L2), post a Q3 variance summary to the Finance Teams channel (L2), commit a $250k budget reforecast (L3), and release a $180k vendor payment memo (L3).
+Material finance actions route through a server-side L2/L3 policy gate before execution. **L2** covers external or mutable Microsoft 365 actions; **L3** covers dollar-bearing commitments. Morgan may list requests and show the protected queue. Card dispatch and decisions are intentionally not model-callable: only an allowlisted Entra finance operator may dispatch a card or decide through the protected web/signed Adaptive Card path. Requests are action-digest-bound, versioned, expiring, durable for the single-instance showcase, and reserved for one execution attempt.
 
 ## Operational Retrospectives
 
@@ -148,8 +148,8 @@ Morgan generates an end-of-cycle Digital CFO retrospective from the day's task r
 | **`initiateTeamsCallToCfo`** | Rings the CFO/operator in Microsoft Teams through the ACS federation bridge for urgent finance escalation | `reason`, `teams_user_aad_oid` (optional) |
 | **`listHitlApprovalRequests`** | Lists Morgan's L2/L3 human-in-the-loop approval requests (pending or decided) with action details and the approval-queue URL | `status` (optional), `level` (optional, L2/L3) |
 | **`getHitlApprovalSurface`** | Returns the approval-queue URL plus pending requests to hand the CFO / Finance Approver when an L2 or L3 sign-off is required | `requestId` (optional) |
-| **`recordHitlApprovalDecision`** | Records a CFO / Finance Approver decision (approve / approve_with_edits / decline / cancel) on a pending request; records the decision only, it does not send external messages | `requestId` required, `decision` required; `decidedBy`, `rationale`, `editedBody` optional |
-| **`sendHitlApprovalCardToModAdministrator`** | Sends pending approval requests to the configured CFO / Finance Approver as a Microsoft Teams Adaptive Card with approve / approve-with-edits / decline / cancel buttons | `requestId` (optional), `level` (optional, L2/L3, defaults L2) |
+| **Human-only approval endpoint** | Records approve / approve-with-edits / decline / cancel after Entra authorization, version/digest/expiry validation, and signed-card verification where applicable | Not exposed to the model tool list |
+| **Human-only card dispatch endpoint** | Finance operator sends pending approval requests as a signed Microsoft Teams Adaptive Card | Not exposed to the model tool list |
 | **`generateCfoRetrospective`** | Generates and persists an end-of-cycle Digital CFO operational retrospective derived from today's task records, grounded in blocked/failed finance workstream patterns | — |
 | **`getRetrospectiveHistory`** | Returns recent Digital CFO retrospectives showing how operational recommendations evolve across close and reporting cycles | — |
 

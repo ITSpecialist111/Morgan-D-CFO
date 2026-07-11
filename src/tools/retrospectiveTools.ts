@@ -16,7 +16,9 @@ export interface CfoRetrospective {
   };
 }
 
-const RETRO_PATH = path.resolve(process.cwd(), '.data/morgan-cfo-retrospectives.json');
+const RETRO_PATH = process.env.MORGAN_RETROSPECTIVE_FILE
+  ? path.resolve(process.env.MORGAN_RETROSPECTIVE_FILE)
+  : path.join(process.env.HOME || process.env.USERPROFILE || path.resolve(process.cwd(), '.data'), 'data', 'morgan-cfo-retrospectives.json');
 const MAX_ENTRIES = 12;
 
 function loadRetroFile(): CfoRetrospective[] {

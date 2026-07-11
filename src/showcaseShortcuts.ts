@@ -1,9 +1,11 @@
 import type { TurnContext } from '@microsoft/agents-hosting';
 import { executeTool } from './tools';
 import { getRetrospectiveHistory } from './tools/retrospectiveTools';
+import type { ExecutionContext } from './governance/executionContext';
 
 export interface ShowcaseShortcutOptions {
   allowVoiceActions?: boolean;
+  executionContext?: ExecutionContext;
 }
 
 function normalize(input: string): string {
@@ -19,7 +21,8 @@ function money(value: number | undefined): string {
 }
 
 function parseResult<T = any>(raw: string): T {
-  return JSON.parse(raw) as T;
+  const parsed = JSON.parse(raw) as any;
+  return (parsed?.status === 'executed' && Object.prototype.hasOwnProperty.call(parsed, 'result') ? parsed.result : parsed) as T;
 }
 
 function extractDelaySeconds(text: string): number {
@@ -196,14 +199,14 @@ function formatHitlApprovals(surface: any): string {
   return lines.join('\n');
 }
 
-async function handleHitlApprovalShortcut(text: string, inputText: string, context?: TurnContext): Promise<string | null> {
+async function handleHitlApprovalShortcut(text: string, inputText: string, context?: TurnContext, executionContext?: ExecutionContext): Promise<string | null> {
   const isHitlAsk = /\b(hitl|l2|l3|approve|approval|sign off|sign-off|go ahead|decision card|approval queue)\b/.test(text);
   if (!isHitlAsk) return null;
 
   const wantsApproverCard = /\b(reach out|send|notify|message|ping|adaptive card|decision card|card)\b/.test(text)
     && /\b(mod administrator|mod admin|administrator|approver|cfo|level 2|l2)\b/.test(text);
   if (wantsApproverCard) {
-    const delivery = parseResult(await executeTool('sendHitlApprovalCardToModAdministrator', { level: 'L2' }, context));
+    const delivery = parseResult(await executeTool('sendHitlApprovalCardToModAdministrator', { level: 'L2' }, context, executionContext));
     if (delivery.ok) {
       const sentLine = delivery.adaptiveCardSent
         ? `Sent the L2 HITL Adaptive Card to **${delivery.targetLabel || 'CFO / Finance Approver'}**.`
@@ -220,28 +223,16 @@ async function handleHitlApprovalShortcut(text: string, inputText: string, conte
     ].join('\n');
   }
 
-  const surface = parseResult(await executeTool('getHitlApprovalSurface', {}, context));
+  const surface = parseResult(await executeTool('getHitlApprovalSurface', {}, context, executionContext));
   const approvals = Array.isArray(surface.requests) ? surface.requests : [];
   const decisionMatch = /\b(approve|approved|yes|go ahead|decline|declined|reject|rejected|cancel|stop)\b/.exec(text);
   if (!decisionMatch || /\b(show|open|where|what|which|list|queue|status|pending)\b/.test(text)) return formatHitlApprovals(surface);
 
   const requestId = approvalKeywordToRequestId(text, approvals);
   if (!requestId) return formatHitlApprovals(surface);
-  const decision = /\b(decline|declined|reject|rejected)\b/.test(text)
-    ? 'decline'
-    : /\b(cancel|stop)\b/.test(text)
-      ? 'cancel'
-      : 'approve';
-  const result = parseResult(await executeTool('recordHitlApprovalDecision', {
-    requestId,
-    decision,
-    decidedBy: 'Morgan chat approver',
-    rationale: inputText,
-  }, context));
-  if (!result.ok) return `I could not record that HITL decision: ${result.error || 'unknown error'}. Approval queue: ${surface.url}`;
   return [
-    `Recorded **${decision}** for ${result.request?.level || 'HITL'} approval: **${result.request?.title || requestId}**.`,
-    'No external message or dollar-bearing action was sent by this chat turn; the approval decision is now captured for Morgan to continue through the governed path.',
+    `I cannot record a finance approval from a chat instruction. The request **${requestId}** remains blocked.`,
+    'Approval decisions are human-only and require an authorized Microsoft identity on the signed approval surface.',
     `Approval queue: ${surface.url}`,
   ].join('\n');
 }
@@ -254,43 +245,43 @@ export async function tryHandleShowcaseShortcut(
   const text = normalize(inputText);
   if (!text) return null;
 
-  const hitlReply = await handleHitlApprovalShortcut(text, inputText, context);
+  const hitlReply = await handleHitlApprovalShortcut(text, inputText, context, options.executionContext);
   if (hitlReply) return hitlReply;
 
   if (/\b(email address|mailbox|meeting invite|invite morgan|morgan.*email)\b/.test(text)) {
-    return formatIdentity(parseResult(await executeTool('getMorganIdentity', {}, context)));
+    return formatIdentity(parseResult(await executeTool('getMorganIdentity', {}, context, options.executionContext)));
   }
 
   if (/\b(microsoft iq|workiq.*fabriciq|fabriciq.*foundryiq|foundryiq.*fabriciq)\b/.test(text)) {
     return formatMicrosoftIQ(parseResult(await executeTool('synthesizeMicrosoftIQBriefing', {
       audience: 'CFO, executive operators, and Dragon Den judges',
       focus: 'Digital CFO autonomous worker demo',
-    }, context)));
+    }, context, options.executionContext)));
   }
 
   if (/\b(workiq|mcp coverage|mcp tools|cassidy parity|microsoft 365 servers)\b/.test(text)) {
-    return formatWorkIQ(parseResult(await executeTool('getWorkIQStatus', {}, context)));
+    return formatWorkIQ(parseResult(await executeTool('getWorkIQStatus', {}, context, options.executionContext)));
   }
 
   if (/\b(p&l|pnl|profit and loss|income statement|bottom line|business tracking financially|latest p l)\b/.test(text)) {
-    return formatLatestPnl(parseResult(await executeTool('getLatestPnL', {}, context)));
+    return formatLatestPnl(parseResult(await executeTool('getLatestPnL', {}, context, options.executionContext)));
   }
 
   if (/\b(enterprise readiness|prove.*ready|prove.*readiness|production ready|governance evidence)\b/.test(text)) {
-    return formatEnterpriseReadiness(parseResult(await executeTool('getEnterpriseReadiness', {}, context)));
+    return formatEnterpriseReadiness(parseResult(await executeTool('getEnterpriseReadiness', {}, context, options.executionContext)));
   }
 
   if (/\b(run autonomous|autonomous cfo workday|run.*workday)\b/.test(text)) {
-    return formatWorkday(parseResult(await executeTool('runAutonomousCfoWorkday', {}, context)));
+    return formatWorkday(parseResult(await executeTool('runAutonomousCfoWorkday', {}, context, options.executionContext)));
   }
 
   if (/\b(end of day|end-of-day|day end|day-end)\b/.test(text)) {
     const demoOnly = /\b(demo|deterministic|available deterministic|do not claim|only available)\b/.test(text);
-    return formatEndOfDay(parseResult(await executeTool('getEndOfDayReport', {}, context)), demoOnly);
+    return formatEndOfDay(parseResult(await executeTool('getEndOfDayReport', {}, context, options.executionContext)), demoOnly);
   }
 
   if (/\b(escalate|escalation|to whom)\b/.test(text)) {
-    return formatEscalation(parseResult(await executeTool('getAutonomousKanbanBoard', {}, context)));
+    return formatEscalation(parseResult(await executeTool('getAutonomousKanbanBoard', {}, context, options.executionContext)));
   }
 
   if (/\b(retrospective|retrospectives|lessons learned|what did you learn|learning history)\b/.test(text)) {
@@ -315,11 +306,11 @@ export async function tryHandleShowcaseShortcut(
   }
 
   if (/\b(next quarter|differently next quarter|cfo do differently)\b/.test(text)) {
-    const pnl = parseResult(await executeTool('getLatestPnL', {}, context));
+    const pnl = parseResult(await executeTool('getLatestPnL', {}, context, options.executionContext));
     const briefing = parseResult(await executeTool('synthesizeMicrosoftIQBriefing', {
       audience: 'CFO and executive operators',
       focus: 'next-quarter CFO operating decisions',
-    }, context));
+    }, context, options.executionContext));
     return [
       formatLatestPnl(pnl),
       '',
@@ -337,7 +328,7 @@ export async function tryHandleShowcaseShortcut(
       reason: 'walk through the priority finance points after the requested delay',
       requested_by: 'Morgan',
       target_display_name: 'CFO/operator',
-    }, context));
+    }, context, options.executionContext));
     if (!result.success) return `I could not schedule the callback: ${result.error || 'unknown error'}.`;
     return `I will call you back in ${formatDelay(delaySeconds)} to walk through the priority finance points.`;
   }
@@ -347,7 +338,7 @@ export async function tryHandleShowcaseShortcut(
       reason: 'priority finance points requested by the CFO/operator',
       requested_by: 'Morgan',
       instructions: 'You are Morgan, the Digital CFO. Greet the user, give the headline priority finance points, ask for any human-in-the-loop decision needed, and keep it concise.',
-    }, context));
+    }, context, options.executionContext));
     if (!result.success) return `I could not place the Teams call: ${result.error || 'unknown error'}.`;
     return `I am ringing you now with the priority finance points. Call connection: ${result.callConnectionId || 'started'}.`;
   }

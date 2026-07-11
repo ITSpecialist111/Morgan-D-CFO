@@ -1,5 +1,19 @@
 import type { ChatCompletionTool } from 'openai/resources/chat';
 
+export interface FinancialDataProvenance {
+  mode: 'deterministic-demo';
+  source: 'Contoso fixture';
+  live: false;
+  productionPath: string;
+}
+
+const FINANCIAL_PROVENANCE: FinancialDataProvenance = {
+  mode: 'deterministic-demo',
+  source: 'Contoso fixture',
+  live: false,
+  productionPath: 'Replace the adapter with governed ERP, treasury, Fabric, or Power BI semantic-model queries.',
+};
+
 // ---------------------------------------------------------------------------
 // Mock data helpers
 // ---------------------------------------------------------------------------
@@ -53,6 +67,7 @@ function buildCategoryRows(period: string, filterCategory?: string): CategoryRow
 // ---------------------------------------------------------------------------
 
 export interface BudgetAnalysisResult {
+  provenance: FinancialDataProvenance;
   company: string;
   period: string;
   summary: {
@@ -79,6 +94,7 @@ export function analyzeBudgetVsActuals(params: {
   const anomalies = rows.filter(r => r.isAnomaly);
 
   return {
+    provenance: FINANCIAL_PROVENANCE,
     company: 'Contoso Financial',
     period: params.period,
     summary: { totalBudget, totalActual, totalVariance, totalVariancePct, anomalyCount: anomalies.length },
@@ -92,6 +108,7 @@ export function analyzeBudgetVsActuals(params: {
 // ---------------------------------------------------------------------------
 
 export interface FinancialKPIs {
+  provenance: FinancialDataProvenance;
   period: string;
   grossMarginPct: number;
   ebitda: number;
@@ -123,6 +140,7 @@ export function getFinancialKPIs(params: { period: string }): FinancialKPIs {
   const revenueGrowthPct = parseFloat((((revenue - priorRevenue) / priorRevenue) * 100).toFixed(2));
 
   return {
+    provenance: FINANCIAL_PROVENANCE,
     period: params.period,
     grossMarginPct,
     ebitda,
@@ -145,6 +163,7 @@ export interface AnomalyItem {
 }
 
 export interface AnomalyDetectionResult {
+  provenance: FinancialDataProvenance;
   period: string;
   threshold: number;
   anomalies: AnomalyItem[];
@@ -168,6 +187,7 @@ export function detectAnomalies(params: {
     }));
 
   return {
+    provenance: FINANCIAL_PROVENANCE,
     period: params.period,
     threshold: params.threshold_percent,
     anomalies,
@@ -185,6 +205,7 @@ export interface TrendPoint {
 }
 
 export interface TrendResult {
+  provenance: FinancialDataProvenance;
   metric: string;
   periods: TrendPoint[];
   direction: 'up' | 'down' | 'stable';
@@ -225,7 +246,7 @@ export function calculateTrend(params: {
     overallChangePct > 2  ? 'up'   :
     overallChangePct < -2 ? 'down' : 'stable';
 
-  return { metric: params.metric, periods: trendPoints, direction, overallChangePct };
+  return { provenance: FINANCIAL_PROVENANCE, metric: params.metric, periods: trendPoints, direction, overallChangePct };
 }
 
 // ---------------------------------------------------------------------------
@@ -233,6 +254,7 @@ export function calculateTrend(params: {
 // ---------------------------------------------------------------------------
 
 export interface InsightsResult {
+  provenance: FinancialDataProvenance;
   insights: string[];
   generatedAt: string;
 }
@@ -272,6 +294,7 @@ export function generateFinancialInsights(params: {
   }
 
   return {
+    provenance: FINANCIAL_PROVENANCE,
     insights: insights.slice(0, 5),
     generatedAt: new Date().toISOString(),
   };
@@ -288,6 +311,7 @@ export interface PnLLineItem {
 }
 
 export interface PnLStatement {
+  provenance: FinancialDataProvenance;
   company: string;
   period: string;
   asOf: string;
@@ -372,6 +396,7 @@ export function getLatestPnL(params: { period?: string } = {}): PnLStatement {
   }
 
   return {
+    provenance: FINANCIAL_PROVENANCE,
     company: 'Contoso Financial',
     period,
     asOf: new Date().toISOString(),

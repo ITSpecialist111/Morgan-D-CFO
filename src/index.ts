@@ -4,6 +4,7 @@
 // IMPORTANT: Load environment variables FIRST before any other imports
 import { configDotenv } from 'dotenv';
 configDotenv();
+import './observability/azureMonitorBootstrap';
 
 import {
   AuthConfiguration,
@@ -15,6 +16,7 @@ import {
 import express, { Response } from 'express';
 import http from 'http';
 import path from 'path';
+import crypto from 'crypto';
 import { setAdapter } from './scheduler/proactiveMonitor';
 import { getAutonomousWorkdaySchedulerStatus, startAutonomousWorkdayScheduler } from './scheduler/autonomousWorkdayScheduler';
 import { getAgentStorageStatus } from './storage/agentStorage';
@@ -33,7 +35,7 @@ import {
 } from './voice/acsBridge';
 import { getCorpGenReportAvailability, getCorpGenReportDownload, getEndOfDayReport, getMissionControlSnapshot, runAutonomousCfoWorkday, sanitizeMissionControlPayload } from './mission/missionControl';
 import { getAgenticKanbanLink } from './mission/agenticKanban';
-import { getHitlApprovalSurface, listHitlApprovalRequests, recordHitlApprovalDecision, sendHitlApprovalCardToModAdministrator } from './mission/hitlApprovals';
+import { getHitlApprovalSurface, isAuthorizedHitlApprover, listHitlApprovalRequests, recordHitlApprovalDecision, sendHitlApprovalCardToModAdministrator } from './mission/hitlApprovals';
 import { getRetrospectiveHistory } from './tools/retrospectiveTools';
 import { getMorganIdentity, getWorkIQStatus } from './tools/identityTools';
 import { getMissionMindmap } from './mission/mindmap';
@@ -50,6 +52,8 @@ import { getAgentEventStats, getRecentAgentEvents, type AgentEventKind } from '.
 import { getRequestPrincipal, requireEasyAuth, type EasyAuthPrincipal } from './easyAuth';
 import { registerMicrosoftWebAuthRoutes } from './microsoftWebAuth';
 import { getSubAgentRegistry } from './orchestrator/subAgents';
+import { executeTool } from './tools';
+import { createExecutionContext, systemExecutionContext } from './governance/executionContext';
 
 // Only NODE_ENV=development disables authentication
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -57,6 +61,7 @@ const foundryResponsesOnly = process.env.MORGAN_FOUNDRY_RESPONSES_ONLY === 'true
 const authConfig: AuthConfiguration = isDevelopment || foundryResponsesOnly ? {} : loadAuthConfigFromEnv();
 
 type MorganAgentModule = typeof import('./agent');
+type EasyAuthRequest = express.Request & { easyAuthPrincipal?: EasyAuthPrincipal };
 let morganAgentModule: Promise<MorganAgentModule> | undefined;
 
 function loadMorganAgentModule(): Promise<MorganAgentModule> {
@@ -70,11 +75,56 @@ console.log(`Environment: NODE_ENV=${process.env.NODE_ENV}, isDevelopment=${isDe
 
 const server = express();
 
-server.use(express.json());
+server.disable('x-powered-by');
+server.use(express.json({ limit: '1mb' }));
+server.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
+  if (!isDevelopment) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
 void initObservability();
 
+const sensitiveRequests = new Map<string, { windowStartedAt: number; count: number }>();
+
+function requireSameOrigin(req: express.Request, res: Response, next: express.NextFunction): void {
+  const origin = req.header('Origin');
+  if (!origin) { next(); return; }
+  try {
+    if (new URL(origin).host !== req.header('Host')) {
+      res.status(403).json({ error: 'Forbidden - cross-origin state change rejected' });
+      return;
+    }
+  } catch {
+    res.status(403).json({ error: 'Forbidden - invalid origin' });
+    return;
+  }
+  next();
+}
+
+function sensitiveRateLimit(req: EasyAuthRequest, res: Response, next: express.NextFunction): void {
+  const key = req.easyAuthPrincipal?.oid || req.ip || 'unknown';
+  const now = Date.now();
+  const current = sensitiveRequests.get(key);
+  const entry = !current || now - current.windowStartedAt >= 60_000 ? { windowStartedAt: now, count: 0 } : current;
+  entry.count += 1;
+  sensitiveRequests.set(key, entry);
+  if (entry.count > 20) {
+    res.setHeader('Retry-After', '60');
+    res.status(429).json({ error: 'Too many sensitive requests; retry later.' });
+    return;
+  }
+  next();
+}
+
 function verifyScheduledSecret(provided: unknown): boolean {
-  return typeof provided === 'string' && Boolean(process.env.SCHEDULED_SECRET) && provided === process.env.SCHEDULED_SECRET;
+  const expected = process.env.SCHEDULED_SECRET;
+  if (typeof provided !== 'string' || !expected) return false;
+  const left = Buffer.from(provided);
+  const right = Buffer.from(expected);
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
 function scheduledSecretFromRequest(req: express.Request): string | undefined {
@@ -88,13 +138,26 @@ function scheduledSecretFromRequest(req: express.Request): string | undefined {
     if (match?.[1]) return match[1];
   }
 
-  if (typeof req.body?.secret === 'string') return req.body.secret;
-  if (typeof req.query?.secret === 'string') return req.query.secret;
   return undefined;
 }
 
 function hasConfiguredValue(value: string | undefined): boolean {
   return Boolean(value && !/<[^>]+>/.test(value) && !/your-|example|\.\.\.|optional-/i.test(value));
+}
+
+function requireFinanceOperator(req: EasyAuthRequest, res: Response, next: express.NextFunction): void {
+  if (!isAuthorizedHitlApprover(req.easyAuthPrincipal || {})) {
+    recordAuditEvent({
+      kind: 'authorization.finance-operator.denied',
+      label: 'Unauthorized finance operator action rejected',
+      severity: 'warning',
+      actor: req.easyAuthPrincipal?.name || req.easyAuthPrincipal?.email || req.easyAuthPrincipal?.oid || 'unknown',
+      data: { path: req.path, oid: req.easyAuthPrincipal?.oid },
+    });
+    res.status(403).json({ error: 'Forbidden - authorized finance operator required' });
+    return;
+  }
+  next();
 }
 
 function graphReadiness(): Record<string, unknown> {
@@ -181,6 +244,8 @@ function recentTeamsCallDiagnostics(): {
 } {
   const interestingKinds = new Set([
     'mission-control.teams-call.requested',
+    'mission-control.teams-call.operator-authorized',
+    'mission-control.teams-call.approved-resume',
     'teams.call.started',
     'teams.call.connected',
     'teams.call.disconnected',
@@ -216,6 +281,15 @@ server.get('/', (_req, res: Response) => {
 server.get('/api/health', (_req, res: Response) => {
   res.status(200).json({
     status: 'healthy',
+    agent: 'Morgan',
+    service: foundryResponsesOnly ? 'foundry-responses' : 'app-service',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+server.get('/api/readiness', requireMissionControlOrScheduledSecret, (_req, res: Response) => {
+  res.status(200).json({
+    status: 'ready',
     agent: 'Morgan',
     voiceEnabled: isVoiceEnabled(),
     avatarEnabled: true,
@@ -277,7 +351,7 @@ server.get('/api/web-auth/me', requireEasyAuth, (req: express.Request, res: Resp
   res.status(200).json({ ok: true, principal });
 });
 
-registerFoundryResponsesRoutes(server);
+registerFoundryResponsesRoutes(server, foundryResponsesOnly ? {} : { authorize: requireEasyAuth as express.RequestHandler });
 
 // Serve the avatar-led voice experience at /voice and /avatar.
 server.get('/voice', (_req, res: Response) => {
@@ -300,6 +374,18 @@ server.use(
   express.static(path.join(__dirname, 'voice', 'assets'), {
     maxAge: '1h',
     fallthrough: false,
+  }),
+);
+
+// Morgan Digital ID Badge — hardware simulator (paired demo with the ESP32-C5 badge blueprint).
+// Served same-origin so the sim can call /api/avatar/did/config for HD video + ElevenLabs voice.
+server.use(
+  '/badge',
+  express.static(path.join(__dirname, '..', 'badge-simulator'), {
+    maxAge: '5m',
+    fallthrough: false,
+    extensions: ['html'],
+    index: 'index.html',
   }),
 );
 
@@ -334,10 +420,10 @@ server.get('/mission-control/avatar-toggle-ui.js', (_req, res: Response) => {
   res.type('application/javascript');
   res.sendFile(path.join(__dirname, 'mission', 'avatar-toggle-ui.js'));
 });
-server.get(['/approvals', '/hitl-approvals'], requireEasyAuth, (_req: express.Request, res: Response) => {
+server.get(['/approvals', '/hitl-approvals'], requireEasyAuth, requireFinanceOperator, (_req: express.Request, res: Response) => {
   res.sendFile(path.join(__dirname, 'mission', 'hitl-approvals.html'));
 });
-server.get('/agentic-kanban', (_req: express.Request, res: Response) => {
+server.get('/agentic-kanban', requireEasyAuth, (_req: express.Request, res: Response) => {
   const link = getAgenticKanbanLink();
   res.redirect(302, link.url);
 });
@@ -379,6 +465,12 @@ server.get('/api/mission-control/governance', requireEasyAuth, (req: express.Req
     }
     traceMap.get(key)!.push(event);
   }
+  for (const [correlationId, audits] of auditByCorrelation.entries()) {
+    if (!traceMap.has(correlationId) && audits.some((audit) => /^(policy\.|hitl\.|authorization\.)/.test(audit.kind))) {
+      traceMap.set(correlationId, []);
+      traceOrder.push(correlationId);
+    }
+  }
 
   const traces = traceOrder.slice(0, traceLimit).map((correlationId) => {
     const steps = (traceMap.get(correlationId) || []).slice().sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
@@ -406,19 +498,18 @@ server.get('/api/mission-control/governance', requireEasyAuth, (req: express.Req
         : 'info';
     const startedTs = steps[0]?.ts || audits[0]?.timestamp;
     const endedTs = steps[steps.length - 1]?.ts || audits[audits.length - 1]?.timestamp;
-    return {
-      correlationId,
-      startedAt: startedTs,
-      endedAt: endedTs,
-      severity,
-      prompt: (promptEvent?.data?.promptPreview as string | undefined) || null,
-      response: (replyEvent?.data?.responsePreview as string | undefined) || null,
-      chainOfThought: reasoningSteps,
-      toolsSelected,
-      stepCount: steps.length,
-      toolCallCount: toolEvents.filter((step) => step.kind === 'tool.call').length,
-      hitlGate: hitlAudit ? { kind: hitlAudit.kind, label: hitlAudit.label, decision: hitlAudit.data?.decision ?? null } : null,
-      steps: steps.map((step) => ({
+    const governanceAuditSteps = audits
+      .filter((audit) => /^(policy\.|hitl\.|authorization\.)/.test(audit.kind))
+      .map((audit) => ({
+        id: `audit-${audit.id}`,
+        ts: audit.timestamp,
+        kind: audit.kind,
+        label: audit.label,
+        status: audit.severity === 'error' ? 'error' : audit.severity === 'warning' ? 'partial' : 'ok',
+        data: audit.data || {},
+      }));
+    const joinedSteps = [
+      ...steps.map((step) => ({
         id: step.id,
         ts: step.ts,
         kind: step.kind,
@@ -427,6 +518,21 @@ server.get('/api/mission-control/governance', requireEasyAuth, (req: express.Req
         durationMs: step.durationMs,
         data: step.data || {},
       })),
+      ...governanceAuditSteps,
+    ].sort((left, right) => new Date(left.ts).getTime() - new Date(right.ts).getTime());
+    return {
+      correlationId,
+      startedAt: startedTs,
+      endedAt: endedTs,
+      severity,
+      prompt: (promptEvent?.data?.promptPreview as string | undefined) || null,
+      response: (replyEvent?.data?.responsePreview as string | undefined) || null,
+      decisionSummaries: reasoningSteps,
+      toolsSelected,
+      stepCount: joinedSteps.length,
+      toolCallCount: toolEvents.filter((step) => step.kind === 'tool.call').length,
+      hitlGate: hitlAudit ? { kind: hitlAudit.kind, label: hitlAudit.label, decision: hitlAudit.data?.decision ?? null } : null,
+      steps: joinedSteps,
       audit: audits.map((audit) => ({
         id: audit.id,
         timestamp: audit.timestamp,
@@ -434,6 +540,7 @@ server.get('/api/mission-control/governance', requireEasyAuth, (req: express.Req
         label: audit.label,
         severity: audit.severity,
         actor: audit.actor || null,
+        data: audit.data || {},
       })),
     };
   });
@@ -481,13 +588,13 @@ server.get('/api/mission-control/corpgen-report', requireMissionControlOrSchedul
   res.setHeader('Content-Disposition', `${download ? 'attachment' : 'inline'}; filename="${safeName}"`);
   res.sendFile(report.absolutePath);
 });
-server.get('/api/hitl/approvals', requireEasyAuth, (_req: express.Request, res: Response) => {
-  res.status(200).json(listHitlApprovalRequests({ status: 'all' }));
+server.get('/api/hitl/approvals', requireEasyAuth, requireFinanceOperator, (_req: express.Request, res: Response) => {
+  res.status(200).json(listHitlApprovalRequests({ status: 'all', includeDecisionTokens: true }));
 });
-server.get('/api/hitl/approvals/surface', requireEasyAuth, (req: express.Request, res: Response) => {
+server.get('/api/hitl/approvals/surface', requireEasyAuth, requireFinanceOperator, (req: express.Request, res: Response) => {
   res.status(200).json(getHitlApprovalSurface({ requestId: typeof req.query?.requestId === 'string' ? req.query.requestId : undefined }));
 });
-server.post('/api/hitl/approvals/send-mod-card', requireEasyAuth, async (req: express.Request, res: Response) => {
+server.post('/api/hitl/approvals/send-mod-card', requireEasyAuth, requireFinanceOperator, requireSameOrigin, sensitiveRateLimit, async (req: express.Request, res: Response) => {
   const body = req.body || {};
   const result = await sendHitlApprovalCardToModAdministrator({
     requestId: typeof body.requestId === 'string' ? body.requestId : undefined,
@@ -495,7 +602,7 @@ server.post('/api/hitl/approvals/send-mod-card', requireEasyAuth, async (req: ex
   });
   res.status(result.ok ? 200 : 409).json(result);
 });
-server.post('/api/hitl/approvals/:id/decision', requireEasyAuth, (req: EasyAuthRequest, res: Response) => {
+server.post('/api/hitl/approvals/:id/decision', requireEasyAuth, requireFinanceOperator, requireSameOrigin, sensitiveRateLimit, (req: EasyAuthRequest, res: Response) => {
   const decision = typeof req.body?.decision === 'string' ? req.body.decision : '';
   if (!['approve', 'approve_with_edits', 'decline', 'cancel'].includes(decision)) {
     res.status(400).json({ ok: false, error: 'decision must be approve, approve_with_edits, decline, or cancel' });
@@ -504,18 +611,28 @@ server.post('/api/hitl/approvals/:id/decision', requireEasyAuth, (req: EasyAuthR
   const result = recordHitlApprovalDecision({
     requestId: req.params.id,
     decision: decision as Parameters<typeof recordHitlApprovalDecision>[0]['decision'],
-    decidedBy: req.easyAuthPrincipal?.name || req.easyAuthPrincipal?.email || 'Morgan approval operator',
+    identity: {
+      oid: req.easyAuthPrincipal?.oid,
+      tenantId: req.easyAuthPrincipal?.tenantId,
+      email: req.easyAuthPrincipal?.email,
+      name: req.easyAuthPrincipal?.name,
+    },
     rationale: typeof req.body?.rationale === 'string' ? req.body.rationale : undefined,
     editedBody: typeof req.body?.editedBody === 'string' ? req.body.editedBody : undefined,
+    expectedVersion: numberFromUnknown(req.body?.version),
+    expectedActionDigest: typeof req.body?.actionDigest === 'string' ? req.body.actionDigest : undefined,
+    decisionToken: typeof req.body?.decisionToken === 'string' ? req.body.decisionToken : undefined,
   });
   recordAuditEvent({
     kind: result.ok ? 'hitl.approval.decision' : 'hitl.approval.failed',
     label: result.ok ? `HITL approval ${decision} recorded` : 'HITL approval decision failed',
     actor: req.easyAuthPrincipal?.name || req.easyAuthPrincipal?.email || 'Morgan approval operator',
+    correlationId: req.params.id,
     severity: result.ok ? 'info' : 'warning',
     data: { requestId: req.params.id, decision, status: result.request?.status, error: result.error },
   });
-  res.status(result.ok ? 200 : 409).json(result);
+  const failureStatus = result.code === 'unauthorized' ? 403 : result.code === 'unknown' ? 404 : 409;
+  res.status(result.ok ? 200 : failureStatus).json(result);
 });
 server.get('/api/mission-control/costs', requireEasyAuth, async (_req, res: Response) => {
   res.status(200).json(await getMorganCostDashboard());
@@ -538,8 +655,6 @@ server.get('/api/mission-control/events', requireEasyAuth, (req: express.Request
     timestamp: new Date().toISOString(),
   });
 });
-type EasyAuthRequest = express.Request & { easyAuthPrincipal?: EasyAuthPrincipal };
-
 server.post('/api/mission-control/run-workday', (req: express.Request, res: Response) => {
   const secret = scheduledSecretFromRequest(req);
   const secretAuthorized = verifyScheduledSecret(secret);
@@ -572,6 +687,10 @@ server.post('/api/mission-control/run-workday', (req: express.Request, res: Resp
   }
 
   requireEasyAuth(req as EasyAuthRequest, res, () => {
+    if (!isAuthorizedHitlApprover((req as EasyAuthRequest).easyAuthPrincipal || {})) {
+      res.status(403).json({ error: 'Forbidden - authorized finance operator required' });
+      return;
+    }
     const principal = (req as EasyAuthRequest).easyAuthPrincipal;
     void runWorkdayForCaller('user_request', {
       kind: 'mission_control',
@@ -600,7 +719,7 @@ server.get('/api/mission-control/teams-call/status', requireEasyAuth, (_req: exp
   });
 });
 
-server.post('/api/mission-control/teams-call', requireEasyAuth, async (req: express.Request, res: Response) => {
+server.post('/api/mission-control/teams-call', requireEasyAuth, requireFinanceOperator, requireSameOrigin, sensitiveRateLimit, async (req: express.Request, res: Response) => {
   const principal = (req as express.Request & { easyAuthPrincipal?: { oid?: string; email?: string; name?: string } }).easyAuthPrincipal;
   const requestedBy = principal?.name || principal?.email || principal?.oid || 'Mission Control operator';
   const targetFromBody = typeof req.body?.teamsUserAadOid === 'string' ? req.body.teamsUserAadOid.trim() : '';
@@ -647,6 +766,17 @@ server.post('/api/mission-control/teams-call', requireEasyAuth, async (req: expr
       voice,
     },
   });
+  recordAuditEvent({
+    kind: 'mission-control.teams-call.operator-authorized',
+    label: 'Signed-in finance operator authorized Teams call',
+    actor: requestedBy,
+    data: {
+      authorization: 'explicit-mission-control-button',
+      targetDisplayName,
+      targetProvidedByOperator: Boolean(targetFromBody),
+      reason,
+    },
+  });
 
   try {
     const call = await initiateOutboundTeamsCall({
@@ -658,17 +788,19 @@ server.post('/api/mission-control/teams-call', requireEasyAuth, async (req: expr
     });
     res.status(202).json({
       ok: true,
-      mode: 'acs-teams-call',
+      status: 'executed',
+      executed: true,
+      authorization: 'explicit-mission-control-button',
+      result: { success: true, reason, federationMode: 'acs_to_teams', ...call },
       targetDisplayName,
       requestedBy,
       reason,
-      ...call,
       activeCalls: getActiveCallSnapshot(),
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ ok: false, error: message, status: getTeamsFederationCallingStatus() });
+    res.status(502).json({ ok: false, status: 'failed', executed: false, error: message, callingStatus: getTeamsFederationCallingStatus() });
   }
 });
 
@@ -685,14 +817,16 @@ server.post('/api/voice/invite', async (req: express.Request, res: Response) => 
     return;
   }
   try {
-    const call = await initiateOutboundTeamsCall({
-      teamsUserAadOid,
-      targetDisplayName: typeof req.body?.targetDisplayName === 'string' ? req.body.targetDisplayName : undefined,
-      requestedBy: typeof req.body?.requestedBy === 'string' ? req.body.requestedBy : undefined,
+    const raw = await executeTool('initiateTeamsFederatedCall', {
+      teams_user_aad_oid: teamsUserAadOid,
+      target_display_name: typeof req.body?.targetDisplayName === 'string' ? req.body.targetDisplayName : undefined,
+      requested_by: typeof req.body?.requestedBy === 'string' ? req.body.requestedBy : 'Scheduled automation',
+      reason: typeof req.body?.reason === 'string' ? req.body.reason : 'Automated finance escalation',
       instructions: typeof req.body?.instructions === 'string' ? req.body.instructions : undefined,
       voice: typeof req.body?.voice === 'string' ? req.body.voice : undefined,
-    });
-    res.status(202).json({ ok: true, ...call });
+    }, undefined, systemExecutionContext('scheduler', `voice-invite-${Date.now()}`));
+    const outcome = JSON.parse(raw) as { status?: string; executed?: boolean; result?: Record<string, unknown>; approvalId?: string; approvalUrl?: string; reason?: string };
+    res.status(202).json({ ok: outcome.executed === true, ...outcome });
   } catch (err: unknown) {
     res.status(500).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
   }
@@ -813,9 +947,6 @@ server.use((req, res, next) => {
     '/api/calls/federation/status',
     '/api/observability',
     '/api/audit/events',
-    '/responses',
-    '/responses/health',
-    '/readiness',
   ];
   if (req.path.startsWith('/.auth/') || publicPaths.some(p => req.path === p)) {
     return next();

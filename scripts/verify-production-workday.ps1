@@ -66,7 +66,7 @@ foreach ($auditEvent in $events) {
 }
 
 $observability = Invoke-RestMethod -Method Get -Uri "$baseUrl/api/observability" -Headers $secretHeaders
-$health = Invoke-RestMethod -Method Get -Uri "$baseUrl/api/health?verifyProductionWorkday=1"
+$health = Invoke-RestMethod -Method Get -Uri "$baseUrl/api/readiness?verifyProductionWorkday=1" -Headers $secretHeaders
 
 [pscustomobject]@{
   ok = $response.ok

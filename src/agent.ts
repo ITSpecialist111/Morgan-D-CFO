@@ -31,6 +31,8 @@ import { recordAgentEvent } from './observability/agentEvents';
 import { createAgentStorage } from './storage/agentStorage';
 import { tryHandleShowcaseShortcut } from './showcaseShortcuts';
 import { handleHitlApprovalCardSubmit } from './mission/hitlApprovals';
+import { createExecutionContext } from './governance/executionContext';
+import { isToolModelVisible } from './governance/toolPolicy';
 
 // State interfaces
 interface PendingDelivery {
@@ -188,6 +190,7 @@ async function sendPendingDelivery(
   state: AppTurnState,
   target: string,
   correlationId: string,
+  executionContext = createExecutionContext({ origin: 'teams', correlationId, actor: { kind: 'unknown' } }),
 ): Promise<string> {
   const delivery = state.conversation.pendingDelivery || state.conversation.lastDeliverable;
   if (!delivery) return 'I do not have a report or summary queued to email yet. Ask me for the report first, then say "email that to me."';
@@ -206,8 +209,17 @@ async function sendPendingDelivery(
     subject: delivery.subject,
     body: delivery.body,
     importance: delivery.kind === 'end-of-day-report' ? 'high' : 'normal',
-  }, context);
-  const result = parseToolJson<{ success?: boolean; messageId?: string; source?: string; error?: string }>(raw) || { success: false, error: raw };
+  }, context, executionContext);
+  const envelope = parseToolJson<{
+    status?: string;
+    result?: { success?: boolean; messageId?: string; source?: string; error?: string };
+    approvalId?: string;
+    approvalUrl?: string;
+    reason?: string;
+  }>(raw);
+  const result = envelope?.status === 'executed' && envelope.result
+    ? envelope.result
+    : { success: false, error: envelope?.reason || raw };
   recordAgentEvent({
     kind: 'tool.result',
     label: `sendEmail ${result.success ? 'completed' : 'failed'}`,
@@ -231,6 +243,10 @@ async function sendPendingDelivery(
     return `Done. I emailed the ${delivery.kind === 'end-of-day-report' ? 'end-of-day report' : 'summary'} to ${target} using Morgan's WorkIQ Mail path${result.source ? ` (${result.source})` : ''}.`;
   }
 
+  if (envelope?.status === 'approval_required') {
+    return `The email has not been sent. Morgan's server-side policy created approval **${envelope.approvalId || 'pending'}**. Review it at ${envelope.approvalUrl || '/approvals'}.`;
+  }
+
   state.conversation.pendingDelivery = { ...delivery, awaitingRecipient: true };
   const targetWasEmail = Boolean(extractEmailAddress(target));
   if (targetWasEmail) {
@@ -245,23 +261,34 @@ async function tryHandlePendingDelivery(
   context: TurnContext,
   state: AppTurnState,
   correlationId: string,
+  executionContext = createExecutionContext({ origin: 'teams', correlationId, actor: { kind: 'unknown' } }),
 ): Promise<string | null> {
   const email = extractEmailAddress(userMessage);
   if (email) state.conversation.knownEmail = email;
 
   const hasQueuedDelivery = Boolean(state.conversation.pendingDelivery || state.conversation.lastDeliverable);
   const isWaitingForAddress = Boolean(state.conversation.pendingDelivery?.awaitingRecipient);
-  if (email && isWaitingForAddress) return sendPendingDelivery(context, state, email, correlationId);
+  if (email && isWaitingForAddress) return sendPendingDelivery(context, state, email, correlationId, executionContext);
   if (!isEmailDeliveryRequest(userMessage) || !hasQueuedDelivery) return null;
 
   const target = email || state.conversation.knownEmail || userName;
-  return sendPendingDelivery(context, state, target, correlationId);
+  return sendPendingDelivery(context, state, target, correlationId, executionContext);
 }
 
 agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, state: AppTurnState) => {
   const userMessage = context.activity.text?.trim() || '';
   const userName = context.activity.from?.name || 'there';
   const correlationId = context.activity.id || context.activity.conversation?.id || `teams-${Date.now()}`;
+  const teamsExecutionContext = createExecutionContext({
+    origin: 'teams',
+    correlationId,
+    actor: {
+      kind: 'human',
+      oid: context.activity.from?.aadObjectId,
+      tenantId: context.activity.conversation?.tenantId,
+      name: userName,
+    },
+  });
 
   // Always capture the conversation reference for proactive messaging
   captureConversationReference(context);
@@ -289,7 +316,7 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
     },
   });
 
-  const hitlCardSubmit = handleHitlApprovalCardSubmit(context.activity.value, userName);
+  const hitlCardSubmit = handleHitlApprovalCardSubmit(context.activity.value, teamsExecutionContext.actor);
   if (hitlCardSubmit?.handled) {
     try { await context.sendActivity(hitlCardSubmit.reply); } catch { /* ignore */ }
     return;
@@ -363,14 +390,14 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
   }, 4000);
 
   try {
-    const pendingDeliveryReply = await tryHandlePendingDelivery(userMessage, userName, context, state, correlationId);
+    const pendingDeliveryReply = await tryHandlePendingDelivery(userMessage, userName, context, state, correlationId, teamsExecutionContext);
     if (pendingDeliveryReply) {
       state.conversation.history.push({ role: 'assistant', content: pendingDeliveryReply });
       try { await context.sendActivity(pendingDeliveryReply); } catch (sendErr: unknown) { console.error('sendActivity error:', sendErr); }
       return;
     }
 
-    const showcaseReply = await tryHandleShowcaseShortcut(userMessage, context, { allowVoiceActions: true }).catch((err: unknown) => {
+    const showcaseReply = await tryHandleShowcaseShortcut(userMessage, context, { allowVoiceActions: true, executionContext: teamsExecutionContext }).catch((err: unknown) => {
       console.warn('[Morgan] Showcase shortcut failed, falling through to LLM:', err instanceof Error ? err.message : String(err));
       return null;
     });
@@ -427,6 +454,7 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
         data: { error: errorText(err) },
       });
     }
+    liveMcpTools = liveMcpTools.filter((tool) => isToolModelVisible(toolName(tool), true));
     const liveMcpToolNames = new Set(liveMcpTools.map(toolName));
     const staticToolNames = new Set(staticTools.map(toolName));
     const mergedTools = [
@@ -518,13 +546,15 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
           });
           let result: string;
           let isError = false;
+          let outcome: { status?: string; approvalId?: string; result?: { provenance?: unknown } } | undefined;
           try {
             result = await withTimeout(
-              executeTool(calledToolName, params, context),
+              executeTool(calledToolName, params, context, teamsExecutionContext),
               TEAMS_TOOL_TIMEOUT_MS,
               `Morgan tool ${calledToolName}`,
             );
-            isError = result.includes('"error"');
+            outcome = parseToolJson(result);
+            isError = outcome?.status === 'failed' || outcome?.status === 'denied' || result.includes('"error"');
           } catch (err) {
             isError = true;
             result = JSON.stringify({ success: false, error: errorText(err), source });
@@ -540,6 +570,9 @@ agentApplication.onActivity(ActivityTypes.Message, async (context: TurnContext, 
               tool: calledToolName,
               liveMcp: liveMcpToolNames.has(calledToolName),
               resultBytes: Buffer.byteLength(result, 'utf8'),
+              executionStatus: outcome?.status,
+              approvalId: outcome?.approvalId,
+              provenance: outcome?.result?.provenance,
             },
           });
           return {

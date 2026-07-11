@@ -1,5 +1,6 @@
 import { configDotenv } from 'dotenv';
 configDotenv();
+import './observability/azureMonitorBootstrap';
 
 import express, { Response } from 'express';
 import http from 'http';

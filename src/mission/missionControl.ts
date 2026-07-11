@@ -11,9 +11,18 @@ import { synthesizeMicrosoftIQBriefing, type MicrosoftIQBriefing } from '../tool
 import { createWordDocument, findUser, sendEmail, sendTeamsMessage } from '../tools/mcpToolSetup';
 import { getObservabilityStatus, getRecentAuditEvents, recordAuditEvent } from '../observability/agentAudit';
 import { decideCardAdvances, type WorkCardSummary, type ReasonedAdvanceDecision } from './cfoWorkReasoner';
+import {
+  completeApprovedAction,
+  getApprovalForAction,
+  getApprovalRequestById,
+  getHitlApprovalSurface,
+  requestHitlApproval,
+  reserveApprovedAction,
+} from './hitlApprovals';
 import { recordAgentEvent } from '../observability/agentEvents';
 import { callSubAgent, getSubAgentRegistry } from '../orchestrator/subAgents';
 import { getAgentStorageStatus } from '../storage/agentStorage';
+import { getHitlApprovalStorageStatus } from '../storage/hitlApprovalStorage';
 
 export type MissionTaskStatus = 'pending' | 'in_progress' | 'blocked' | 'completed' | 'failed';
 export type MissionTaskCadence = 'continuous' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'on_demand';
@@ -219,7 +228,7 @@ export interface MissionTaskRecord {
 export interface SubAgentHandoffResult {
   agentId: string;
   agentName: string;
-  status: 'completed' | 'skipped' | 'failed' | 'fallback';
+  status: 'completed' | 'skipped' | 'approval_required' | 'failed' | 'fallback';
   summary: string;
   evidence: string[];
 }
@@ -236,7 +245,7 @@ export interface CorpGenDigestDocumentStatus {
 
 export interface CorpGenDigestChannelStatus {
   enabled: boolean;
-  status: 'sent' | 'skipped' | 'failed';
+  status: 'sent' | 'skipped' | 'approval_required' | 'failed';
   target?: string;
   messageId?: string;
   source?: string;
@@ -1084,7 +1093,39 @@ const OPERATING_CADENCE = [
 ];
 
 const taskRecords: MissionTaskRecord[] = loadTaskRecords();
-const artifactEvaluations: ArtifactEvaluationResult[] = [];
+
+function artifactEvaluationFilePath(): string {
+  if (process.env.MORGAN_ARTIFACT_EVALUATION_FILE) return path.resolve(process.env.MORGAN_ARTIFACT_EVALUATION_FILE);
+  const home = process.env.HOME || process.env.USERPROFILE;
+  const root = home ? path.join(home, 'data') : path.join(process.cwd(), '.morgan-state');
+  return path.join(root, 'artifact-evaluations.json');
+}
+
+function loadArtifactEvaluations(): ArtifactEvaluationResult[] {
+  try {
+    const filePath = artifactEvaluationFilePath();
+    if (!fs.existsSync(filePath)) return [];
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item): item is ArtifactEvaluationResult => Boolean(item && typeof item === 'object' && (item as ArtifactEvaluationResult).id)).slice(-50) : [];
+  } catch (error) {
+    console.warn('[mission-control] Failed to load artifact evaluations:', error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
+function persistArtifactEvaluations(): void {
+  try {
+    const filePath = artifactEvaluationFilePath();
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    const temporary = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(temporary, JSON.stringify(artifactEvaluations.slice(-50), null, 2), { encoding: 'utf8', mode: 0o600 });
+    fs.renameSync(temporary, filePath);
+  } catch (error) {
+    console.warn('[mission-control] Failed to persist artifact evaluations:', error instanceof Error ? error.message : String(error));
+  }
+}
+
+const artifactEvaluations: ArtifactEvaluationResult[] = loadArtifactEvaluations();
 const DEFAULT_CORPGEN_DIGEST_STATUS: CorpGenDigestDeliveryStatus = {
   runId: 'not-run-yet',
   generatedAt: new Date(0).toISOString(),
@@ -1417,6 +1458,35 @@ async function sendTeamsWebhook(url: string, message: string): Promise<CorpGenDi
   }
 }
 
+function authorizeDigestSideEffect(
+  tool: string,
+  params: Record<string, unknown>,
+  runId: string,
+): { allowed: boolean; approvalId?: string; approvalUrl?: string; error?: string } {
+  const approved = getApprovalForAction(tool, params);
+  if (approved) {
+    const reservation = reserveApprovedAction(approved.id, approved.actionDigest);
+    return reservation.ok
+      ? { allowed: true, approvalId: approved.id }
+      : { allowed: false, approvalId: approved.id, error: reservation.error };
+  }
+  const requested = requestHitlApproval({
+    level: 'L2',
+    action: { tool, params },
+    title: `Approve Morgan CorpGen digest ${tool}`,
+    actionType: tool,
+    rationale: 'The CorpGen digest leaves Morgan through email or Teams, so server-side L2 approval is required.',
+    evidence: [`runId: ${runId}`, `tool: ${tool}`],
+    triggeredBy: 'runAutonomousCfoWorkday',
+  });
+  return {
+    allowed: false,
+    approvalId: requested.request?.id,
+    approvalUrl: requested.request ? getHitlApprovalSurface({ requestId: requested.request.id }).url : undefined,
+    error: requested.error || 'L2 approval required before digest delivery.',
+  };
+}
+
 async function deliverCorpGenDigest(input: {
   runId: string;
   source: MissionTaskRecord['source'];
@@ -1458,7 +1528,7 @@ async function deliverCorpGenDigest(input: {
     const result = await createWordDocument({
       title,
       content: digestContent,
-      save_to_sharepoint: boolFromEnv('CORPGEN_DIGEST_SAVE_TO_SHAREPOINT', true),
+      save_to_sharepoint: false,
     });
     document = result.success
       ? { enabled: true, status: 'created', title, documentUrl: result.documentUrl, localPath: result.localPath, source: result.source }
@@ -1491,16 +1561,24 @@ async function deliverCorpGenDigest(input: {
       '<!-- Text summary for mail clients that preview plaintext: -->',
       `Morgan completed a CorpGen CFO day run for ${input.period}. ${docLine}`,
     ].join('\n');
-    const result = await sendEmail({
+    const emailParams = {
       to: resolvedRecipient.target,
       subject: `Morgan End-of-Day CFO Report - ${input.period}`,
       body: emailBody,
       bodyContentType: 'html',
       importance: input.records.some((record) => record.status === 'blocked' || record.status === 'failed') ? 'high' : 'normal',
-    });
-    email = result.success
-      ? { enabled: true, status: 'sent', target: resolvedRecipient.target, messageId: result.messageId, source: result.source }
-      : { enabled: true, status: 'failed', target: resolvedRecipient.target, source: result.source, error: result.error || 'Email send failed.' };
+    } as const;
+    const authorization = authorizeDigestSideEffect('sendEmail', emailParams, input.runId);
+    if (!authorization.allowed) {
+      email = { enabled: true, status: 'approval_required', target: resolvedRecipient.target, source: 'server-side-policy', error: `${authorization.error}${authorization.approvalUrl ? ` ${authorization.approvalUrl}` : ''}` };
+      if (authorization.approvalId) evidence.push(`Email awaiting L2 approval ${authorization.approvalId}`);
+    } else {
+      const result = await sendEmail(emailParams);
+      if (authorization.approvalId) completeApprovedAction(authorization.approvalId, result.success, result.error);
+      email = result.success
+        ? { enabled: true, status: 'sent', target: resolvedRecipient.target, messageId: result.messageId, source: result.source }
+        : { enabled: true, status: 'failed', target: resolvedRecipient.target, source: result.source, error: result.error || 'Email send failed.' };
+    }
   }
   if (email.messageId) evidence.push(`Email sent ${email.messageId} to ${email.target}`);
   if (email.error) evidence.push(`Email delivery error ${email.error}`);
@@ -1511,12 +1589,26 @@ async function deliverCorpGenDigest(input: {
   if (!boolFromEnv('CORPGEN_TEAMS_SUMMARY_ENABLED', true)) {
     teams = { enabled: false, status: 'skipped', error: 'CORPGEN_TEAMS_SUMMARY_ENABLED=false' };
   } else if (teamsWebhookUrl) {
-    teams = await sendTeamsWebhook(teamsWebhookUrl, teamsSummary);
+    const webhookParams = { destination: 'configured Teams webhook', message: teamsSummary };
+    const authorization = authorizeDigestSideEffect('sendTeamsWebhook', webhookParams, input.runId);
+    if (!authorization.allowed) {
+      teams = { enabled: true, status: 'approval_required', target: 'Teams webhook', source: 'server-side-policy', error: `${authorization.error}${authorization.approvalUrl ? ` ${authorization.approvalUrl}` : ''}` };
+    } else {
+      teams = await sendTeamsWebhook(teamsWebhookUrl, teamsSummary);
+      if (authorization.approvalId) completeApprovedAction(authorization.approvalId, teams.status === 'sent', teams.error);
+    }
   } else if (teamsChannelId) {
-    const result = await sendTeamsMessage({ channel_id: teamsChannelId, subject: `Morgan CorpGen CFO day - ${input.period}`, message: teamsSummary });
-    teams = result.success
-      ? { enabled: true, status: 'sent', target: teamsChannelId, messageId: result.messageId, source: result.source }
-      : { enabled: true, status: 'failed', target: teamsChannelId, source: result.source, error: result.error || 'Teams send failed.' };
+    const teamsParams = { channel_id: teamsChannelId, subject: `Morgan CorpGen CFO day - ${input.period}`, message: teamsSummary };
+    const authorization = authorizeDigestSideEffect('sendTeamsMessage', teamsParams, input.runId);
+    if (!authorization.allowed) {
+      teams = { enabled: true, status: 'approval_required', target: teamsChannelId, source: 'server-side-policy', error: `${authorization.error}${authorization.approvalUrl ? ` ${authorization.approvalUrl}` : ''}` };
+    } else {
+      const result = await sendTeamsMessage(teamsParams);
+      if (authorization.approvalId) completeApprovedAction(authorization.approvalId, result.success, result.error);
+      teams = result.success
+        ? { enabled: true, status: 'sent', target: teamsChannelId, messageId: result.messageId, source: result.source }
+        : { enabled: true, status: 'failed', target: teamsChannelId, source: result.source, error: result.error || 'Teams send failed.' };
+    }
   } else {
     teams = { enabled: true, status: 'skipped', error: 'Set CORPGEN_TEAMS_CHANNEL_ID or CORPGEN_TEAMS_WEBHOOK_URL to send the Teams summary.' };
   }
@@ -1524,6 +1616,7 @@ async function deliverCorpGenDigest(input: {
   if (teams.error) evidence.push(`Teams summary status ${teams.error}`);
 
   const failedEnabledChannels = [document, email, teams].filter((channel) => channel.enabled && channel.status === 'failed').length;
+  const approvalHeldChannels = [email, teams].filter((channel) => channel.enabled && channel.status === 'approval_required').length;
   const sentOrCreated = [document.status === 'created', email.status === 'sent', teams.status === 'sent'].filter(Boolean).length;
   lastCorpGenDigestDelivery = {
     runId: input.runId,
@@ -1533,6 +1626,8 @@ async function deliverCorpGenDigest(input: {
     headline: input.headline,
     summary: failedEnabledChannels
       ? `CorpGen digest workflow completed with ${failedEnabledChannels} failed enabled channel(s).`
+      : approvalHeldChannels
+        ? `CorpGen digest prepared; ${approvalHeldChannels} external channel(s) remain blocked at the L2 approval gate.`
       : `CorpGen digest workflow completed with ${sentOrCreated} created/sent artifact(s).`,
     document,
     email,
@@ -1932,6 +2027,7 @@ export interface CfoWorkCard {
   subAgents: string[];
   owner: string;
   hitlLevel?: 'L2' | 'L3';
+  approvalId?: string;
   evidence: string[];
   history: CfoWorkCardHistoryEntry[];
   createdAt: string;
@@ -2086,6 +2182,11 @@ function quarterLabel(date = new Date()): string {
 function instantiateWorkCard(template: CfoWorkTemplate, lane: CfoWorkLane): CfoWorkCard {
   const now = new Date().toISOString();
   const ctx = { quarter: quarterLabel(), period: currentPeriod() };
+  const approvalIdByTemplate: Record<string, string> = {
+    'board-pnl-l2': 'approval-pnl-board-report-l2',
+    'reforecast-l3': 'approval-budget-reforecast-l3',
+    'vendor-payment-l3': 'approval-vendor-payment-l3',
+  };
   return {
     id: `work-${template.templateId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     templateId: template.templateId,
@@ -2097,6 +2198,7 @@ function instantiateWorkCard(template: CfoWorkTemplate, lane: CfoWorkLane): CfoW
     subAgents: template.subAgents,
     owner: template.owner,
     hitlLevel: template.hitlLevel,
+    approvalId: approvalIdByTemplate[template.templateId],
     evidence: [],
     history: [{ at: now, from: 'new', to: lane, note: 'Created on the CFO work backlog.' }],
     createdAt: now,
@@ -2220,6 +2322,7 @@ function advanceOneCard(card: CfoWorkCard, note?: string): { from: CfoWorkLane; 
   }
   if (card.lane === 'active') {
     if (card.hitlLevel) {
+      ensureWorkCardApproval(card);
       transitionCard(card, 'waiting', note || t?.waitingNote || `Holding at ${card.hitlLevel} human approval.`);
       return { from: 'active', to: 'waiting' };
     }
@@ -2231,12 +2334,44 @@ function advanceOneCard(card: CfoWorkCard, note?: string): { from: CfoWorkLane; 
     return { from: 'review', to: 'done' };
   }
   if (card.lane === 'waiting') {
-    // Waiting cards advance only when their HITL gate is resolved (modelled as
-    // an approval being granted through the governed path once the card has aged).
+    const approval = ensureWorkCardApproval(card);
+    if (!approval || (approval.status !== 'approved' && approval.status !== 'approved_with_edits')) return null;
+    if (new Date(approval.timeoutAt).getTime() < Date.now()) return null;
+    card.evidence.push(`Approval ${approval.id} granted by ${approval.decidedBy || approval.decidedByOid || 'authorized approver'}.`);
     transitionCard(card, 'review', note || t?.reviewNote || 'Approval granted; preparing the governed action.');
     return { from: 'waiting', to: 'review' };
   }
   return null;
+}
+
+function ensureWorkCardApproval(card: CfoWorkCard): ReturnType<typeof getApprovalRequestById> {
+  if (!card.hitlLevel) return undefined;
+  const existing = card.approvalId ? getApprovalRequestById(card.approvalId) : undefined;
+  const usable = existing
+    && ['pending', 'approved', 'approved_with_edits'].includes(existing.status)
+    && new Date(existing.timeoutAt).getTime() >= Date.now();
+  if (usable) return existing;
+
+  const fallbackActionByTemplate: Record<string, { tool: string; params: Record<string, unknown> }> = {
+    'board-pnl-l2': { tool: 'sendEmail', params: { to: 'CFO distribution list', subject: 'Board-ready P&L distribution', body: '[board-ready P&L artifact]' } },
+    'reforecast-l3': { tool: 'commitBudgetReforecast', params: { amountUsd: 250000, cardId: card.id } },
+    'vendor-payment-l3': { tool: 'releaseVendorPayment', params: { amountUsd: 180000, cardId: card.id } },
+  };
+  const action = existing?.action || fallbackActionByTemplate[card.templateId];
+  if (!action) return undefined;
+  const requested = requestHitlApproval({
+    level: card.hitlLevel,
+    action,
+    title: card.title,
+    actionType: card.category,
+    rationale: card.summary,
+    evidence: card.evidence,
+    triggeredBy: 'autonomous-kanban',
+  });
+  if (!requested.request) return undefined;
+  card.approvalId = requested.request.id;
+  card.evidence.push(`Approval request ${requested.request.id} created for action digest ${requested.request.actionDigest}.`);
+  return requested.request;
 }
 
 function boundDoneLane(backlog: CfoWorkCard[]): void {
@@ -2249,12 +2384,12 @@ function boundDoneLane(backlog: CfoWorkCard[]): void {
 
 export function advanceCfoWorkCards(maxToAdvance = 2): CfoWorkAdvanceResult {
   const backlog = ensureCfoWorkBacklog();
+  backlog.filter((card) => card.lane === 'waiting' && card.hitlLevel).forEach(ensureWorkCardApproval);
   const advanced: CfoWorkAdvanceResult['advanced'] = [];
 
-  // 1) Resolve a waiting (HITL) card that has waited at least one cycle, ~half the time,
-  //    simulating an approval being granted through the governed path.
-  const waitingCard = backlog.find((card) => card.lane === 'waiting' && Date.now() - new Date(card.updatedAt).getTime() >= 60_000);
-  if (waitingCard && (Date.now() % 2 === 0)) {
+  // 1) Resolve only a waiting card with a matching, unexpired human approval.
+  const waitingCard = backlog.find((card) => card.lane === 'waiting' && Boolean(card.approvalId));
+  if (waitingCard) {
     const move = advanceOneCard(waitingCard);
     if (move) advanced.push({ title: waitingCard.title, from: move.from, to: move.to });
   }
@@ -2282,9 +2417,15 @@ export function advanceCfoWorkCards(maxToAdvance = 2): CfoWorkAdvanceResult {
 // the daily loop always makes progress.
 export async function advanceCfoWorkCardsAutonomously(maxToAdvance = 2): Promise<CfoWorkAdvanceResult> {
   const backlog = ensureCfoWorkBacklog();
+  backlog.filter((card) => card.lane === 'waiting' && card.hitlLevel).forEach(ensureWorkCardApproval);
   const now = Date.now();
   const summaries: WorkCardSummary[] = backlog
     .filter((card) => card.lane !== 'done')
+    .filter((card) => {
+      if (card.lane !== 'waiting') return true;
+      const approval = card.approvalId ? getApprovalRequestById(card.approvalId) : undefined;
+      return Boolean(approval && (approval.status === 'approved' || approval.status === 'approved_with_edits') && new Date(approval.timeoutAt).getTime() >= now);
+    })
     .map((card) => ({
       id: card.id,
       title: card.title,
@@ -2488,8 +2629,22 @@ async function runAutonomousSubAgentHandoffs(input: {
       continue;
     }
 
+    const handoffParams = { agent_id: handoff.agentId, message: handoff.message, timeout_ms: 8_000 };
+    const authorization = authorizeDigestSideEffect('callSubAgent', handoffParams, `sub-agent-${input.period}`);
+    if (!authorization.allowed) {
+      results.push({
+        agentId: handoff.agentId,
+        agentName: agent.name,
+        status: 'approval_required',
+        summary: `${agent.name} handoff prepared but not sent; L2 approval is required.`,
+        evidence: [authorization.approvalId ? `Approval ${authorization.approvalId}` : 'Approval request failed', authorization.approvalUrl || authorization.error || 'Open /approvals'],
+      });
+      continue;
+    }
+
     const started = Date.now();
-    const response = await callSubAgent({ agent_id: handoff.agentId, message: handoff.message, timeout_ms: 8_000 });
+    const response = await callSubAgent(handoffParams);
+    if (authorization.approvalId) completeApprovedAction(authorization.approvalId, response.success, response.error);
     let result: SubAgentHandoffResult;
     if (response.success) {
       result = {
@@ -2620,6 +2775,9 @@ export function getEnterpriseReadiness(): EnterpriseReadinessCheck[] {
   const teamsFederationPolicyRecorded = Boolean(process.env.ACS_TEAMS_FEDERATION_RESOURCE_ID);
   const agentStorage = getAgentStorageStatus();
   const durableMemoryReady = agentStorage.configured;
+  const hitlStorage = getHitlApprovalStorageStatus();
+  const hitlApproversConfigured = Boolean(process.env.MORGAN_HITL_APPROVER_OIDS || process.env.MORGAN_HITL_APPROVER_EMAILS);
+  const hitlSigningConfigured = Boolean(process.env.MORGAN_HITL_SIGNING_SECRET);
   const scheduledReady = Boolean(process.env.SCHEDULED_SECRET);
   const foundryIQReady = Boolean(process.env.FOUNDRY_PROJECT_ENDPOINT && (process.env.AZURE_OPENAI_ENDPOINT || process.env.AZURE_AI_SERVICES_ENDPOINT));
   const fabricIQReady = Boolean(process.env.FABRIC_WORKSPACE_ID || process.env.FABRIC_SEMANTIC_MODEL_ID || process.env.POWERBI_SEMANTIC_MODEL_ID);
@@ -2708,12 +2866,20 @@ export function getEnterpriseReadiness(): EnterpriseReadinessCheck[] {
       evidence: ['getSubAgentRegistry', 'callSubAgent', ...subAgents.map((agent) => `${agent.name}: ${agent.status}`)],
     },
     {
+      id: 'hitl-policy',
+      area: 'Server-side HITL policy gateway',
+      status: hitlStorage.healthy && hitlApproversConfigured && hitlSigningConfigured ? 'configured' : 'production-hardening',
+      signal: `Policy gateway active; file ledger ${hitlStorage.healthy ? 'healthy' : 'unhealthy'}, approver allowlist ${hitlApproversConfigured ? 'configured' : 'missing'}, signed card actions ${hitlSigningConfigured ? 'configured' : 'missing'}`,
+      control: 'External actions are blocked before execution, bound to an action digest, authorized by Entra identity, version checked, expiry checked, and reserved for one execution attempt.',
+      evidence: ['MORGAN_HITL_APPROVER_OIDS/MORGAN_HITL_APPROVER_EMAILS', 'MORGAN_HITL_SIGNING_SECRET', 'policy.* audit events', 'Action digest and approval transition history'],
+    },
+    {
       id: 'durable-memory',
       area: 'Durable memory and work records',
-      status: durableMemoryReady ? 'configured' : 'production-hardening',
-      signal: durableMemoryReady ? `Agent conversation state uses ${agentStorage.backend} storage` : 'Current process memory should be backed by durable storage for production scale',
-      control: 'Enterprise deployments should persist task records, memory summaries, evaluations, and audit exports outside the process.',
-      evidence: ['COSMOS_DB_ENDPOINT/COSMOS_DB_DATABASE/COSMOS_DB_CONTAINER', 'Agent SDK storage backend', 'Mission task records'],
+      status: durableMemoryReady ? 'partial' : 'production-hardening',
+      signal: durableMemoryReady ? `Conversation state uses ${agentStorage.backend}; Mission Control and HITL file stores remain single-instance` : 'Single-instance file state is active; Cosmos is still required for horizontally scaled production',
+      control: 'Enterprise deployments must use distributed compare-and-swap storage for conversations, tasks, approvals, evaluations, and audit exports before horizontal scale.',
+      evidence: ['COSMOS_DB_ENDPOINT/COSMOS_DB_DATABASE/COSMOS_DB_CONTAINER', 'Single-instance atomic files under HOME/data', 'Mission task and approval records'],
     },
     {
       id: 'scheduler-safety',
@@ -3094,6 +3260,7 @@ export function evaluateMissionArtifact(input: {
   };
   artifactEvaluations.push(result);
   if (artifactEvaluations.length > 50) artifactEvaluations.splice(0, artifactEvaluations.length - 50);
+  persistArtifactEvaluations();
   recordAuditEvent({
     kind: 'mission.artifact.evaluated',
     label: `Artifact evaluated: ${result.title}`,
@@ -3296,6 +3463,7 @@ export async function runAutonomousCfoWorkday(params: { source?: MissionTaskReco
   const completedHandoffs = subAgentHandoffs.filter((handoff) => handoff.status === 'completed').length;
   const failedHandoffs = subAgentHandoffs.filter((handoff) => handoff.status === 'failed').length;
   const skippedHandoffs = subAgentHandoffs.filter((handoff) => handoff.status === 'skipped').length;
+  const approvalHeldHandoffs = subAgentHandoffs.filter((handoff) => handoff.status === 'approval_required').length;
   const fallbackHandoffs = subAgentHandoffs.filter((handoff) => handoff.status === 'fallback').length;
   // Demo-mode graceful degradation: only block the planning loop on a true
   // 'failed' status. Missing endpoints (skipped) and unreachable configured
@@ -3306,7 +3474,7 @@ export async function runAutonomousCfoWorkday(params: { source?: MissionTaskReco
   const planningLoopBlocked = failedHandoffs > 0;
   const planningLoopSummary = planningLoopBlocked
     ? `Specialist sub-agent handoff failed: ${completedHandoffs} completed, ${fallbackHandoffs} fallback, ${skippedHandoffs} skipped, ${failedHandoffs} failed.`
-    : `Specialist sub-agent handoff checks healthy: ${completedHandoffs} completed, ${fallbackHandoffs} fallback (demo mode), ${skippedHandoffs} skipped (demo mode).`;
+    : `Specialist sub-agent handoff checks healthy: ${completedHandoffs} completed, ${approvalHeldHandoffs} awaiting L2 approval, ${fallbackHandoffs} fallback (demo mode), ${skippedHandoffs} skipped (demo mode).`;
   records.push(createRecord({
     taskId: 'corpgen-planning-loop',
     status: planningLoopBlocked ? 'blocked' : 'completed',
@@ -3350,7 +3518,7 @@ export async function runAutonomousCfoWorkday(params: { source?: MissionTaskReco
     artifact,
   });
   const digestBlocked = [digestDelivery.document, digestDelivery.email, digestDelivery.teams]
-    .some((channel) => channel.enabled && channel.status === 'failed');
+    .some((channel) => channel.enabled && (channel.status === 'failed' || channel.status === 'approval_required'));
   records.push(createRecord({
     taskId: 'working-day-audit',
     status: digestBlocked ? 'blocked' : 'completed',

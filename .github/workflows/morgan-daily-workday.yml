@@ -21,11 +21,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wake Morgan (App Service warm-up)
+        id: wake
         run: |
           if [ -z "${{ secrets.MORGAN_APP_URL }}" ]; then
-            echo "MORGAN_APP_URL secret is not set; skipping. Add it under repo Actions secrets."
-            exit 1
+            echo "MORGAN_APP_URL secret is not set; skipping run."
+            echo "Add MORGAN_APP_URL and MORGAN_SCHEDULED_SECRET under repo Settings → Secrets and variables → Actions."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
           for i in 1 2 3 4 5 6 7 8; do
             code=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.MORGAN_APP_URL }}/api/health" || true)
             echo "health attempt $i -> $code"
@@ -34,6 +38,7 @@ jobs:
           done
 
       - name: Trigger autonomous CFO workday
+        if: steps.wake.outputs.ready == 'true'
         run: |
           curl -sS -X POST "${{ secrets.MORGAN_APP_URL }}/api/mission-control/run-workday" \
             -H "x-scheduled-secret: ${{ secrets.MORGAN_SCHEDULED_SECRET }}" \

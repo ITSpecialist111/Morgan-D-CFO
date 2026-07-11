@@ -93,10 +93,16 @@ import { recordAuditEvent } from '../observability/agentAudit';
 import {
   listHitlApprovalRequests,
   getHitlApprovalSurface,
-  recordHitlApprovalDecision,
+  getApprovalForAction,
+  reserveApprovedAction,
+  completeApprovedAction,
+  requestHitlApproval,
   sendHitlApprovalCardToModAdministrator,
   HITL_APPROVAL_TOOL_DEFINITIONS,
 } from '../mission/hitlApprovals';
+import { createExecutionContext, systemExecutionContext, type ExecutionContext } from '../governance/executionContext';
+import { evaluateToolPolicy, isToolModelVisible } from '../governance/toolPolicy';
+import { validateToolInput } from '../governance/toolValidation';
 import {
   generateAndSaveRetrospective,
   getRetrospectiveHistory,
@@ -265,7 +271,7 @@ export function getAllTools(): ChatCompletionTool[] {
     ...HITL_APPROVAL_TOOL_DEFINITIONS,
     ...RETROSPECTIVE_TOOL_DEFINITIONS,
     ...UTILITY_TOOL_DEFINITIONS,
-  ];
+  ].filter((tool) => tool.type === 'function' && isToolModelVisible(tool.function.name));
 }
 
 // ---------------------------------------------------------------------------
@@ -274,16 +280,110 @@ export function getAllTools(): ChatCompletionTool[] {
 
 type ToolResult = unknown;
 
-export async function executeTool(name: string, params: Record<string, unknown>, context?: TurnContext): Promise<string> {
-  console.log(`[Morgan] Tool call → ${name}`, JSON.stringify(params, null, 2));
-  const correlationId = `tool-${Date.now()}-${name}`;
+export async function executeTool(
+  name: string,
+  params: Record<string, unknown>,
+  context?: TurnContext,
+  executionContext?: ExecutionContext,
+): Promise<string> {
+  const resolvedContext = executionContext || systemExecutionContext(context ? 'teams' : 'system');
+  const correlationId = resolvedContext.correlationId;
   const source = toolSource(name);
+  const validation = validateToolInput(name, params);
+  if (!validation.ok) {
+    recordAuditEvent({
+      kind: 'policy.input.denied',
+      label: `Invalid tool input rejected: ${name}`,
+      severity: 'warning',
+      correlationId,
+      data: { tool: name, error: validation.error, parameterKeys: Object.keys(params || {}) },
+    });
+    return JSON.stringify({ status: 'denied', executed: false, tool: name, reason: validation.error, correlationId });
+  }
+  const discoveredMcp = hasMcpToolServer(name);
+  const approval = getApprovalForAction(name, params);
+  const policyContext = approval
+    ? createExecutionContext({ ...resolvedContext, approvalId: approval.id, approvalActionDigest: approval.actionDigest })
+    : resolvedContext;
+  const policy = evaluateToolPolicy(name, params, policyContext, discoveredMcp);
   recordAuditEvent({
     kind: 'tool.call',
     label: `Tool call: ${name}`,
     correlationId,
-    data: { tool: name, source, parameterKeys: Object.keys(params || {}) },
+    actor: resolvedContext.actor.name || resolvedContext.actor.email || resolvedContext.actor.oid,
+    data: {
+      tool: name,
+      source,
+      parameterKeys: Object.keys(params || {}),
+      origin: resolvedContext.origin,
+      runtime: resolvedContext.runtime,
+      risk: policy.policy.risk,
+      policyDecision: policy.decision,
+      actionDigest: policy.actionDigest,
+    },
   });
+
+  if (policy.decision === 'deny') {
+    recordAuditEvent({
+      kind: 'policy.denied',
+      label: `Policy denied ${name}`,
+      severity: 'warning',
+      correlationId,
+      data: { tool: name, reason: policy.reason, risk: policy.policy.risk, actionDigest: policy.actionDigest },
+    });
+    return JSON.stringify({
+      status: 'denied',
+      executed: false,
+      tool: name,
+      reason: policy.reason,
+      risk: policy.policy.risk,
+      correlationId,
+    });
+  }
+
+  if (policy.decision === 'approval-required') {
+    const requested = requestHitlApproval({
+      level: policy.policy.approvalLevel || 'L2',
+      action: { tool: name, params },
+      title: policy.actionSummary,
+      actionType: name,
+      rationale: policy.reason,
+      evidence: [`correlationId: ${correlationId}`, `actionDigest: ${policy.actionDigest}`, `origin: ${resolvedContext.origin}`],
+      triggeredBy: resolvedContext.origin,
+    });
+    recordAuditEvent({
+      kind: 'policy.approval.required',
+      label: `${policy.policy.approvalLevel || 'L2'} approval required for ${name}`,
+      severity: 'warning',
+      correlationId,
+      data: { tool: name, approvalId: requested.request?.id, actionDigest: policy.actionDigest, reason: requested.error || policy.reason },
+    });
+    return JSON.stringify({
+      status: 'approval_required',
+      executed: false,
+      tool: name,
+      approvalId: requested.request?.id,
+      approvalLevel: policy.policy.approvalLevel,
+      approvalUrl: requested.request ? getHitlApprovalSurface({ requestId: requested.request.id }).url : undefined,
+      actionDigest: policy.actionDigest,
+      reason: requested.error || policy.reason,
+      correlationId,
+    });
+  }
+
+  if (approval) {
+    const reservation = reserveApprovedAction(approval.id, policy.actionDigest);
+    if (!reservation.ok) {
+      return JSON.stringify({
+        status: 'denied',
+        executed: false,
+        tool: name,
+        approvalId: approval.id,
+        reason: reservation.error,
+        correlationId,
+      });
+    }
+  }
 
   try {
     let result: ToolResult;
@@ -405,9 +505,6 @@ export async function executeTool(name: string, params: Record<string, unknown>,
       case 'getHitlApprovalSurface':
         result = getHitlApprovalSurface(params as Parameters<typeof getHitlApprovalSurface>[0]);
         break;
-      case 'recordHitlApprovalDecision':
-        result = recordHitlApprovalDecision(params as Parameters<typeof recordHitlApprovalDecision>[0]);
-        break;
       case 'sendHitlApprovalCardToModAdministrator':
         result = await sendHitlApprovalCardToModAdministrator(params as Parameters<typeof sendHitlApprovalCardToModAdministrator>[0], context);
         break;
@@ -484,7 +581,7 @@ export async function executeTool(name: string, params: Record<string, unknown>,
         result = getTeamsFederationCallingStatus();
         break;
       case 'initiateTeamsFederatedCall': {
-        const typed = params as { reason?: string; teams_user_aad_oid?: string; target_display_name?: string; requested_by?: string; instructions?: string };
+        const typed = params as { reason?: string; teams_user_aad_oid?: string; target_display_name?: string; requested_by?: string; instructions?: string; voice?: string };
         if (!isAcsConfigured()) {
           result = { success: false, error: 'ACS calling is not configured. Set ACS_CONNECTION_STRING and Teams federation app settings.' };
           break;
@@ -498,6 +595,7 @@ export async function executeTool(name: string, params: Record<string, unknown>,
           targetDisplayName: typed.target_display_name,
           requestedBy: typed.requested_by || 'Morgan',
           instructions: typed.instructions || `You are Morgan, the Digital CFO. Federated Teams call reason: ${typed.reason || 'finance escalation'}. Introduce yourself, explain the reason for the call, and keep the exchange concise.`,
+          voice: typed.voice,
         });
         result = { success: true, reason: typed.reason, federationMode: 'acs_to_teams', videoPresence: getTeamsFederationCallingStatus().videoPresence, ...call };
         break;
@@ -533,13 +631,18 @@ export async function executeTool(name: string, params: Record<string, unknown>,
       }
     }
 
+    const operationSucceeded = !(result && typeof result === 'object' && 'success' in result && (result as { success?: boolean }).success === false);
+    const resultProvenance = result && typeof result === 'object' && 'provenance' in result
+      ? (result as { provenance?: unknown }).provenance
+      : undefined;
+    if (approval) completeApprovedAction(approval.id, operationSucceeded, operationSucceeded ? 'Tool execution completed.' : 'Tool returned an unsuccessful result.');
     recordAuditEvent({
       kind: 'tool.completed',
       label: `Tool completed: ${name}`,
       correlationId,
-      data: { tool: name, source },
+      data: { tool: name, source, status: operationSucceeded ? 'executed' : 'failed', actionDigest: policy.actionDigest, approvalId: approval?.id, provenance: resultProvenance },
     });
-    return JSON.stringify(result);
+    return JSON.stringify({ status: operationSucceeded ? 'executed' : 'failed', executed: operationSucceeded, result, source, correlationId, actionDigest: policy.actionDigest, approvalId: approval?.id });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[Morgan] Tool "${name}" threw an error: ${message}`);
@@ -550,6 +653,7 @@ export async function executeTool(name: string, params: Record<string, unknown>,
       correlationId,
       data: { tool: name, error: message },
     });
+    if (approval) completeApprovedAction(approval.id, false, message);
     return JSON.stringify({ error: message, tool: name });
   }
 }
@@ -563,21 +667,44 @@ export interface BriefingSummary {
   period: string;
   weekNumber: number;
   actionsCompleted: string[];
-  teamsResult?: { success: boolean; messageId?: string };
-  emailResult?: { success: boolean; messageId?: string };
+  teamsResult?: { success: boolean; status?: string; messageId?: string; error?: string; approvalId?: string };
+  emailResult?: { success: boolean; status?: string; messageId?: string; error?: string; approvalId?: string };
 }
 
 export interface EndOfDayDeliverySummary {
   reportDate: string;
   actionsCompleted: string[];
-  teamsResult?: { success: boolean; messageId?: string; error?: string };
-  emailResult?: { success: boolean; messageId?: string; error?: string };
+  teamsResult?: { success: boolean; status?: string; messageId?: string; error?: string; approvalId?: string };
+  emailResult?: { success: boolean; status?: string; messageId?: string; error?: string; approvalId?: string };
+}
+
+function scheduledDeliveryResult(raw: string): { success: boolean; status?: string; messageId?: string; error?: string; approvalId?: string } {
+  try {
+    const envelope = JSON.parse(raw) as {
+      status?: string;
+      executed?: boolean;
+      approvalId?: string;
+      reason?: string;
+      result?: { success?: boolean; messageId?: string; error?: string };
+    };
+    return {
+      success: envelope.executed === true && envelope.result?.success === true,
+      status: envelope.status,
+      messageId: envelope.result?.messageId,
+      approvalId: envelope.approvalId,
+      error: envelope.reason || envelope.result?.error,
+    };
+  } catch {
+    return { success: false, status: 'failed', error: raw };
+  }
 }
 
 // _openaiClient is accepted for API compatibility with agent.ts but not used
 // internally — all tool calls are handled by this module's own implementations.
 export async function executeAutonomousBriefing(_openaiClient?: unknown): Promise<BriefingSummary> {
   const actionsCompleted: string[] = [];
+  const correlationId = `weekly-briefing-${Date.now()}`;
+  const executionContext = systemExecutionContext('scheduler', correlationId);
 
   // Step 1 — current date & period
   const { isoDate } = getCurrentDate();
@@ -603,11 +730,11 @@ export async function executeAutonomousBriefing(_openaiClient?: unknown): Promis
   // Step 4 — post to Teams
   const channelId = process.env.FINANCE_TEAMS_CHANNEL_ID ?? 'demo-channel';
   const teamsMessage = formatForTeams({ content: briefingMarkdown, message_type: 'report' });
-  const teamsResult  = await sendTeamsMessage({
+  const teamsResult = scheduledDeliveryResult(await executeTool('sendTeamsMessage', {
     channel_id: channelId,
     message:    teamsMessage,
     subject:    `Weekly Finance Briefing — Week ${weekNumber}`,
-  });
+  }, undefined, executionContext));
   actionsCompleted.push(
     teamsResult.success
       ? `Teams message posted to channel ${channelId} (id: ${teamsResult.messageId})`
@@ -616,12 +743,12 @@ export async function executeAutonomousBriefing(_openaiClient?: unknown): Promis
 
   // Step 5 — email CFO
   const cfoEmail = process.env.CFO_EMAIL ?? 'cfo@contoso-financial.example.com';
-  const emailResult = await sendEmail({
+  const emailResult = scheduledDeliveryResult(await executeTool('sendEmail', {
     to:         cfoEmail,
     subject:    `[Morgan] Weekly Finance Briefing — Week ${weekNumber}, ${now.getFullYear()}`,
     body:       briefingMarkdown,
     importance: budgetAnalysis.summary.anomalyCount > 0 ? 'high' : 'normal',
-  });
+  }, undefined, executionContext));
   actionsCompleted.push(
     emailResult.success
       ? `Email sent to CFO (${cfoEmail}) — id: ${emailResult.messageId}`
@@ -646,6 +773,8 @@ export async function executeAutonomousBriefing(_openaiClient?: unknown): Promis
 
 export async function executeEndOfDayReport(): Promise<EndOfDayDeliverySummary> {
   const actionsCompleted: string[] = [];
+  const correlationId = `end-of-day-${Date.now()}`;
+  const executionContext = systemExecutionContext('scheduler', correlationId);
 
   const workday = await runAutonomousCfoWorkday({ source: 'scheduled_job' });
   actionsCompleted.push(workday.headline);
@@ -654,11 +783,11 @@ export async function executeEndOfDayReport(): Promise<EndOfDayDeliverySummary> 
   actionsCompleted.push(`Generated end-of-day breakdown for ${report.date}`);
 
   const channelId = process.env.FINANCE_TEAMS_CHANNEL_ID ?? 'demo-channel';
-  const teamsResult = await sendTeamsMessage({
+  const teamsResult = scheduledDeliveryResult(await executeTool('sendTeamsMessage', {
     channel_id: channelId,
     subject: `Morgan End-of-Day CFO Report - ${report.date}`,
     message: report.summaryMarkdown,
-  });
+  }, undefined, executionContext));
   actionsCompleted.push(
     teamsResult.success
       ? `End-of-day report posted to Teams channel ${channelId}`
@@ -668,12 +797,12 @@ export async function executeEndOfDayReport(): Promise<EndOfDayDeliverySummary> 
   const cfoEmail = process.env.CFO_EMAIL;
   let emailResult: EndOfDayDeliverySummary['emailResult'];
   if (cfoEmail) {
-    emailResult = await sendEmail({
+    emailResult = scheduledDeliveryResult(await executeTool('sendEmail', {
       to: cfoEmail,
       subject: `[Morgan] End-of-Day CFO Report - ${report.date}`,
       body: report.summaryMarkdown,
       importance: report.blockedTasks.length || report.failedTasks.length ? 'high' : 'normal',
-    });
+    }, undefined, executionContext));
     actionsCompleted.push(
       emailResult.success
         ? `End-of-day report emailed to CFO (${cfoEmail})`

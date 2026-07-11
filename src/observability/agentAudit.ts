@@ -1,3 +1,7 @@
+import { sanitizeTelemetryData } from '../governance/redaction';
+import { logs, SeverityNumber, type Logger } from '@opentelemetry/api-logs';
+import { getAzureMonitorBootstrapStatus } from './azureMonitorBootstrap';
+
 export type AuditSeverity = 'info' | 'warning' | 'error';
 
 export interface MorganAuditEvent {
@@ -11,15 +15,9 @@ export interface MorganAuditEvent {
   data?: Record<string, unknown>;
 }
 
-interface AppInsightsClient {
-  trackEvent: (event: { name: string; properties?: Record<string, string> }) => void;
-  trackException?: (event: { exception: Error; properties?: Record<string, string> }) => void;
-  flush?: () => void;
-}
-
 const MAX_EVENTS = 1000;
 const auditEvents: MorganAuditEvent[] = [];
-let appInsightsClient: AppInsightsClient | null = null;
+let telemetryLogger: Logger | null = null;
 let appInsightsConfigured = false;
 
 function safeString(value: unknown): string {
@@ -55,7 +53,7 @@ export async function initObservability(): Promise<void> {
   if (!connectionString) {
     recordAuditEvent({
       kind: 'observability.startup',
-      label: 'Application Insights not configured; audit events will be written to stdout and memory only',
+      label: 'Azure Monitor Application Insights not configured; audit events will be written to stdout and memory only',
       severity: 'warning',
       data: { purviewAuditEnabled: process.env.PURVIEW_AUDIT_ENABLED === 'true' },
     });
@@ -63,20 +61,13 @@ export async function initObservability(): Promise<void> {
   }
 
   try {
-    const appInsights = await import('applicationinsights');
-    appInsights
-      .setup(connectionString)
-      .setAutoCollectConsole(true, true)
-      .setAutoCollectExceptions(true)
-      .setAutoCollectRequests(true)
-      .setAutoCollectDependencies(true)
-      .setSendLiveMetrics(true)
-      .start();
-    appInsightsClient = appInsights.defaultClient as AppInsightsClient;
+    const bootstrap = getAzureMonitorBootstrapStatus();
+    if (!bootstrap.started) throw new Error(bootstrap.error || 'Azure Monitor OpenTelemetry did not start at process bootstrap.');
+    telemetryLogger = logs.getLogger('Morgan.Audit', '1.0.0');
     appInsightsConfigured = true;
     recordAuditEvent({
       kind: 'observability.startup',
-      label: 'Application Insights telemetry started',
+      label: 'Azure Monitor OpenTelemetry started',
       data: { purviewAuditEnabled: process.env.PURVIEW_AUDIT_ENABLED === 'true' },
     });
   } catch (err) {
@@ -105,7 +96,7 @@ export function recordAuditEvent(input: {
     severity: input.severity || 'info',
     correlationId: input.correlationId || `morgan-${Date.now()}`,
     actor: input.actor,
-    data: input.data,
+    data: sanitizeTelemetryData(input.data),
   };
 
   auditEvents.push(event);
@@ -113,12 +104,14 @@ export function recordAuditEvent(input: {
 
   const properties = propertiesFor(event);
   console.log(JSON.stringify({ morganAuditEvent: event }));
-  if (appInsightsClient) {
-    appInsightsClient.trackEvent({ name: `Morgan.${event.kind}`, properties });
-    if (event.severity === 'error') {
-      appInsightsClient.trackException?.({ exception: new Error(event.label), properties });
-    }
-  }
+  telemetryLogger?.emit({
+    eventName: `Morgan.${event.kind}`,
+    body: event.label,
+    severityNumber: event.severity === 'error' ? SeverityNumber.ERROR : event.severity === 'warning' ? SeverityNumber.WARN : SeverityNumber.INFO,
+    severityText: event.severity.toUpperCase(),
+    attributes: { 'microsoft.custom_event.name': `Morgan.${event.kind}`, ...properties },
+    exception: event.severity === 'error' ? new Error(event.label) : undefined,
+  });
   return event;
 }
 
@@ -149,5 +142,5 @@ export function getObservabilityStatus(): Record<string, unknown> {
 }
 
 export function flushObservability(): void {
-  appInsightsClient?.flush?.();
+  // Azure Monitor OpenTelemetry owns batching and process shutdown hooks.
 }

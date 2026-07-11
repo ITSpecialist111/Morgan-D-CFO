@@ -2625,7 +2625,7 @@
     async function checkGate() {
       if (!(await requireSignedIn())) return false;
       try {
-        const response = await fetch('/api/health', { credentials: 'include' });
+        const response = await fetch('/api/readiness', { credentials: 'include' });
         const data = await response.json();
         if (visualDemoMode) {
           setVisualDemoBanner(visualDemoReason);

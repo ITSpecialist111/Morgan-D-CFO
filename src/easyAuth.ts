@@ -14,7 +14,6 @@ interface RawPrincipal {
 }
 
 export function browserAuthRequired(): boolean {
-  if (process.env.WEB_AUTH_REQUIRED === 'false') return false;
   return process.env.NODE_ENV !== 'development';
 }
 
@@ -72,7 +71,7 @@ export function requireEasyAuth(
   }
 
   const expectedTenant = process.env.MicrosoftAppTenantId || process.env.MICROSOFT_APP_TENANTID;
-  if (expectedTenant && principal.tenantId && principal.tenantId !== expectedTenant) {
+  if (expectedTenant && principal.tenantId !== expectedTenant) {
     res.status(403).json({ error: 'Forbidden - tenant mismatch' });
     return;
   }

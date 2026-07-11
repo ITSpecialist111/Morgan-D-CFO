@@ -1574,7 +1574,7 @@
     async function checkGate() {
       if (!(await requireSignedIn())) return false;
       try {
-        const response = await fetch('/api/health', { credentials: 'include' });
+        const response = await fetch('/api/readiness', { credentials: 'include' });
         const data = await response.json();
         offlineOverlay.style.display = data.voiceEnabled ? 'none' : 'flex';
         if (!data.voiceEnabled && (!ws || ws.readyState !== WebSocket.OPEN)) {

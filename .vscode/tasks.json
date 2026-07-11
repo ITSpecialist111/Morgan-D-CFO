@@ -64,7 +64,7 @@
 			"group": "none"
 		},
 		{
-			"label": "deploy updated Morgan avatar UI",
+			"label": "deploy Morgan App Service",
 			"type": "shell",
 			"command": "pwsh",
 			"args": [
@@ -72,7 +72,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"scripts/deploy-avatar-ui.ps1"
+				"scripts/deploy-appservice.ps1"
 			],
 			"isBackground": false,
 			"problemMatcher": [],
@@ -87,7 +87,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"scripts/deploy-avatar-ui.ps1"
+				"scripts/deploy-appservice.ps1"
 			],
 			"isBackground": false,
 			"problemMatcher": [],
@@ -112,7 +112,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"scripts/deploy-avatar-ui.ps1"
+				"scripts/deploy-appservice.ps1"
 			],
 			"isBackground": false,
 			"problemMatcher": [],
@@ -139,7 +139,7 @@
 		{
 			"label": "deploy Morgan D-CFO Kanban",
 			"type": "shell",
-			"command": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-avatar-ui.ps1",
+			"command": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-appservice.ps1",
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
@@ -165,7 +165,7 @@
 		{
 			"label": "deploy Morgan Teams federation",
 			"type": "shell",
-			"command": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-avatar-ui.ps1",
+			"command": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-appservice.ps1",
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"

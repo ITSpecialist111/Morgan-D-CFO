@@ -4,7 +4,11 @@
 
 ## What's New
 
-_Latest release: 2026-06-13. Morgan reached full digital-worker feature parity, went live as a daily showcase, and became genuinely more agentic._
+_Latest hardening pass: 2026-07-11. Morgan now has server-side execution policy, identity-authorized HITL, replay protection, explicit data provenance, and a YouTube-ready Trust Center narrative._
+
+- **Server-side governance** — Every model tool call is classified and re-checked before execution. External/mutable actions require L2, financial commitments require L3, unknown tools fail closed, and directly discovered MCP tools require an exact allowlist entry.
+- **Action-bound HITL** — Decisions require an allowlisted Entra identity, version/digest/expiry checks, signed card actions, atomic persistence, and one-attempt reservation. The model cannot approve its own work.
+- **Morgan Trust Center** — Mission Control distinguishes live, verified, configured-only, deterministic demo, and unavailable evidence, then joins request → decision summary → policy → tool/provenance → human gate → outcome.
 
 - **LLM-driven autonomous Kanban** — Each workday cycle Morgan now *reasons* about which 1-2 CFO cards to advance next and why, instead of following a fixed coded order, with a deterministic fallback when the model is unavailable. (`src/mission/cfoWorkReasoner.ts`, `advanceCfoWorkCardsAutonomously`, audit event `mission.kanban.advanced` with `reasoningMode: "llm" | "deterministic"`.)
 - **Persistent card-driven CFO work backlog** — Concrete CFO cards (board pack, month-end close, marketing overspend, cash/runway, anomaly scan, headcount, weekly digest, plus HITL gates) advance through `queue → active → review → done` each cycle and persist to `$HOME/data` (durable Azure Files), so progress and history survive restarts and redeploys.
@@ -12,7 +16,7 @@ _Latest release: 2026-06-13. Morgan reached full digital-worker feature parity, 
 - **Expressive D-ID humanoid avatar** — Mia Elegant now speaks with an expressive-but-executive ElevenLabs profile (`eleven_turbo_v2_5` with tuned `stability`/`style`/`speaker_boost`, all env-tunable) instead of a flat read. Two API-only ops helpers ship with it: `scripts/did-allow-domain.cjs` (authorize a deployment domain on the D-ID client key) and `scripts/did-set-voice-expressiveness.cjs` (apply/dial/revert the voice).
 - **Visual + work parity upgrade** — Beta Starfield renders stakeholder profile photos, the Kanban carries CFO-specific work (not generic tasks), and four Mission Control sections were added (sub-agents, avatar production proof, WorkIQ graph proof, agent unit economics).
 - **Digital-worker capability port** — D-ID avatar, HITL L2/L3 approvals (`/approvals`), agentic Kanban, operational retrospectives, governance observability, and WorkIQ status, all on the Digital CFO persona and the upgraded Agent SDK.
-- **Hosted Foundry agent live at version 19** — Active in North Central US (`gpt-5-mini`, `responses/1.0.0`); v19 restores the v17 known-good image after a transient platform-side Responses 500 hit v18. P0 smoke passes via the direct REST Responses route.
+- **Foundry hosted proof boundary** — Version 10 is the preserved verified baseline for public claims: hosted reachability, Azure OpenAI routing, and bounded P0 behavior. Later metadata does not expand that claim without a fresh saved run.
 - **Docs & dragon's-den kit** — New [daily showcase runbook](docs/daily-showcase-runbook.md), [Dragon's Den talk track](docs/dragons-den-talk-track.md) (6/3/1.5-min cuts + Q&A battlecard), and a refreshed [CorpGen operating model](docs/corpgen-operating-model.md).
 
 ## What is Morgan?
@@ -151,7 +155,7 @@ The Autonomous Kanban is the proof-of-work surface. CFO-specific cards flow from
 
 ![Governance Observability and Audit run timeline with decision traces, reasoning turns, tool selections, HITL gates, and audit events](docs/screenshots/governance-observability-audit.png)
 
-The governance layer goes beyond the starfield thought view. It gives a full run timeline for every CFO decision, joined by correlation ID with its prompt, chain-of-thought reasoning, tool selection, response, HITL gate, and audit severity. Decision-trace, reasoning-turn, tool-selection, HITL-gate, and audit-event counters sit above the timeline, with Purview compliance-audit status, so finance, audit, and compliance teams get board-grade evidence.
+Morgan Trust Center gives a full observable timeline for each CFO run, joined by correlation ID with the request, safe decision summary, policy verdict, tool selection, provenance, response, HITL gate, outcome, and audit severity. Private model chain-of-thought is not exposed.
 
 ### CFO ROI Work Graph
 
@@ -195,20 +199,20 @@ This is how Morgan and other agentic workloads are governed inside the Microsoft
 - **Cost of Morgan**: `/mission-control` contains a high-level daily/weekly cost panel, and `/mission-control/costs` drills into Azure actuals plus showback estimates for avatar, Agent 365, Microsoft IQ, Foundry/AI, Fabric IQ, compute, tools, and observability
 - **Avatar**: `/voice` and `/avatar` expose Morgan, backed by Azure Voice Live, Speech avatar relay ICE tokens, WebRTC media, a raw-HD default view, and an optional bundled visitor-center backdrop
 - **Interactive Beta Starfield**: the avatar and Mission Control starfields have zoom controls, wheel zoom, drag pan, keyboard reset, cursor-reactive particles, cinematic depth, and state-aware intensity
-- **Agent protocols**: `/api/messages`, `/api/agent-messages`, `/responses`, and `/responses/health` support Teams, Agent-to-Agent, and Foundry hosted-agent workflows
-- **Health probes**: `/api/health` reports app, voice, avatar, ACS calling, and Mission Control state; `/api/voice/status` reports the voice gate
+- **Agent protocols**: `/api/messages` and `/api/agent-messages` support Teams/A2A; App Service `/responses` is web-auth protected, while the dedicated Foundry host exposes the platform protocol route
+- **Health and readiness**: public `/api/health` is a minimal liveness probe; authenticated `/api/readiness` exposes operational configuration; `/api/voice/status` reports the voice gate
 - **Auth**: browser surfaces use Morgan's Microsoft web sign-in routes (`/auth/login`, `/auth/callback`, `/auth/logout`, `/auth/me`) and accept App Service EasyAuth-compatible principals when present
-- **Observability**: Morgan emits structured audit events to stdout and Application Insights when configured, with protected inspection through `/api/observability` and `/api/audit/events`
+- **Observability**: Morgan emits structured audit events to stdout and Azure Monitor Application Insights through the current OpenTelemetry distribution when configured, with protected inspection through `/api/observability` and `/api/audit/events`
 - **Wiring audit**: `WIRING-GAPS.md` tracks what is now wired in code and what still needs tenant resources, secrets, or external agents
 
 ### Key Capabilities
 
-- **Budget vs Actuals Analysis** — Real-time budget variance analysis with anomaly detection
+- **Budget vs Actuals Analysis** — Deterministic Contoso budget variance analysis with visible provenance and anomaly detection
 - **Financial KPIs** — Gross Margin, EBITDA, Cash Runway, Burn Rate, Revenue Growth
 - **Anomaly Detection** — ML-style severity classification (critical / warning / info)
 - **Trend Analysis** — Historical trend calculation with direction and % change
-- **Proactive P&L Monitoring** — Automated 25-minute interval P&L alerts via Teams
-- **Autonomous Briefings** — Scheduled weekly financial digests generated and distributed without human intervention
+- **Proactive P&L Monitoring** — Automated 25-minute analysis cadence over deterministic fixtures today; tenant P&L adapters and approved Teams delivery are the production path
+- **Autonomous Briefings** — Scheduled financial digests generated autonomously; external distribution remains blocked until L2 approval
 - **Mission Control** — Customer-visible job description, autonomous instructions, key tasks, operating cadence, and daily work log
 - **CorpGen Paper Alignment** — Mission Control maps Morgan against the CorpGen paper: MHTE/MOMA capabilities, hierarchical planning, isolated sub-agents, tiered memory, adaptive summarization, cognitive tools, experiential learning posture, emergent collaboration, artifact evaluation, and safety rails
 - **Next-Gen CorpGen Runtime** — Agent-callable operating plan, open-task selection, adaptive memory summary, experiential learning playbook, enterprise readiness checks, and artifact judge. The autonomous workday's Kanban work selection is **LLM-driven** (`cfoWorkReasoner.ts`): each cycle Morgan reasons about which 1-2 cards to advance and why, with a deterministic fallback when the model is unavailable
@@ -219,10 +223,10 @@ This is how Morgan and other agentic workloads are governed inside the Microsoft
 - **End-of-Day Reporting** — Daily completed-task breakdown, blocked work, and next-day priorities for the CFO
 - **Human-in-the-Loop Approvals** — L2/L3 approval surface at `/approvals` so external sends and dollar-bearing actions stop for human sign-off (approve / edit / decline / cancel), with an Adaptive Card path to the configured CFO/finance approver
 - **Operational Retrospectives** — Morgan generates and persists end-of-cycle retrospectives (`generateCfoRetrospective`) so recommendations improve across close and reporting cycles
-- **Governance Observability** — Deep Mission Control telemetry (prompts, chain-of-thought summaries, tool selection, HITL gates, audit ledger joined by correlationId) as an additional governance layer beyond the Beta Starfield
+- **Governance Observability** — Trust Center telemetry with safe decision summaries, policy verdicts, tool/provenance evidence, HITL gates, outcomes, and audit ledger joined by correlation ID
 - **Avatar Interface** — Real-time spoken avatar via Azure Voice Live, Speech avatar relay, and WebRTC, plus a **D-ID humanoid avatar** at `/voice/did`, switchable from the Mission Control avatar toggle
 - **Teams Federation Calling** — Cassidy-style Azure Communication Services bridge that can ring Teams users through ACS-to-Teams federation for urgent finance issues
-- **Mission Control Teams Call Control** — EasyAuth-protected operator console for triggering Morgan AI calls without exposing scheduled secrets in the browser
+- **Mission Control Teams Call Control** — EasyAuth-protected, finance-operator-only console where the explicit button click authorizes one immediate Morgan AI call; model and scheduler call paths remain L2-gated
 - **Agentic Kanban** — Live finance work board linked from Mission Control at `/agentic-kanban`
 - **Sub-Agent Swarm** — Registry for Cassidy, Avatar, and AI Kanban collaboration endpoints (each tagged `specialist` or `bridge`)
 - **People Lookup** — Microsoft Graph integration to resolve names to email addresses
@@ -360,23 +364,25 @@ Morgan-D-CFO/
 | `/voice` and `/avatar` | Aria-as-Morgan avatar and Voice Live UI | Microsoft web sign-in / EasyAuth-compatible principal |
 | `/voice/did` | D-ID humanoid avatar UI (same shell, D-ID engine) | Microsoft web sign-in / EasyAuth-compatible principal |
 | `/approvals` and `/hitl-approvals` | Human-in-the-loop L2/L3 approval queue | EasyAuth |
-| `/agentic-kanban` | Redirect to the live finance Kanban board | Public redirect |
+| `/agentic-kanban` | Redirect to the configured finance Kanban board | EasyAuth |
 | `/api/mission-control` | Mission Control JSON snapshot used by UI and tools | EasyAuth |
 | `/api/mission-control/events` | Agent Mind event stream for tool/MCP/Graph/voice/Teams/task visibility | EasyAuth |
-| `/api/mission-control/governance` | Governance observability: traces, chain-of-thought summaries, tool selection, HITL gates, audit ledger | EasyAuth |
+| `/api/mission-control/governance` | Morgan Trust Center traces: safe decision summaries, policy verdicts, tools, provenance, HITL gates, outcomes, audit ledger | EasyAuth |
 | `/api/mission-control/retrospectives` | CFO operational retrospectives (learning over cycles) | EasyAuth |
 | `/api/mission-control/agentic-kanban` | Live finance Kanban link metadata | EasyAuth |
 | `/api/mission-control/corpgen-report` | CorpGen report availability + doc/json download | EasyAuth or `SCHEDULED_SECRET` |
 | `/api/mission-control/costs` | Cost/value model with Azure actuals and estimates | EasyAuth |
 | `/api/mission-control/run-workday` | Scheduled autonomous CFO execution cycle | `SCHEDULED_SECRET` |
-| `/api/hitl/approvals` (+ `/surface`, `/send-mod-card`, `/:id/decision`) | List approvals, approval surface, send Adaptive Card, record decision | EasyAuth |
+| `/api/hitl/approvals` (+ `/surface`, `/send-mod-card`, `/:id/decision`) | List approvals, send signed card, and record an identity-authorized, version/digest-bound human decision | EasyAuth + finance approver allowlist |
+| `/api/health` | Minimal public liveness only | Public |
+| `/api/readiness` | Integration, scheduler, storage, and calling readiness | EasyAuth or `SCHEDULED_SECRET` |
 | `/api/workiq/status` | Morgan identity + WorkIQ MCP coverage + Graph readiness | EasyAuth |
 | `/api/avatar/config` and `/api/avatar/readiness` | Avatar config (voice style, agentic kanban) and readiness | EasyAuth |
 | `/api/avatar/did/*` | D-ID avatar config, session, status | EasyAuth |
 | `/mission-control/teams-call` (`/api/mission-control/teams-call`) | Browser-triggered Teams federation call | EasyAuth |
 | `/api/voice/invite` | Secret-protected Teams call trigger for automation | `SCHEDULED_SECRET` |
 | `/api/calls/acs-events`, `/api/calls/incoming`, `/api/calls/acs-media` | ACS Teams call lifecycle, inbound call, and media bridge | ACS callback/WebSocket path plus app controls |
-| `/responses` and `/responses/health` | Foundry hosted-agent Responses protocol and health probe | Hosted-agent / route-level runtime controls |
+| `/responses`, `/responses/health`, `/readiness` | Foundry Responses protocol | EasyAuth on App Service; platform ingress on the dedicated Foundry host |
 | `/api/observability` and `/api/audit/events` | App Insights, Purview posture, and audit event inspection | `SCHEDULED_SECRET` |
 
 ## Features in Detail
@@ -414,7 +420,7 @@ The Azure Functions trigger app now contains three scheduler paths into Morgan:
 
 Configure the Function App with `MORGAN_AGENT_URL`, the same `SCHEDULED_SECRET` as the Morgan App Service, and `WEBSITE_TIME_ZONE` when the 09:00-17:00 window should follow local business time rather than UTC.
 
-For the in-process App Service scheduler, configure `AUTONOMOUS_WORKDAY_ENABLED`, `AUTONOMOUS_WORKDAY_TIME_ZONE`, `AUTONOMOUS_WORKDAY_START_HOUR`, `AUTONOMOUS_WORKDAY_END_HOUR`, and `AUTONOMOUS_WORKDAY_INTERVAL_MINUTES`. `/api/health` reports the live scheduler status.
+For the in-process App Service scheduler, configure `AUTONOMOUS_WORKDAY_ENABLED`, `AUTONOMOUS_WORKDAY_TIME_ZONE`, `AUTONOMOUS_WORKDAY_START_HOUR`, `AUTONOMOUS_WORKDAY_END_HOUR`, and `AUTONOMOUS_WORKDAY_INTERVAL_MINUTES`. Authenticated `/api/readiness` reports the scheduler and shared-file lease status.
 
 ### Avatar Interface (Azure Voice Live + Speech Avatar)
 
@@ -446,15 +452,17 @@ Material finance actions stop for human sign-off. The approval queue is at `/app
 
 - **L2 (external send)** — e.g. send a board-ready P&L to an external distribution list, post a Q3 variance summary to the Finance Teams channel
 - **L3 (dollar-bearing)** — e.g. commit a $250k budget reforecast, release a vendor payment memo
-- Approve / approve-with-edits / decline / cancel — each decision is recorded with rationale and a correlation-ID audit entry
-- `sendHitlApprovalCardToModAdministrator` posts an Adaptive Card with decision buttons to the configured CFO/finance approver
-- Tools: `listHitlApprovalRequests`, `getHitlApprovalSurface`, `recordHitlApprovalDecision`, `sendHitlApprovalCardToModAdministrator`
+- Approve / approve-with-edits / decline / cancel — each decision requires an allowlisted Entra identity and records rationale, identity, version, digest, expiry, and transition history
+- Signed Adaptive Card actions bind the request ID, version, action digest, decision, and expiry
+- Approved actions are reserved for one execution attempt, preventing replay
+- Model-visible tools can list/show approvals; card dispatch and decisions require an authorized human finance operator
+- The Mission Control Teams-call button is a deliberate narrow exception: the signed-in allowlisted finance operator's same-origin button click is the human authorization for that call. Model-initiated and scheduled calls still use the L2 gateway.
 
-> Honesty note: HITL gating is enforced at the persona/prompt level (Morgan is instructed to create and await an approval before completing a gated action), not as a hard interceptor on the tool dispatcher, and decisions persist in process memory until durable storage (Cosmos) is wired.
+> Storage note: HITL and Mission Control files are atomic and durable for the current single-instance App Service showcase. Cosmos transactional storage remains required before horizontal scale.
 
 ### Governance Observability
 
-`/api/mission-control/governance` exposes an additional governance layer beyond the Beta Starfield: per-`correlationId` traces with the prompt, response, chain-of-thought summaries, tools selected, HITL gates, and the joined audit ledger — so reviewers can see how Morgan reached a result.
+`/api/mission-control/governance` powers Morgan Trust Center: per-`correlationId` traces with the request, safe decision summary, policy result, tool/provenance evidence, human gate, outcome, and joined audit ledger. Private model chain-of-thought is never exposed.
 
 ### Operational Retrospectives
 
@@ -475,12 +483,13 @@ Morgan includes a Cassidy-style ACS bridge for proactive Microsoft Teams calls t
 - `GET /api/calls/status` shows configured state and active call snapshots
 - `GET /api/calls/federation/status` shows the ACS federation readiness, tenant policy command, and video-presence roadmap
 - `GET /api/mission-control/teams-call/status` and `POST /api/mission-control/teams-call` power the browser Mission Control call console with Microsoft sign-in protection
+- The Mission Control POST route additionally requires the finance-operator allowlist, same-origin validation, and sensitive-action rate limiting; it calls ACS directly because the operator's click is explicit human authorization
 
 Configure `ACS_CONNECTION_STRING`, `ACS_SOURCE_USER_ID`, `CFO_TEAMS_USER_AAD_OID`, `BASE_URL`, `PUBLIC_HOSTNAME`, and `AZURE_OPENAI_REALTIME_DEPLOYMENT` to enable live calls. The Cassidy fix also requires the tenant-side federation policy to allow the ACS resource:
 
 ```powershell
-Set-CsTeamsAcsFederationConfiguration -EnableAcsUsers $true `
-   -AllowedAcsResources @{Add='<ACS resource id>'}
+Set-CsTeamsAcsFederationConfiguration -Identity Global -EnableAcsUsers $true `
+   -AllowedAcsResources @{Replace=@('<immutable ACS resource id>')}
 ```
 
 Store the allowed resource marker in `ACS_TEAMS_FEDERATION_RESOURCE_ID` so Mission Control and `/api/calls/federation/status` can show that the federation policy has been applied. Morgan can use `initiateTeamsCallToCfo` for the CFO/operator shortcut or `initiateTeamsFederatedCall` for a governed call to any supplied Teams user object ID.
@@ -497,7 +506,7 @@ Morgan is packaged for Microsoft Foundry Hosted Agent deployment:
 - `POST /responses` provides a Responses-compatible hosted-agent endpoint
 - `GET /responses/health` provides the hosted-agent readiness probe
 
-**Current hosted state:** `morgan-digital-cfo-hosted` is active at **version 19** in project `ai-project-morgan-hosted-ncus` (North Central US), image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227`, model `gpt-5-mini`, protocol `responses/1.0.0`. Version 19 restores this known-good image after a transient platform-side Responses 500 affected v18 (the image, model, and protocol are unchanged). The hosted env is intentionally minimal (Azure OpenAI routing + identity only; Graph/MCP, voice, observability, and durable storage are not configured in the hosted payload). P0 smoke passes via the direct REST route `/agents/morgan-digital-cfo-hosted/endpoint/protocols/openai/responses?api-version=v1` with header `Foundry-Features: HostedAgents=V1Preview`. See [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md) and [docs/daily-showcase-runbook.md](docs/daily-showcase-runbook.md).
+**Verified hosted baseline:** version **10** in the North Central US project is backed by the preserved direct-REST P0 result. It proves hosted reachability, `gpt-5-mini` Azure OpenAI routing, and bounded response behavior. The hosted payload intentionally omits Graph/MCP, voice, observability, Fabric, durable storage, and sub-agent settings. Metadata records later iterations, but a fresh result must be saved before a newer version is presented as verified. See [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md).
 
 Build images for Foundry with `--platform linux/amd64` and use a timestamped image tag when pushing to Azure Container Registry.
 
@@ -563,8 +572,8 @@ Morgan connects to Microsoft 365 services via MCP servers:
 | `evaluateMissionArtifact` | Scores reports, plans, demo scripts, and day-end summaries for evidence, actionability, governance, and readiness | `content` (required), `artifact_type`, `title`, `evidence` |
 | `listHitlApprovalRequests` | List pending/all human-in-the-loop approval requests | `status`, `level` (both optional) |
 | `getHitlApprovalSurface` | Approval-queue URL and pending requests | `requestId` (optional) |
-| `recordHitlApprovalDecision` | Record approve / approve_with_edits / decline / cancel on an approval | `requestId`, `decision` (required); `decidedBy`, `rationale`, `editedBody` (optional) |
-| `sendHitlApprovalCardToModAdministrator` | Send an Adaptive Card with decision buttons to the configured CFO/finance approver | `requestId`, `level` (L2/L3, both optional) |
+| Human-only approval endpoint | Entra-authorized approve / approve-with-edits / decline / cancel with version, digest, expiry, and signed-card validation | Not model-callable |
+| Human-only approval card dispatch | Send a signed Adaptive Card from the authorized operator surface | Not model-callable |
 | `generateCfoRetrospective` | Generate + persist an end-of-cycle operational retrospective from task records | — |
 | `getRetrospectiveHistory` | Recent retrospectives showing how recommendations evolve across cycles | — |
 | `getTeamsFederationCallingStatus` | Teams federation readiness, active ACS calls, tenant federation command, and video-presence roadmap | — |
@@ -714,8 +723,10 @@ Morgan runs the autonomous CFO workday checks, records the tasks in Mission Cont
 |---|---|
 | [docs/daily-showcase-runbook.md](docs/daily-showcase-runbook.md) | Operate the daily showcase: deployed state, daily-run mechanism, demo flow, rebuild/redeploy |
 | [docs/dragons-den-talk-track.md](docs/dragons-den-talk-track.md) | Follow-along video talk track (6/3/1.5-min cuts), use case, Q&A battlecard |
-| [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md) | Foundry hosted-agent deployment (current: version 19) |
+| [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md) | Foundry hosted-agent deployment; version 10 is the verified baseline for public claims |
 | [docs/hosted-agent-command-research.md](docs/hosted-agent-command-research.md) | Researched hosted-agent command sequences and guardrails |
+| [docs/governance-and-hitl.md](docs/governance-and-hitl.md) | Server-side tool policy, approval integrity, storage boundary, and verification |
+| [docs/youtube-showcase-kit.md](docs/youtube-showcase-kit.md) | YouTube script, chapters, description, recording safety, and acceptance checklist |
 | [morgan-tools-reference.md](morgan-tools-reference.md) | Full tool reference (incl. HITL + retrospective tools) |
 | [showcase-guide.md](showcase-guide.md) | Demo scenarios and timings |
 | [WIRING-GAPS.md](WIRING-GAPS.md) | What is wired in code vs. what needs tenant resources |
@@ -728,6 +739,7 @@ Morgan runs the autonomous CFO workday checks, records the tasks in Mission Cont
 - In production, each tool would make authenticated API calls to SAP, NetSuite, Power BI, Fabric, etc.
 - The production showcase can keep voice enabled with `VOICE_ENABLED_DEFAULT=true`; otherwise enable it from Teams before demoing.
 - The avatar and Mission Control browser surfaces are intentionally sign-in protected for enterprise demos.
+- Run `npm test` before every showcase; run `npm run audit:prod` to gate high/critical production dependency advisories.
 
 ## License
 

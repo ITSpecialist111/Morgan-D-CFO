@@ -254,7 +254,7 @@ Versions 10 and 16 remain the prior known-good restore points; roll back to one 
 The feature-parity port added to this image is present in both the hosted image and the App Service build:
 
 - D-ID humanoid avatar subsystem (`src/voice/didConfig.ts`, `didAvatarService.ts`, `didAvatarRoutes.ts`, `didWebSocketHandler.ts`, `did-voice.html`) at `/voice/did` and `/api/avatar/did/*`, plus the Mission Control avatar toggle (`avatarToggleManager.ts` + `avatar-toggle-ui.js`).
-- HITL L2/L3 approvals (`src/mission/hitlApprovals.ts` + `hitl-approvals.html`) at `/approvals`, with routes `/api/hitl/approvals(/surface,/send-mod-card,/:id/decision)` and tools `listHitlApprovalRequests`, `getHitlApprovalSurface`, `recordHitlApprovalDecision`, and `sendHitlApprovalCardToModAdministrator`. Honest caveat: gating is prompt-level (persona rules), not a hard dispatcher interceptor, and decisions persist in process memory only.
+- Historical version-17 HITL state: the UI existed but gating was prompt-level and process-local. **Superseded in the 2026-07-11 hardening pass** by server-side tool policy, Entra-authorized human decisions, signed action payloads, digest/version/expiry checks, atomic file persistence, and one-attempt reservation. The human decision operation is no longer model-callable.
 - Agentic kanban link (`src/mission/agenticKanban.ts`) at `/agentic-kanban` and `/api/mission-control/agentic-kanban`.
 - Retrospectives (`src/tools/retrospectiveTools.ts`: `generateCfoRetrospective`, `getRetrospectiveHistory`) at `/api/mission-control/retrospectives`.
 - Governance observability at `/api/mission-control/governance`.

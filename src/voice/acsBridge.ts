@@ -323,6 +323,19 @@ export async function handleIncomingCallEvent(body: unknown): Promise<
     if (eventType === 'Microsoft.Communication.IncomingCall' && event.data?.incomingCallContext) {
       const callerDisplayName = event.data.callerDisplayName || event.data.from?.displayName;
       const callerId = event.data.from?.rawId;
+      const allowedCallers = (process.env.MORGAN_ALLOWED_INBOUND_CALLER_IDS || '').split(',').map((value) => value.trim()).filter(Boolean);
+      const callerAllowed = process.env.NODE_ENV === 'development'
+        || process.env.MORGAN_ALLOW_UNLISTED_INBOUND_CALLS === 'true'
+        || Boolean(callerId && allowedCallers.includes(callerId));
+      if (!callerAllowed) {
+        recordAuditEvent({
+          kind: 'teams.call.incoming.denied',
+          label: 'Inbound Teams/ACS call rejected by caller policy',
+          severity: 'warning',
+          data: { callerId, callerDisplayName, allowlistConfigured: allowedCallers.length > 0 },
+        });
+        return { ignored: true, reason: 'Inbound caller is not allowlisted.' };
+      }
       const result = await answerInboundCall({
         incomingCallContext: event.data.incomingCallContext,
         callerId,

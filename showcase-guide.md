@@ -2,7 +2,9 @@
 
 ## What This Showcases
 
-Morgan is a purpose-built Digital CFO for finance teams — not a general-purpose chat assistant bolted onto existing productivity tools. Unlike M365 Copilot, which surfaces information from within your Microsoft tenant, Morgan can autonomously execute multi-step financial workflows: pulling live data from ERP and treasury systems, running calculations, drafting board-ready reports, distributing them via email or Teams, calling stakeholders through Teams federation, presenting through an avatar, recording proof, and doing all of this on a schedule without a human pressing a button. This makes Morgan compelling not just as a productivity tool, but as a genuine digital employee capable of owning repeatable CFO-office deliverables end-to-end.
+Morgan is a purpose-built Digital CFO teammate, not a general-purpose chat assistant. It can autonomously plan and perform multi-step finance workflows, while a server-side policy gateway—not the model—decides whether an action may execute. The current public showcase uses deterministic Contoso finance/Microsoft IQ fixtures and visibly labels them. Live ERP, treasury, Graph, Fabric, email, Teams, and voice claims require a successful connector-specific proof.
+
+For the public recording sequence, evidence vocabulary, safety checklist, title, chapters, and description, use [docs/youtube-showcase-kit.md](docs/youtube-showcase-kit.md).
 
 The enterprise version is mapped to the CorpGen paper: Morgan is shown as a Multi-Objective Multi-Horizon digital employee rather than a one-shot assistant. Mission Control exposes the paper alignment directly: hierarchical planning, isolated sub-agents, tiered memory, adaptive summarization, cognitive tools, experiential learning posture, emergent collaboration through Teams/email, artifact-based evaluation, and transparent safety rails.
 
@@ -27,8 +29,8 @@ Morgan also includes the Microsoft IQ layer for the CorpGen story: WorkIQ for Mi
 # Confirm the agent responds
 curl http://localhost:3000/api/health
 
-# Expected response
-{ "status": "ok", "agent": "morgan", "version": "1.0.0" }
+# Expected public response (minimal liveness)
+{ "status": "healthy", "agent": "Morgan", "service": "app-service" }
 ```
 
 If running in Azure, replace `localhost:3000` with the Azure Function / Container App URL.
@@ -37,7 +39,7 @@ If running in Azure, replace `localhost:3000` with the Azure Function / Containe
 
 ## Demo Scenario 1: Reactive Finance Q&A (2 minutes)
 
-**Goal:** Show that Morgan answers complex finance questions instantly, with sourced data — not hallucinated summaries.
+**Goal:** Show consistent finance analysis with explicit deterministic-demo provenance. Do not describe the fixture as live ERP data.
 
 ### Step-by-Step
 
@@ -66,11 +68,11 @@ If running in Azure, replace `localhost:3000` with the Azure Function / Containe
 | 1 | `get_financial_data` | Morgan fetches October P&L and cash flow from ERP | "It's going to source data — no copy-paste." |
 | 2 | `calculate_variances` | Morgan runs budget vs actuals, YoY comparisons | "It's doing the analysis, not just retrieving." |
 | 3 | `generate_document` | Board report draft appears in chat as formatted markdown / Word doc | "That's a complete first draft. Structured, formatted, ready to review." |
-| 4 | `send_email` | Morgan emails the report to the CFO distribution list | "And it sent it. One instruction — five steps — done." |
+| 4 | `send_email` | Server policy blocks the external send and creates an L2 request | "The model proposed the action; the server stopped it until an authorized human approves the exact digest." |
 
 **Pause here and ask the audience:** *"How long would this normally take your team?"* (Typical answer: 2–3 hours.)
 
-**Audience Takeaway:** Morgan doesn't just answer questions — it does work. Agentic AI means the model plans and executes a sequence of actions to achieve a goal.
+**Audience Takeaway:** Morgan performs work inside a governed boundary. High-impact actions are never inferred from a prompt and never reported as executed without a real tool result.
 
 ---
 
@@ -135,7 +137,7 @@ If live triggers are unreliable in the demo environment, show a 60-second screen
 **Goal:** Show how a CorpGen autonomous CFO worker uses Microsoft IQ sources rather than only a static finance dataset.
 
 1. Open `/mission-control` and scroll to **Microsoft IQ Command Layer**.
-2. Point out the three live pillars: **WorkIQ** for meetings/approvals/work graph, **Foundry IQ** for model/evaluation/knowledge readiness, and **Fabric IQ** for semantic-model business figures.
+2. Point out the three demo pillars and their production paths: **WorkIQ** for meetings/approvals/work graph, **Foundry IQ** for model/evaluation/knowledge readiness, and **Fabric IQ** for semantic-model business figures. Use the on-screen DEMO badges unless a trace proves a tenant connector succeeded.
 3. Ask Morgan: *"Combine WorkIQ, Foundry IQ, and Fabric IQ into an executive CFO update."*
 4. Open **Agent Mind** and show the called Microsoft IQ tool and result event.
 5. Show the Fabric IQ metrics and cross-functional signals, then explain that production swaps the deterministic demo adapters for tenant Graph, Foundry, and Fabric sources behind the same contracts.
@@ -182,7 +184,7 @@ For a timed, follow-along recording script see [docs/dragons-den-talk-track.md](
 | 3 | Type: *"Approve the $250k budget reforecast."* | Morgan routes it to an **L3** gate — a material, dollar-bearing commitment | "L3 is the money gate. Any dollar-bearing action needs a human decision first." |
 | 4 | On a queued item choose **Approve**, **Approve with edits**, **Decline**, or **Cancel** | Morgan records the decision (decision only — no external send happens from the card itself) and writes it to the audit ledger | "Approve, edit, decline, or cancel — and every decision is captured with who decided and why." |
 
-**Optional:** Ask Morgan *"send the L2 approval card to the finance approver"* to push a Microsoft Teams Adaptive Card carrying the same Approve / Approve with edits / Decline / Cancel actions.
+**Optional:** From the authorized Mission Control operator surface, select **Send finance approver card**. Card dispatch is human-only and is not available to the model.
 
 **Audience Takeaway:** Morgan is **autonomous internally, gated externally and financially.** Four seeded scenarios — two L2 external sends (board P&L, Q3 variance summary to a Teams channel) and two L3 dollar-bearing actions ($250k reforecast, vendor payment memo) — make the safety model concrete in every demo.
 
@@ -193,11 +195,11 @@ For a timed, follow-along recording script see [docs/dragons-den-talk-track.md](
 **Goal:** Show the audit-grade view of *how* Morgan reached a decision — the additional governance layer beyond the Beta Starfield.
 
 1. Open `/mission-control` and switch to the **Governance Observability** view (backed by `/api/mission-control/governance`).
-2. Pick a recent run. For that `correlationId`, show the joined trace: the **prompt**, the **chain-of-thought summary**, the **tools Morgan selected**, any **HITL gate** that fired, and the matching **audit ledger** entries.
+2. Pick a recent run. For that `correlationId`, show the joined trace: the **request**, **safe decision summary**, **policy verdict**, **tools and provenance**, any **HITL gate**, the **outcome**, and matching **audit ledger** entries. Private model chain-of-thought is not exposed.
 3. Point out the run stats: reasoning turns, tool calls, governance gates, warnings, and errors.
 4. Contrast with Beta Starfield: Starfield shows the operating model; this view shows the receipts for a specific decision, joined end-to-end by correlation ID.
 
-**Talking Point:** "When a customer's risk or audit team asks 'why did the agent do that?', Morgan answers with the prompt, the reasoning summary, the tools chosen, the human gate, and the audit entry — all tied together by one correlation ID."
+**Talking Point:** "When a risk or audit team asks what happened, Morgan shows the observable decision evidence, policy, tool, human gate, and outcome—without exposing private chain-of-thought."
 
 ---
 

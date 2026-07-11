@@ -4,7 +4,7 @@ A working, repeatable daily showcase. Two surfaces are live:
 
 | Surface | URL / how to invoke | What it's for |
 |---|---|---|
-| **Hosted Foundry agent** | Foundry project `ai-project-morgan-hosted-ncus`, agent `morgan-digital-cfo-hosted` (version **17**, `gpt-5-mini`) | "Invoke Morgan as a governed hosted agent" — vNext Responses |
+| **Hosted Foundry agent** | Foundry project `ai-project-morgan-hosted-ncus`, agent `morgan-digital-cfo-hosted`; public verified baseline **v10** (`gpt-5-mini`) | "Invoke Morgan as a governed hosted agent" — vNext Responses, narrow proof boundary |
 | **App Service (rich UI)** | https://morganfinanceagent-webapp.azurewebsites.net | Mission Control, voice, D-ID avatar, HITL approvals, governance view |
 
 ---
@@ -73,11 +73,16 @@ node scripts/did-set-voice-expressiveness.cjs --revert
 ## Teams call rejected — 403/10391 (ACS↔Teams federation)
 
 If Mission Control's Teams Call shows **"Last Teams call failed 403/10391 — Forbidden"**, the
-app is working correctly — it placed the ACS call and **Teams rejected it** because the *tenant*
-has not allow-listed Morgan's ACS resource for federation (and/or the target user isn't enabled
-for ACS federation). The app side is already correct: `ACS_TEAMS_FEDERATION_RESOURCE_ID` is the
-immutable ACS resource ID and `ACS_TEAMS_FEDERATION_POLICY_ACKNOWLEDGED=true`. The remaining two
-steps are **Teams admin** operations the web app cannot perform.
+app reached Teams, but **Teams rejected the federated destination**. Check all three control
+planes rather than treating the App Service's configuration marker as tenant proof:
+
+1. The connection string and `ACS_TEAMS_FEDERATION_RESOURCE_ID` must refer to the same ACS resource,
+  using its immutable resource ID.
+2. The Teams tenant allowlist and the target's effective external-access policy must enable ACS
+  federation.
+3. The target must be a human Teams user with **Teams Phone Standard (`MCOEV`)**, Enterprise Voice,
+  SIP, and registrar provisioning. `PHONESYSTEM_VIRTUALUSER` / `MCOEV_VIRTUALUSER` is a resource-
+  account license and does not satisfy this direct user-call prerequisite.
 
 Run, as a Teams Administrator:
 
@@ -89,13 +94,16 @@ Run, as a Teams Administrator:
 ./scripts/enable-teams-acs-federation.ps1 -TargetUserUpn cfo@yourtenant.com -Apply
 ```
 
-It performs (and verifies) the two required cmdlets:
+It performs and verifies the required policy checks, and fails early if the target has the wrong
+license class or incomplete Teams provisioning:
 
-1. `Set-CsTeamsAcsFederationConfiguration -EnableAcsUsers $true -AllowedAcsResources @{Add='<immutable ACS id>'}` — tenant allow-lists the ACS resource.
+1. `Set-CsTeamsAcsFederationConfiguration -EnableAcsUsers $true -AllowedAcsResources @{Replace=@('<immutable ACS id>')}` — tenant allow-lists the ACS resource using the installed module's `PSListModifier` syntax.
 2. `Set-CsExternalAccessPolicy -EnableAcsFederationAccess $true` (+ `Grant-CsExternalAccessPolicy`) — enables ACS federation for the target user.
+3. `Get-CsOnlineUser` verification — requires a human Teams user, `MCOEV`, Enterprise Voice, SIP,
+   and registrar assignment; rejects application/resource-account targets.
 
-The target user must also be **Teams Phone / Enterprise Voice** eligible. Teams policy changes can
-take up to ~1 hour to propagate; re-run the call from Mission Control afterwards to confirm.
+License and policy changes can take time to propagate; re-run the call from Mission Control after
+the target reports `PureOnlineTeamsOnlyUser`, `MCOEV`, Enterprise Voice, SIP, and a registrar pool.
 
 ---
 
@@ -121,7 +129,7 @@ credentials are configured; it shows **"tenant pending"** until those are grante
 
 ## 1. Current deployed state (verified 2026-06-13)
 
-- **Hosted agent**: version **19**, image `crbdoregvn6di7y.azurecr.io/morgan-digital-cfo:20260612110227` (digest `sha256:46506783…`), protocol `responses/1.0.0`, model `gpt-5-mini`. Version 19 restores this known-good image after a transient platform-side Responses 500 affected v18 (image/model/protocol unchanged). P0 smoke: **all 4 prompts passed** via direct REST. Verified-minimal env (Azure OpenAI routing only; Graph/MCP/voice/storage intentionally not configured).
+- **Hosted agent evidence**: version **10** is the preserved public verified baseline, protocol `responses/1.0.0`, model `gpt-5-mini`; all four P0 prompts passed through direct REST. Metadata records later iterations, but do not promote them without saving a fresh smoke and governance P0 result. The verified-minimal environment proves Azure OpenAI routing only; Graph/MCP/voice/storage are intentionally not included.
 - **App Service**: **Basic B1** tier with **Always On enabled**, **healthy**, running the latest code (SDK upgrade + digital-worker capability port + LLM-driven Kanban work selection). `AUTONOMOUS_WORKDAY_ENABLED=true`, timezone **Europe/London**, window **09:00–17:00**.
 - **D-ID humanoid avatar**: connected — the App Service domain is authorized on the D-ID client key, and the voice runs the expressive `eleven_turbo_v2_5` profile (see the two D-ID sections above). The D-ID agent is shared with another Morgan deployment.
 - Plan `rg-morgan-finance-agent-plan` (Australia East, B1) is shared with one other web app; Always On is enabled only on the D-CFO app.
@@ -155,7 +163,7 @@ You do **not** need to do anything for the daily run — just open Mission Contr
 2. Show the **job description, operating cadence, Kanban, blockers, cost line, audit** — the digital-worker cockpit.
 3. Open **/voice** (Azure Voice Live avatar) and **/voice/did** (D-ID humanoid) — use the **avatar toggle** in Mission Control.
 4. Open **/approvals** — the **HITL L2/L3** queue (board P&L send, $250k reforecast, variance post, vendor payment). Approve / edit / decline / cancel.
-5. Show the **Governance** view (prompts, chain-of-thought summary, tool selection, HITL gates, audit ledger) and **Retrospectives**.
+5. Show **Morgan Trust Center** (safe decision summary, policy result, provenance, HITL gate, outcome, audit ledger) and **Retrospectives**. Never call the visible summary private chain-of-thought.
 6. Trigger work live: in Teams/chat ask "What's the latest P&L?", "Any anomalies?", "Give me a Microsoft IQ briefing", "Run your autonomous workday".
 
 Follow `docs/dragons-den-talk-track.md` for the timed video script.
@@ -214,4 +222,5 @@ node scripts/deploy-appservice-zip.cjs --skip-settings --skip-auth --skip-roles
 
 - Financial figures are **deterministic Contoso demo data**; IQ pillars run on demo adapters. Methods/cadence/governance/cost economics are real. Point Morgan at a Fabric/Power BI model, GL/ERP, Agent 365 MCP, and Cosmos to run on live data (contracts are production-shaped).
 - The hosted agent (v19) proves **reachability, Azure OpenAI routing, and bounded behavior** — not Graph/MCP, voice, observability, durable storage, or sub-agent production parity.
-- App Service runs on **B1 with Always On**, so it stays warm (no cold-start) and the in-process scheduler runs daily. Note durable state is still process-local until Cosmos is wired, so an app restart/redeploy resets the in-memory task ledger.
+- App Service runs on **B1 with Always On**. Mission tasks, work cards, retrospectives, and HITL approvals use atomic files on durable App Service storage for the current single-instance showcase; artifact-evaluation and audit ring buffers remain process-local. Cosmos transactional storage is still required before horizontal scale.
+- External email, Teams, calendar, Planner, SharePoint publication, and calls are server-policy controlled. Say **approval required**, **executed**, **simulated**, **configured only**, or **unavailable** based on the actual result.

@@ -8,11 +8,23 @@ import { getLiveMcpToolDefinitions } from '../tools/mcpToolSetup';
 import { recordAuditEvent } from '../observability/agentAudit';
 import { recordAgentEvent } from '../observability/agentEvents';
 import { tryHandleShowcaseShortcut } from '../showcaseShortcuts';
+import { createExecutionContext } from '../governance/executionContext';
+import { isToolModelVisible } from '../governance/toolPolicy';
 
 interface FoundryResponsesRequest {
   input?: string | Array<{ role?: string; content?: string | Array<{ text?: string; type?: string }> }>;
   instructions?: string;
   metadata?: Record<string, unknown>;
+}
+
+function safeMetadata(value: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!value) return {};
+  const allowed = new Set(['correlationId', 'sessionId', 'scenario', 'evaluationId', 'traceparent']);
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => allowed.has(key))
+      .map(([key, item]) => [key, typeof item === 'string' ? item.slice(0, 200) : item]),
+  );
 }
 
 function extractInputText(input: FoundryResponsesRequest['input']): string {
@@ -83,7 +95,10 @@ interface WorkIQStatusSummary {
 
 function parseToolJson<T>(value: string, fallback: T): T {
   try {
-    return JSON.parse(value) as T;
+    const parsed = JSON.parse(value) as { status?: string; result?: T } | T;
+    return (parsed && typeof parsed === 'object' && 'status' in parsed && 'result' in parsed
+      ? (parsed as { result?: T }).result
+      : parsed) as T || fallback;
   } catch {
     return fallback;
   }
@@ -111,8 +126,9 @@ function isHostedConfigurationQuestion(inputText: string): boolean {
 async function tryHandleHostedConfigurationQuestion(inputText: string, correlationId: string): Promise<string | null> {
   if (!isHostedConfigurationQuestion(inputText)) return null;
 
-  const readiness = parseToolJson<EnterpriseReadinessCheckSummary[]>(await executeTool('getEnterpriseReadiness', {}), []);
-  const workIq = parseToolJson<WorkIQStatusSummary>(await executeTool('getWorkIQStatus', {}), {});
+  const executionContext = createExecutionContext({ origin: 'foundry-hosted', correlationId, runtime: 'foundry-hosted', actor: { kind: 'agent', name: 'Microsoft Foundry hosted runtime' } });
+  const readiness = parseToolJson<EnterpriseReadinessCheckSummary[]>(await executeTool('getEnterpriseReadiness', {}, undefined, executionContext), []);
+  const workIq = parseToolJson<WorkIQStatusSummary>(await executeTool('getWorkIQStatus', {}, undefined, executionContext), {});
   recordAgentEvent({
     kind: 'agent.reply',
     label: 'Foundry hosted readiness/configuration answer generated deterministically',
@@ -191,7 +207,10 @@ async function runMorganCompletion(inputText: string, requestMetadata?: Record<s
   const hostedConfigurationReply = await tryHandleHostedConfigurationQuestion(inputText, correlationId);
   if (hostedConfigurationReply) return hostedConfigurationReply;
 
-  const showcaseReply = await tryHandleShowcaseShortcut(inputText, undefined, { allowVoiceActions: false });
+  const showcaseReply = await tryHandleShowcaseShortcut(inputText, undefined, {
+    allowVoiceActions: false,
+    executionContext: createExecutionContext({ origin: 'foundry-hosted', correlationId, runtime: 'foundry-hosted', actor: { kind: 'agent', name: 'Microsoft Foundry hosted runtime' } }),
+  });
   if (showcaseReply) {
     recordAgentEvent({
       kind: 'agent.reply',
@@ -225,6 +244,7 @@ async function runMorganCompletion(inputText: string, requestMetadata?: Record<s
   } catch (err) {
     recordAgentEvent({ kind: 'mcp.discover', label: 'Foundry live MCP discovery failed', status: 'error', correlationId, data: { error: err instanceof Error ? err.message : String(err) } });
   }
+  liveMcpTools = liveMcpTools.filter((tool) => isToolModelVisible(toolName(tool), true));
   const liveMcpToolNames = new Set(liveMcpTools.map(toolName));
   const staticToolNames = new Set(staticTools.map(toolName));
   const mergedTools = [
@@ -287,8 +307,21 @@ async function runMorganCompletion(inputText: string, requestMetadata?: Record<s
       const toolStarted = Date.now();
       const source = liveMcpToolNames.has(toolCall.function.name) ? 'Agent 365 MCP' : 'Morgan static tool';
       recordAgentEvent({ kind: 'tool.call', label: `${source}: ${toolCall.function.name}`, status: 'started', correlationId, data: { source, tool: toolCall.function.name, parameterKeys: Object.keys(params) } });
-      const content = await executeTool(toolCall.function.name, params);
-      recordAgentEvent({ kind: 'tool.result', label: `${toolCall.function.name} ${content.includes('"error"') ? 'failed' : 'completed'}`, status: content.includes('"error"') ? 'error' : 'ok', durationMs: Date.now() - toolStarted, correlationId, data: { source, tool: toolCall.function.name, resultBytes: Buffer.byteLength(content, 'utf8') } });
+      const content = await executeTool(
+        toolCall.function.name,
+        params,
+        undefined,
+        createExecutionContext({
+          origin: 'foundry-hosted',
+          correlationId,
+          runtime: 'foundry-hosted',
+          actor: { kind: 'agent', name: 'Microsoft Foundry hosted runtime' },
+        }),
+      );
+      let outcome: { status?: string; approvalId?: string; result?: { provenance?: unknown } } = {};
+      try { outcome = JSON.parse(content) as typeof outcome; } catch { /* malformed tool output is handled as failure below */ }
+      const failed = outcome.status === 'failed' || outcome.status === 'denied' || content.includes('"error"');
+      recordAgentEvent({ kind: 'tool.result', label: `${toolCall.function.name} ${failed ? 'failed' : outcome.status || 'completed'}`, status: failed ? 'error' : outcome.status === 'approval_required' ? 'partial' : 'ok', durationMs: Date.now() - toolStarted, correlationId, data: { source, tool: toolCall.function.name, resultBytes: Buffer.byteLength(content, 'utf8'), executionStatus: outcome.status, approvalId: outcome.approvalId, provenance: outcome.result?.provenance } });
       return { role: 'tool' as const, tool_call_id: toolCall.id, content };
     }));
     messages.push(...toolResults);
@@ -297,7 +330,8 @@ async function runMorganCompletion(inputText: string, requestMetadata?: Record<s
   return 'Morgan reached the hosted-agent tool iteration limit. Review observability events for the detailed trace.';
 }
 
-export function registerFoundryResponsesRoutes(server: express.Express): void {
+export function registerFoundryResponsesRoutes(server: express.Express, options: { authorize?: express.RequestHandler } = {}): void {
+  const handlers = options.authorize ? [options.authorize] : [];
   const readinessHandler = (_req: express.Request, res: Response) => {
     res.status(200).json({
       status: 'ready',
@@ -308,30 +342,31 @@ export function registerFoundryResponsesRoutes(server: express.Express): void {
     });
   };
 
-  server.get('/responses/health', readinessHandler);
-  server.get('/readiness', readinessHandler);
+  server.get('/responses/health', ...handlers, readinessHandler);
+  server.get('/readiness', ...handlers, readinessHandler);
 
-  server.post('/responses', async (req: express.Request, res: Response) => {
+  server.post('/responses', ...handlers, async (req: express.Request, res: Response) => {
     const body = req.body as FoundryResponsesRequest;
     const inputText = extractInputText(body.input);
     const correlationId = String(req.headers['x-ms-client-request-id'] || req.headers['x-correlation-id'] || `foundry-${Date.now()}`);
+    const metadata = safeMetadata(body.metadata);
 
     recordAuditEvent({
       kind: 'foundry.response.request',
       label: 'Foundry hosted agent request received',
       correlationId,
-      data: { inputLength: inputText.length, metadata: body.metadata || {} },
+      data: { inputLength: inputText.length, metadataKeys: Object.keys(metadata) },
     });
 
     try {
-      const text = await runMorganCompletion(inputText, { ...(body.metadata || {}), correlationId });
+      const text = await runMorganCompletion(inputText, { ...metadata, correlationId });
       recordAuditEvent({
         kind: 'foundry.response.completed',
         label: 'Foundry hosted agent request completed',
         correlationId,
         data: { outputLength: text.length },
       });
-      res.status(200).json(outputResponse(text, { ...(body.metadata || {}), correlationId }));
+      res.status(200).json(outputResponse(text, { ...metadata, correlationId }));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       recordAuditEvent({

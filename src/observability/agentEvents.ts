@@ -1,3 +1,5 @@
+import { sanitizeTelemetryData } from '../governance/redaction';
+
 export type AgentEventKind =
   | 'llm.turn'
   | 'tool.call'
@@ -32,6 +34,7 @@ function nextId(): string {
 }
 
 function safeData(data?: Record<string, unknown>): Record<string, unknown> | undefined {
+  data = sanitizeTelemetryData(data);
   if (!data) return undefined;
   const output: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {

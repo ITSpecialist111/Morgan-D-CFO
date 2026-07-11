@@ -84,16 +84,44 @@
     .agent-filters { display: flex; flex-wrap: wrap; gap: 8px; }
     .agent-filters button { padding: 7px 9px; color: var(--muted); }
     .agent-filters button.active { background: rgba(54, 194, 180, .18); border-color: rgba(54, 194, 180, .65); color: var(--text); }
-    .agent-event-list { display: grid; gap: 8px; max-height: 520px; overflow: auto; padding-right: 2px; }
-    .agent-event { border: 1px solid var(--border); border-left: 3px solid var(--blue); background: #141922; border-radius: 0 8px 8px 0; overflow: hidden; }
+    .agent-event-list {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      max-height: min(70vh, 760px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 2px;
+      scrollbar-gutter: stable;
+    }
+    .agent-event {
+      flex: 0 0 auto;
+      min-height: 44px;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--blue);
+      background: #141922;
+      border-radius: 0 8px 8px 0;
+      overflow: hidden;
+    }
     .agent-event.tool-call, .agent-event.mcp-invoke, .agent-event.graph-call { border-left-color: var(--amber); }
     .agent-event.tool-result.ok, .agent-event.agent-reply.ok, .agent-event.mcp-discover.ok { border-left-color: var(--teal); }
     .agent-event.error { border-left-color: var(--red); }
-    .agent-event summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 78px 122px 1fr auto; gap: 10px; align-items: center; padding: 10px 11px; }
+    .agent-event summary {
+      list-style: none;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: 78px 122px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 44px;
+      padding: 10px 11px;
+      line-height: 1.35;
+    }
     .agent-event summary::-webkit-details-marker { display: none; }
-    .agent-time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-    .agent-kind { color: #d8dee9; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-    .agent-label { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+    .agent-time { color: var(--muted); font-size: 11px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+    .agent-kind { color: #d8dee9; font-size: 11px; line-height: 1.35; text-transform: uppercase; letter-spacing: .04em; }
+    .agent-label { min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.35; }
     .agent-meta { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
     .agent-chip { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: var(--muted); border-radius: 999px; padding: 3px 6px; font-size: 10px; white-space: nowrap; }
     .agent-details { border-top: 1px solid var(--border); padding: 10px 11px; background: #111620; }
@@ -171,6 +199,12 @@
     .call-result { border: 1px solid var(--border); background: #111620; border-radius: 8px; padding: 11px 12px; color: var(--muted); font-size: 12px; line-height: 1.45; min-height: 44px; }
     .call-result.ready { border-color: rgba(54, 194, 180, .55); color: #dffcf8; }
     .call-result.error { border-color: rgba(224, 88, 88, .65); color: #ffd7d7; }
+    .call-approval { display: grid; gap: 10px; border: 1px solid rgba(240, 180, 41, .55); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: rgba(240, 180, 41, .08); padding: 12px; }
+    .call-approval-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .call-approval-head b { font-size: 13px; }
+    .call-approval p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .call-approval .call-actions { justify-content: flex-start; }
+    .call-approval a.primary { background: var(--amber); border-color: var(--amber); color: #241a02; font-weight: 650; }
     .active-call-list { display: grid; gap: 8px; }
     .active-call { border-left: 3px solid var(--teal); border-radius: 0 8px 8px 0; padding: 9px 10px; background: #141922; }
     .active-call b { display: block; font-size: 13px; margin-bottom: 3px; }
@@ -216,6 +250,11 @@
     .approval-actions button { padding: 7px 9px; }
     .approval-actions button.danger { color: #ffd7d7; border-color: rgba(224, 88, 88, .55); }
     .approval-status { min-height: 20px; color: var(--muted); font-size: 12px; }
+    .trust-center-grid { display:grid; grid-template-columns:repeat(5,minmax(150px,1fr)); gap:10px; }
+    .trust-card { border:1px solid var(--border); border-radius:9px; background:#111620; padding:12px; display:grid; gap:7px; }
+    .trust-card b { font-size:13px; }
+    .trust-card p { margin:0; color:var(--muted); font-size:11px; line-height:1.45; }
+    .evidence-legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
     /* Governance Observability — run-timeline + detail layout */
     .gov-runbar { display: flex; flex-wrap: wrap; gap: 10px 22px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: #151922; margin-bottom: 14px; }
     .gov-runbar .gov-run-field { display: grid; gap: 2px; min-width: 0; }
@@ -526,6 +565,7 @@
       .kanban-live-proof, .kanban-proof-grid { grid-template-columns: 1fr; }
       .kanban-live-actions { justify-content: flex-start; }
       .approval-summary { grid-template-columns: 1fr; }
+      .trust-center-grid { grid-template-columns:1fr; }
       .cost-summary, .cost-body, .cost-bar-row, .economics-summary, .economics-body { grid-template-columns: 1fr; }
       .subagent-grid { grid-template-columns: 1fr; }
       .roi-summary, .roi-body, .roi-detail-grid, .roi-research { grid-template-columns: 1fr; }
@@ -576,6 +616,20 @@
     </div>
   </header>
   <main id="appMain" hidden>
+    <section class="wide" id="trustCenter">
+      <div class="section-head"><h2>Morgan Trust Center</h2><span class="status-dot ready">glass-box evidence</span></div>
+      <div class="body">
+        <p class="small">A truthful capability boundary for viewers, operators, security teams, and auditors. Every claim is labelled by evidence grade.</p>
+        <div class="trust-center-grid">
+          <div class="trust-card"><span class="status-dot ready">LIVE</span><b>App Service experience</b><p>Mission Control, authenticated operator controls, scheduler, audit UI, avatar surfaces, and policy gateway.</p></div>
+          <div class="trust-card"><span class="status-dot partial">DEMO</span><b>Finance &amp; Microsoft IQ data</b><p>Deterministic Contoso fixtures. Production adapters are shown, but tenant financial data is not implied.</p></div>
+          <div class="trust-card"><span class="status-dot partial" id="trustMcpBadge">CHECKING</span><b>Agent 365 / WorkIQ</b><p id="trustMcpText">Checking configured connector evidence.</p></div>
+          <div class="trust-card"><span class="status-dot partial" id="trustHitlBadge">CHECKING</span><b>HITL policy gateway</b><p id="trustHitlText">Checking durable approval and signed-action controls.</p></div>
+          <div class="trust-card"><span class="status-dot ready">VERIFIED</span><b>Foundry hosted baseline</b><p>Version 10 proves hosted reachability, Azure OpenAI routing, and bounded P0 behavior only—not connector parity.</p></div>
+        </div>
+        <div class="evidence-legend"><span class="status-dot ready">LIVE</span><span class="status-dot ready">VERIFIED</span><span class="status-dot partial">DEMO</span><span class="status-dot partial">CONFIGURED ONLY</span><span class="status-dot error">UNAVAILABLE</span></div>
+      </div>
+    </section>
     <section>
       <div class="section-head"><h2>Today</h2><span class="small" id="date"></span></div>
       <div class="body">
@@ -721,7 +775,7 @@
     <section class="wide" id="governanceObservability">
       <div class="section-head"><h2>Governance Observability &amp; Audit</h2><span class="status-dot partial" id="governanceBadge">waiting</span></div>
       <div class="body">
-        <p class="small" style="margin:0 0 12px">The governance layer beyond the Beta Starfield thought view: a full run timeline for every CFO decision, joined by correlation ID with its prompt, chain-of-thought reasoning, tool selection, response, HITL gate, and audit severity. Same telemetry stream &mdash; now with the accountability detail finance, audit, and compliance teams need for board-grade evidence.</p>
+        <p class="small" style="margin:0 0 12px">Morgan Trust Center joins each CFO run by correlation ID: request, safe decision summary, policy result, tool selection, provenance, HITL gate, outcome, and audit severity. Private model chain-of-thought is never exposed.</p>
         <div class="agent-mind-summary" style="margin-bottom:14px">
           <div class="agent-mind-stat"><b id="govTraceCount">0</b><span>decision traces</span></div>
           <div class="agent-mind-stat"><b id="govReasoningTurns">0</b><span>reasoning turns</span></div>
@@ -796,6 +850,7 @@
             <div class="call-stat"><b>Active calls</b><span id="teamsCallActiveCount">0</span></div>
             <div class="call-stat"><b>Video presence</b><span id="teamsCallVideo">Audio bridge</span></div>
           </div>
+          <p class="small" style="margin:0">The signed-in finance operator's explicit button click authorizes one immediate call. No second L2 approval is required; autonomous and model-initiated calls remain governed separately.</p>
           <div class="call-grid">
             <div class="call-field">
               <label for="teamsCallTarget">Teams user object ID</label>
@@ -823,6 +878,18 @@
             <button id="teamsCallRefresh" type="button">Refresh status</button>
           </div>
           <div class="call-result" id="teamsCallResult">Ready for a protected operator command.</div>
+          <div class="call-approval" id="teamsCallApproval" hidden>
+            <div class="call-approval-head">
+              <b id="teamsCallApprovalTitle">L2 approval required</b>
+              <span class="status-dot partial" id="teamsCallApprovalBadge">waiting</span>
+            </div>
+            <p id="teamsCallApprovalText">Review the exact call action. Morgan will place it only after an authorized decision.</p>
+            <div class="call-actions">
+              <a class="primary" id="teamsCallApprovalLink" href="/approvals" target="_blank" rel="noopener">Review and approve</a>
+              <button id="teamsCallResume" type="button">Check approval &amp; place call</button>
+              <button id="teamsCallApprovalDismiss" type="button">Dismiss</button>
+            </div>
+          </div>
           <div class="active-call-list" id="teamsCallActiveList"></div>
         </div>
       </div>
@@ -2290,7 +2357,7 @@
 
     async function loadSubAgentStatus() {
       try {
-        const response = await fetch('/api/health', { credentials: 'include' });
+        const response = await fetch('/api/readiness', { credentials: 'include' });
         if (!response.ok) { renderSubAgents(null); return; }
         const health = await response.json();
         const statusById = {};
@@ -2308,8 +2375,10 @@
       }
     }
 
-    function renderIqCard(kind, title, subtitle, rows) {
-      return `<div class="iq-card ${kind}"><div class="tag">${subtitle}</div><b>${title}</b><p>${(rows || []).slice(0, 4).join('<br>')}</p></div>`;
+    function renderIqCard(kind, title, subtitle, rows, provenance) {
+      const mode = provenance?.live ? 'LIVE' : 'DEMO';
+      const state = provenance?.live ? 'ready' : 'partial';
+      return `<div class="iq-card ${kind}"><span class="status-dot ${state}">${mode}</span><div class="tag">${escapeHtml(subtitle)}</div><b>${escapeHtml(title)}</b><p>${(rows || []).slice(0, 4).map((row) => escapeHtml(String(row))).join('<br>')}</p><p class="small"><b>Source:</b> ${escapeHtml(provenance?.source || 'not reported')}<br><b>Production path:</b> ${escapeHtml(provenance?.productionPath || 'not reported')}</p></div>`;
     }
 
     function renderMicrosoftIQ(iq) {
@@ -2327,17 +2396,17 @@
         actions.innerHTML = '';
         return;
       }
-      badge.className = 'status-dot live';
-      badge.textContent = 'working demo';
+      badge.className = 'status-dot partial';
+      badge.textContent = 'deterministic demo';
       const work = iq.pillars.workIQ || {};
       const foundry = iq.pillars.foundryIQ || {};
       const fabric = iq.pillars.fabricIQ || {};
       const fabricMetrics = fabric.metrics || {};
-      headline.innerHTML = `<div class="compact-item"><span class="status-dot live">${iq.operatingWindow || '09:00-17:00 daily'}</span><p><b>${iq.headline || 'Microsoft IQ briefing ready.'}</b></p><p>${(iq.executiveSummary || []).join('<br>')}</p></div>`;
+      headline.innerHTML = `<div class="compact-item"><span class="status-dot partial">DEMO DATA · ${escapeHtml(iq.operatingWindow || '09:00-17:00 daily')}</span><p><b>${escapeHtml(iq.headline || 'Microsoft IQ briefing ready.')}</b></p><p>${(iq.executiveSummary || []).map((item) => escapeHtml(String(item))).join('<br>')}</p></div>`;
       pillars.innerHTML = [
-        renderIqCard('work', 'WorkIQ', 'Microsoft 365 work graph', work.topSignals || []),
-        renderIqCard('foundry', 'Foundry IQ', 'model, knowledge, trace, eval', foundry.modelInsights || []),
-        renderIqCard('fabric', 'Fabric IQ', fabric.semanticModel || 'semantic model', (fabric.crossFunctionalSignals || []).map((signal) => `${signal.function}: ${signal.value} - ${signal.cfoImplication}`)),
+        renderIqCard('work', 'WorkIQ', 'Microsoft 365 work graph', work.topSignals || [], work.provenance),
+        renderIqCard('foundry', 'Foundry IQ', 'model, knowledge, trace, eval', foundry.modelInsights || [], foundry.provenance),
+        renderIqCard('fabric', 'Fabric IQ', fabric.semanticModel || 'semantic model', (fabric.crossFunctionalSignals || []).map((signal) => `${signal.function}: ${signal.value} - ${signal.cfoImplication}`), fabric.provenance),
       ].join('');
       const metricRows = [
         ['Revenue', displayCurrency(fabricMetrics.revenue)],
@@ -2487,7 +2556,12 @@
       'tool.result': 'Tool Result',
       'mcp.discover': 'MCP Discovery',
       'mcp.invoke': 'MCP Invoke',
-      'graph.call': 'Graph Call'
+      'graph.call': 'Graph Call',
+      'policy.denied': 'Policy Denied',
+      'policy.approval.required': 'Approval Required',
+      'hitl.approval.requested': 'Approval Requested',
+      'hitl.approval.decision': 'Human Decision',
+      'hitl.approval.card.decision': 'Card Decision'
     };
     const governanceState = { traces: [], selectedTraceId: null, selectedStepId: null, detailTab: 'human' };
 
@@ -2602,7 +2676,7 @@
           blocks.push(`<div class="gov-field"><div class="gov-field-label">Step</div><div class="gov-field-value">${escapeHtml(stepDisplayName(step))} — ${escapeHtml(stepStatusText(step))}</div></div>`);
         }
         if (data.reasoningSummary) {
-          blocks.push(`<div class="gov-field"><div class="gov-field-label">Chain of thought</div><div class="gov-field-value cot">${escapeHtml(String(data.reasoningSummary))}</div></div>`);
+          blocks.push(`<div class="gov-field"><div class="gov-field-label">Decision summary</div><div class="gov-field-value cot">${escapeHtml(String(data.reasoningSummary))}</div></div>`);
         }
         if (Array.isArray(data.toolCalls) && data.toolCalls.length) {
           blocks.push(`<div class="gov-field"><div class="gov-field-label">Tool selection</div><div class="gov-tool-chips">${data.toolCalls.map((tool) => `<span class="agent-chip">${escapeHtml(String(tool))}</span>`).join('')}</div></div>`);
@@ -2610,6 +2684,30 @@
         if (data.tool) {
           const params = Array.isArray(data.parameterKeys) ? data.parameterKeys.join(', ') : '';
           blocks.push(`<div class="gov-field"><div class="gov-field-label">Calling tool</div><div class="gov-field-value"><code>${escapeHtml(String(data.tool))}</code>${data.source ? ` via ${escapeHtml(String(data.source))}` : ''}${params ? `<br><span class="small">params: ${escapeHtml(params)}</span>` : ''}</div></div>`);
+        }
+        if (data.policyDecision || data.risk || data.approvalId || data.actionDigest) {
+          blocks.push(`<div class="gov-field"><div class="gov-field-label">Policy and approval</div><div class="gov-field-value">`
+            + `${data.policyDecision ? `<b>${escapeHtml(String(data.policyDecision))}</b>` : ''}`
+            + `${data.risk ? ` · risk ${escapeHtml(String(data.risk))}` : ''}`
+            + `${data.approvalId ? `<br>Approval: <code>${escapeHtml(String(data.approvalId))}</code>` : ''}`
+            + `${data.actionDigest ? `<br>Action digest: <code>${escapeHtml(String(data.actionDigest))}</code>` : ''}`
+            + `</div></div>`);
+        }
+        if (data.origin || data.runtime || data.source) {
+          blocks.push(`<div class="gov-field"><div class="gov-field-label">Provenance</div><div class="gov-field-value">`
+            + `${data.origin ? `Origin: ${escapeHtml(String(data.origin))}` : ''}`
+            + `${data.runtime ? ` · Runtime: ${escapeHtml(String(data.runtime))}` : ''}`
+            + `${data.source ? ` · Source: ${escapeHtml(String(data.source))}` : ''}`
+            + `</div></div>`);
+        }
+        if (data.executionStatus || data.provenance) {
+          const provenance = data.provenance || {};
+          blocks.push(`<div class="gov-field"><div class="gov-field-label">Execution evidence</div><div class="gov-field-value">`
+            + `${data.executionStatus ? `Outcome: <b>${escapeHtml(String(data.executionStatus))}</b>` : ''}`
+            + `${provenance.mode ? `<br>Data mode: <b>${escapeHtml(String(provenance.mode))}</b>` : ''}`
+            + `${provenance.source ? `<br>Source: ${escapeHtml(String(provenance.source))}` : ''}`
+            + `${provenance.productionPath ? `<br>Production path: ${escapeHtml(String(provenance.productionPath))}` : ''}`
+            + `</div></div>`);
         }
         if (data.promptPreview) {
           blocks.push(`<div class="gov-field"><div class="gov-field-label">Prompt / input</div><div class="gov-field-value">${escapeHtml(String(data.promptPreview))}</div></div>`);
@@ -2619,7 +2717,7 @@
         }
         if (!blocks.length) {
           if (trace.prompt) blocks.push(`<div class="gov-field"><div class="gov-field-label">Prompt / input</div><div class="gov-field-value">${escapeHtml(trace.prompt)}</div></div>`);
-          if (trace.chainOfThought?.length) blocks.push(`<div class="gov-field"><div class="gov-field-label">Chain of thought</div><div class="gov-field-value cot">${trace.chainOfThought.map((s) => escapeHtml(s)).join('<br>')}</div></div>`);
+          if (trace.decisionSummaries?.length) blocks.push(`<div class="gov-field"><div class="gov-field-label">Decision summaries</div><div class="gov-field-value cot">${trace.decisionSummaries.map((s) => escapeHtml(s)).join('<br>')}</div></div>`);
           if (trace.toolsSelected?.length) blocks.push(`<div class="gov-field"><div class="gov-field-label">Tool selection</div><div class="gov-tool-chips">${trace.toolsSelected.map((t) => `<span class="agent-chip">${escapeHtml(t)}</span>`).join('')}</div></div>`);
           if (trace.response) blocks.push(`<div class="gov-field"><div class="gov-field-label">Response</div><div class="gov-field-value">${escapeHtml(trace.response)}</div></div>`);
         }
@@ -2736,6 +2834,18 @@
       return items.filter(predicate).length;
     }
 
+    function renderTrustCenter(data) {
+      const mcp = (data.enterpriseReadiness || []).find((item) => item.id === 'mcp-tooling');
+      const badge = document.getElementById('trustMcpBadge');
+      const text = document.getElementById('trustMcpText');
+      const configured = mcp?.status === 'ready' || mcp?.status === 'configured';
+      badge.className = `status-dot ${configured ? 'ready' : 'partial'}`;
+      badge.textContent = configured ? 'CONFIGURED ONLY' : 'TENANT PENDING';
+      text.textContent = configured
+        ? `${mcp.signal}. A configuration signal is not treated as proof of a successful tenant action.`
+        : (mcp?.signal || 'Agent 365 MCP connector evidence is unavailable.');
+    }
+
     function renderHitlApprovals(data) {
       const requests = Array.isArray(data?.requests) ? data.requests : [];
       const pending = approvalCountWhere(requests, (item) => item.status === 'pending');
@@ -2748,6 +2858,14 @@
       document.getElementById('hitlL3Count').textContent = String(approvalCountWhere(requests, (item) => item.level === 'L3'));
       badge.className = `status-dot ${pending ? 'partial' : 'ready'}`;
       badge.textContent = pending ? `${pending} waiting` : 'clear';
+      const trustBadge = document.getElementById('trustHitlBadge');
+      const trustText = document.getElementById('trustHitlText');
+      const enforced = data?.enforcement?.mode === 'server-side-policy';
+      const signed = Boolean(data?.enforcement?.signedCardActions);
+      const healthy = data?.storage?.healthy !== false;
+      trustBadge.className = `status-dot ${enforced && signed && healthy ? 'ready' : 'partial'}`;
+      trustBadge.textContent = enforced && signed && healthy ? 'ENFORCED' : 'HARDENING';
+      trustText.textContent = `Policy: ${enforced ? 'server-side' : 'not reported'} · storage: ${data?.storage?.backend || 'unknown'} (${data?.enforcement?.singleInstanceOnly ? 'single-instance' : 'distributed'}) · signed cards: ${signed ? 'on' : 'configure MORGAN_HITL_SIGNING_SECRET'}.`;
       document.getElementById('hitlApprovalStatus').textContent = `${requests.length} approval record(s) loaded. Use Open approval queue for the full decision surface.`;
       if (!requests.length) {
         listEl.innerHTML = '<div class="compact-item"><p><b>No HITL approvals are waiting.</b></p><p>Morgan will add L2/L3 requests here when a finance approver sign-off is required.</p></div>';
@@ -2757,7 +2875,7 @@
         const disabled = item.status === 'pending' ? '' : 'disabled';
         const decidedClass = item.status === 'pending' ? '' : ' decided';
         const metaParts = [item.caseId, item.customer, item.actionType].filter(Boolean).map((value) => escapeHtml(String(value))).join(' · ');
-        return `<div class="approval-card${decidedClass}" id="mission-${escapeHtml(item.id)}">
+        return `<div class="approval-card${decidedClass}" id="mission-${escapeHtml(item.id)}" data-version="${escapeHtml(String(item.version))}" data-action-digest="${escapeHtml(item.actionDigest)}">
           <div class="approval-card-head">
             <div><b>${escapeHtml(item.title || 'Approval request')}</b><div class="small">${metaParts}</div></div>
             <span class="status-dot ${escapeHtml(item.status)}">${escapeHtml(item.level)} ${escapeHtml(item.status)}</span>
@@ -2766,10 +2884,10 @@
           <p class="small"><b>Recipient:</b> ${escapeHtml(item.recipient)} · <b>Tool:</b> ${escapeHtml(item.tool)}</p>
           <textarea class="approval-note" id="mission-note-${escapeHtml(item.id)}" placeholder="Optional decision note or edited body" ${disabled}></textarea>
           <div class="approval-actions">
-            <button class="primary" type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="approve">Approve</button>
-            <button type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="approve_with_edits">Approve With Edits</button>
-            <button class="danger" type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="decline">Decline</button>
-            <button type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="cancel">Cancel</button>
+            <button class="primary" type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="approve" data-hitl-token="${escapeHtml(item.decisionTokens?.approve || '')}">Approve</button>
+            <button type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="approve_with_edits" data-hitl-token="${escapeHtml(item.decisionTokens?.approve_with_edits || '')}">Approve With Edits</button>
+            <button class="danger" type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="decline" data-hitl-token="${escapeHtml(item.decisionTokens?.decline || '')}">Decline</button>
+            <button type="button" ${disabled} data-hitl-id="${escapeHtml(item.id)}" data-hitl-decision="cancel" data-hitl-token="${escapeHtml(item.decisionTokens?.cancel || '')}">Cancel</button>
           </div>
         </div>`;
       }).join('');
@@ -2782,16 +2900,25 @@
       return data;
     }
 
-    async function recordMissionControlHitlDecision(id, decision) {
+    async function recordMissionControlHitlDecision(id, decision, decisionToken) {
       const note = document.getElementById(`mission-note-${id}`)?.value || '';
+      const record = document.getElementById(`mission-${id}`);
       document.getElementById('hitlApprovalStatus').textContent = `Recording ${decision}...`;
       const result = await authedJson(`/api/hitl/approvals/${encodeURIComponent(id)}/decision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ decision, rationale: note, editedBody: decision === 'approve_with_edits' ? note : undefined }),
+        body: JSON.stringify({
+          decision,
+          rationale: note,
+          editedBody: decision === 'approve_with_edits' ? note : undefined,
+          version: Number(record?.dataset.version),
+          actionDigest: record?.dataset.actionDigest,
+          decisionToken,
+        }),
       });
       document.getElementById('hitlApprovalStatus').textContent = result?.request?.title ? `Recorded ${decision} for ${result.request.title}.` : `Recorded ${decision}.`;
       await loadHitlApprovals();
+      if (teamsCallState.pendingApproval?.id === id) await checkTeamsCallApproval();
     }
 
     async function sendMissionControlHitlCard() {
@@ -2864,7 +2991,16 @@
       }
     }
 
-    const teamsCallState = { status: null, loading: false };
+    const teamsCallState = {
+      status: null,
+      loading: false,
+      pendingApproval: null,
+      approvalPollTimer: null,
+      approvalPollAttempts: 0,
+    };
+    const hitlDecisionChannel = (() => {
+      try { return 'BroadcastChannel' in window ? new BroadcastChannel('morgan-hitl') : null; } catch { return null; }
+    })();
     const corpgenDayState = { loading: false };
 
     function setCorpgenDayResult(message, kind = '') {
@@ -2943,6 +3079,113 @@
       result.className = `call-result ${kind}`.trim();
     }
 
+    function readTeamsCallPayload() {
+      return {
+        teamsUserAadOid: document.getElementById('teamsCallTarget').value.trim() || undefined,
+        targetDisplayName: document.getElementById('teamsCallDisplayName').value.trim() || undefined,
+        reason: document.getElementById('teamsCallReason').value.trim() || undefined,
+        voice: document.getElementById('teamsCallVoice').value.trim() || undefined,
+        instructions: document.getElementById('teamsCallInstructions').value.trim() || undefined,
+      };
+    }
+
+    function stopTeamsCallApprovalPolling() {
+      if (teamsCallState.approvalPollTimer) clearTimeout(teamsCallState.approvalPollTimer);
+      teamsCallState.approvalPollTimer = null;
+    }
+
+    function renderTeamsCallApproval() {
+      const panel = document.getElementById('teamsCallApproval');
+      const pending = teamsCallState.pendingApproval;
+      panel.hidden = !pending;
+      if (!pending) return;
+      document.getElementById('teamsCallApprovalTitle').textContent = `${pending.level || 'L2'} approval required for this Teams call`;
+      const badge = document.getElementById('teamsCallApprovalBadge');
+      badge.className = `status-dot ${pending.status === 'approved' || pending.status === 'approved_with_edits' ? 'configured' : 'partial'}`;
+      badge.textContent = pending.status === 'approved' || pending.status === 'approved_with_edits' ? 'approved — resuming' : 'waiting';
+      document.getElementById('teamsCallApprovalText').textContent = pending.status === 'approved' || pending.status === 'approved_with_edits'
+        ? `Approval ${pending.id} is recorded. Morgan is placing the exact approved call now.`
+        : `Approval ${pending.id} is waiting. Review it in a new tab; this page will detect the decision and place the exact approved call automatically.`;
+      document.getElementById('teamsCallApprovalLink').href = `/approvals#${encodeURIComponent(pending.id)}`;
+      document.getElementById('teamsCallResume').disabled = teamsCallState.loading;
+    }
+
+    function clearTeamsCallApproval() {
+      stopTeamsCallApprovalPolling();
+      teamsCallState.pendingApproval = null;
+      teamsCallState.approvalPollAttempts = 0;
+      renderTeamsCallApproval();
+    }
+
+    function scheduleTeamsCallApprovalCheck(delayMs = 3000) {
+      stopTeamsCallApprovalPolling();
+      if (!teamsCallState.pendingApproval || teamsCallState.approvalPollAttempts >= 60) return;
+      teamsCallState.approvalPollTimer = setTimeout(() => {
+        checkTeamsCallApproval().catch((error) => {
+          setTeamsCallResult(error.message || 'Unable to check Teams call approval.', 'error');
+          scheduleTeamsCallApprovalCheck(5000);
+        });
+      }, delayMs);
+    }
+
+    function rememberTeamsCallApproval(data, payload) {
+      const sameApproval = teamsCallState.pendingApproval?.id === data.approvalId;
+      teamsCallState.pendingApproval = {
+        id: data.approvalId,
+        level: data.approvalLevel || 'L2',
+        status: 'pending',
+        payload,
+      };
+      if (!sameApproval) teamsCallState.approvalPollAttempts = 0;
+      renderTeamsCallApproval();
+      scheduleTeamsCallApprovalCheck();
+    }
+
+    function restorePendingTeamsCallApproval(data) {
+      if (teamsCallState.pendingApproval || teamsCallState.loading) return;
+      const request = (data?.requests || [])
+        .filter((item) => item.tool === 'initiateTeamsFederatedCall' && item.status === 'pending' && item.triggeredBy === 'web')
+        .sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))[0];
+      if (!request) return;
+      const params = request.action?.params || {};
+      if (!document.getElementById('teamsCallTarget').value && params.teams_user_aad_oid) document.getElementById('teamsCallTarget').value = params.teams_user_aad_oid;
+      if (!document.getElementById('teamsCallDisplayName').value && params.target_display_name) document.getElementById('teamsCallDisplayName').value = params.target_display_name;
+      if (params.reason) document.getElementById('teamsCallReason').value = params.reason;
+      if (!document.getElementById('teamsCallVoice').value && params.voice) document.getElementById('teamsCallVoice').value = params.voice;
+      rememberTeamsCallApproval({ approvalId: request.id, approvalLevel: request.level }, readTeamsCallPayload());
+      setTeamsCallResult(`Recovered pending ${request.level || 'L2'} approval ${request.id}. Review it below; Morgan will resume the exact call after approval.`, '');
+    }
+
+    async function checkTeamsCallApproval() {
+      const pending = teamsCallState.pendingApproval;
+      if (!pending || teamsCallState.loading) return;
+      teamsCallState.approvalPollAttempts += 1;
+      const data = await authedJson('/api/hitl/approvals');
+      const request = (data.requests || []).find((item) => item.id === pending.id);
+      if (!request) {
+        clearTeamsCallApproval();
+        renderTeamsCallStatus(teamsCallState.status || {});
+        setTeamsCallResult(`Approval ${pending.id} is no longer available. Start a fresh call request.`, 'error');
+        return;
+      }
+      pending.status = request.status;
+      renderTeamsCallApproval();
+      if (request.status === 'pending') {
+        scheduleTeamsCallApprovalCheck();
+        return;
+      }
+      if (request.status === 'approved' || request.status === 'approved_with_edits') {
+        stopTeamsCallApprovalPolling();
+        setTeamsCallResult(`Approval ${pending.id} recorded. Placing the exact approved Teams call...`, '');
+        await placeTeamsCall(pending.payload, pending.id);
+        return;
+      }
+      clearTeamsCallApproval();
+      renderTeamsCallStatus(teamsCallState.status || {});
+      const detail = pending.executionError ? ` ${pending.executionError}` : '';
+      setTeamsCallResult(`Teams call not placed. Approval ${pending.id} is ${request.status}.${detail}`, 'error');
+    }
+
     function formatTeamsCallOutcome(outcome) {
       if (!outcome || typeof outcome !== 'object') return '';
       const result = outcome.resultInformation || {};
@@ -2973,7 +3216,7 @@
       const activeCalls = Array.isArray(data?.activeCalls) ? data.activeCalls : [];
       const badge = document.getElementById('teamsCallBadge');
       const bridgeText = status.configured
-        ? status.federationResourceIdConfigured ? 'Federation ready' : 'Audio ready, policy marker pending'
+        ? status.federationResourceIdConfigured ? 'App bridge configured' : 'Audio ready, policy marker pending'
         : 'Setup incomplete';
       const badgeClass = status.configured
         ? status.federationResourceIdConfigured ? 'configured' : 'partial'
@@ -2989,23 +3232,28 @@
       const displayInput = document.getElementById('teamsCallDisplayName');
       if (!displayInput.value && defaults.targetDisplayName) displayInput.placeholder = defaults.targetDisplayName;
       const dialButton = document.getElementById('teamsCallDial');
-      dialButton.disabled = !status.configured || teamsCallState.loading;
+      dialButton.disabled = !status.configured || teamsCallState.loading || Boolean(teamsCallState.pendingApproval);
+      dialButton.textContent = teamsCallState.pendingApproval
+        ? teamsCallState.loading ? 'Placing approved call...' : 'Awaiting L2 approval'
+        : teamsCallState.loading ? 'Dialling...' : 'Dial with Morgan AI';
       const blockers = [];
       if (!status.acsConnectionConfigured) blockers.push('ACS_CONNECTION_STRING');
       if (!status.publicHostConfigured) blockers.push('BASE_URL or PUBLIC_HOSTNAME');
       if (!status.realtimeConfigured) blockers.push('Azure OpenAI or Voice Live endpoint');
       if (status.configured && !status.federationResourceIdConfigured) blockers.push('ACS_TEAMS_FEDERATION_RESOURCE_ID policy marker');
       dialButton.title = dialButton.disabled
-        ? `Teams call unavailable: ${blockers.length ? blockers.join(', ') : 'request already in progress'}`
+        ? teamsCallState.pendingApproval
+          ? 'Review the pending approval below; Morgan will resume this exact call after approval.'
+          : `Teams call unavailable: ${blockers.length ? blockers.join(', ') : 'request already in progress'}`
         : 'Dial Morgan over the ACS-to-Teams federation bridge';
       if (!status.configured && blockers.length) {
         setTeamsCallResult(`Teams calling needs configuration: ${blockers.join(', ')}.`, 'error');
-      } else {
+      } else if (!teamsCallState.pendingApproval) {
         const outcomeMessage = formatTeamsCallOutcome(data?.latestOutcome);
         if (outcomeMessage) setTeamsCallResult(outcomeMessage, data?.latestOutcome?.status === 'failed' || data?.latestOutcome?.severity === 'error' ? 'error' : 'ready');
       }
 
-      if (status.configured && !status.federationResourceIdConfigured && !(data?.latestOutcome?.status === 'failed' || data?.latestOutcome?.severity === 'error')) {
+      if (!teamsCallState.pendingApproval && status.configured && !status.federationResourceIdConfigured && !(data?.latestOutcome?.status === 'failed' || data?.latestOutcome?.severity === 'error')) {
         setTeamsCallResult('Teams audio bridge is configured; tenant federation policy marker is still pending.', '');
       }
 
@@ -3038,35 +3286,22 @@
       return data;
     }
 
-    async function triggerTeamsCall() {
+    async function placeTeamsCall(payload) {
       if (teamsCallState.loading) return;
-      const targetInput = document.getElementById('teamsCallTarget');
-      const displayInput = document.getElementById('teamsCallDisplayName');
-      const reasonInput = document.getElementById('teamsCallReason');
-      const voiceInput = document.getElementById('teamsCallVoice');
-      const instructionsInput = document.getElementById('teamsCallInstructions');
-      const defaultTargetConfigured = Boolean(teamsCallState.status?.defaults?.targetConfigured);
-      if (!targetInput.value.trim() && !defaultTargetConfigured) {
-        setTeamsCallResult('Enter a Teams user object ID or configure CFO_TEAMS_USER_AAD_OID.', 'error');
-        return;
-      }
       teamsCallState.loading = true;
-      document.getElementById('teamsCallDial').disabled = true;
-      setTeamsCallResult('Dialling Morgan through the Teams federation bridge...', '');
+      renderTeamsCallApproval();
+      renderTeamsCallStatus(teamsCallState.status || {});
+      setTeamsCallResult('Dialling Morgan through the ACS-to-Teams bridge...', '');
       try {
         const data = await authedJson('/api/mission-control/teams-call', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           timeoutMs: 30000,
-          body: JSON.stringify({
-            teamsUserAadOid: targetInput.value.trim() || undefined,
-            targetDisplayName: displayInput.value.trim() || undefined,
-            reason: reasonInput.value.trim() || undefined,
-            voice: voiceInput.value.trim() || undefined,
-            instructions: instructionsInput.value.trim() || undefined,
-          }),
+          body: JSON.stringify(payload),
         });
-        setTeamsCallResult(`Morgan call placed: ${data.callConnectionId || data.serverCallId || 'pending connection'}`, 'ready');
+        clearTeamsCallApproval();
+        const call = data.result || data;
+        setTeamsCallResult(`Morgan call placed: ${call.callConnectionId || call.serverCallId || 'pending connection'}`, 'ready');
         renderTeamsCallStatus({
           ...(teamsCallState.status || {}),
           activeCalls: data.activeCalls || [],
@@ -3076,6 +3311,7 @@
             severity: 'info',
           },
         });
+        await loadHitlApprovals().catch(() => {});
         await loadTeamsCallStatus().catch(() => {});
         refreshTeamsCallStatusSoon(7000);
         refreshTeamsCallStatusSoon(15000);
@@ -3083,8 +3319,14 @@
         setTeamsCallResult(error.message || 'Teams call request failed.', 'error');
       } finally {
         teamsCallState.loading = false;
+        renderTeamsCallApproval();
         renderTeamsCallStatus(teamsCallState.status || {});
       }
+    }
+
+    async function triggerTeamsCall() {
+      if (teamsCallState.loading || teamsCallState.pendingApproval) return;
+      await placeTeamsCall(readTeamsCallPayload());
     }
 
     async function refresh() {
@@ -3102,6 +3344,7 @@
       capabilities.innerHTML = (data.enterpriseCapabilities || []).map((item) => `<div class="capability"><div class="tag">${item.category}</div><b>${item.title}</b><p>${item.morganMapping}</p><p><b>Proof:</b> ${(item.customerProof || []).join(', ')}</p></div>`).join('');
       const readiness = document.getElementById('readiness');
       readiness.innerHTML = (data.enterpriseReadiness || []).map((item) => `<div class="compact-item"><span class="status-dot ${item.status}">${item.status}</span><p><b>${item.area}</b></p><p>${item.signal}</p><p><b>Control:</b> ${item.control}</p></div>`).join('');
+      renderTrustCenter(data);
       renderMicrosoftIQ(data.microsoftIQ);
       await loadProductionProof().catch((error) => {
         renderWorkIqProof(null);
@@ -3172,6 +3415,25 @@
     document.getElementById('startCorpGenDay').addEventListener('click', startCorpGenDay);
     document.getElementById('teamsCallDial').addEventListener('click', triggerTeamsCall);
     document.getElementById('teamsCallRefresh').addEventListener('click', () => loadTeamsCallStatus().catch((error) => setTeamsCallResult(error.message || 'Teams call status unavailable.', 'error')));
+    document.getElementById('teamsCallResume').addEventListener('click', () => checkTeamsCallApproval().catch((error) => setTeamsCallResult(error.message || 'Unable to resume approved Teams call.', 'error')));
+    document.getElementById('teamsCallApprovalDismiss').addEventListener('click', () => {
+      const approvalId = teamsCallState.pendingApproval?.id;
+      clearTeamsCallApproval();
+      renderTeamsCallStatus(teamsCallState.status || {});
+      setTeamsCallResult(approvalId ? `Approval ${approvalId} remains in the approval queue. Submit the same call again to reconnect it.` : 'Approval notice dismissed.', '');
+    });
+    window.addEventListener('focus', () => {
+      if (teamsCallState.pendingApproval) checkTeamsCallApproval().catch(() => {});
+    });
+    function handleHitlDecisionSignal(data) {
+      if (data?.type !== 'morgan-hitl-decision' || teamsCallState.pendingApproval?.id !== data?.id) return;
+      checkTeamsCallApproval().catch((error) => setTeamsCallResult(error.message || 'Unable to resume approved Teams call.', 'error'));
+    }
+    window.addEventListener('message', (event) => {
+      if (event.origin !== location.origin) return;
+      handleHitlDecisionSignal(event.data);
+    });
+    hitlDecisionChannel?.addEventListener('message', (event) => handleHitlDecisionSignal(event.data));
     document.getElementById('agentMindFilters').addEventListener('click', (event) => {
       const button = event.target instanceof HTMLElement ? event.target.closest('button[data-kind]') : null;
       if (!button) return;
@@ -3184,7 +3446,7 @@
     document.getElementById('hitlApprovalList').addEventListener('click', (event) => {
       const button = event.target instanceof HTMLElement ? event.target.closest('button[data-hitl-id]') : null;
       if (!button) return;
-      recordMissionControlHitlDecision(button.getAttribute('data-hitl-id') || '', button.getAttribute('data-hitl-decision') || '').catch((error) => {
+      recordMissionControlHitlDecision(button.getAttribute('data-hitl-id') || '', button.getAttribute('data-hitl-decision') || '', button.getAttribute('data-hitl-token') || '').catch((error) => {
         document.getElementById('hitlApprovalStatus').textContent = error.message || 'Unable to record HITL approval decision.';
       });
     });

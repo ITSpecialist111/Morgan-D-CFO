@@ -325,8 +325,8 @@ export async function getMcpTools(context?: TurnContext): Promise<McpToolInfo> {
   };
 }
 
-export interface TeamsMessageResult { success: boolean; messageId?: string; error?: string; source?: string; }
-export interface EmailResult { success: boolean; messageId?: string; error?: string; source?: string; }
+export interface TeamsMessageResult { success: boolean; simulated?: boolean; messageId?: string; error?: string; source?: string; }
+export interface EmailResult { success: boolean; simulated?: boolean; messageId?: string; error?: string; source?: string; }
 export interface WordDocumentResult { success: boolean; documentUrl?: string; localPath?: string; error?: string; source?: string; }
 export interface PlannerTaskResult { success: boolean; taskId?: string; taskUrl?: string; error?: string; source?: string; }
 export interface CalendarEventResult { success: boolean; eventId?: string; joinUrl?: string; error?: string; source?: string; }
@@ -560,7 +560,7 @@ export async function sendTeamsMessage(params: { channel_id: string; message: st
     }
   }
   console.log(`[DEMO] sendTeamsMessage -> channel:${params.channel_id} subject:${params.subject || '(none)'}`);
-  return { success: true, messageId: `demo-${Date.now()}`, source: 'demo' };
+  return { success: false, simulated: true, messageId: `simulation-${Date.now()}`, source: 'demo-simulation', error: 'Simulation only; no Teams message was sent.' };
 }
 
 export async function sendEmail(params: { to: string; subject: string; body: string; importance?: 'normal' | 'high'; bodyContentType?: 'text' | 'html' }, context?: TurnContext): Promise<EmailResult> {
@@ -595,7 +595,7 @@ export async function sendEmail(params: { to: string; subject: string; body: str
     };
   }
   console.log(`[DEMO] sendEmail -> to:${recipient} subject:${params.subject}`);
-  return { success: true, messageId: `demo-email-${Date.now()}`, source: 'demo' };
+  return { success: false, simulated: true, messageId: `simulation-email-${Date.now()}`, source: 'demo-simulation', error: 'Simulation only; no email was sent.' };
 }
 
 function escapeHtml(value: string): string {

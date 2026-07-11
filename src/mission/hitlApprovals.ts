@@ -1,12 +1,15 @@
 import type { ChatCompletionTool } from 'openai/resources/chat';
 import type { TurnContext } from '@microsoft/agents-hosting';
 import { Activity, ActivityTypes } from '@microsoft/agents-activity';
+import crypto from 'crypto';
 import { recordAgentEvent } from '../observability/agentEvents';
 import { recordAuditEvent } from '../observability/agentAudit';
 import { sendTeamsMessage, type TeamsMessageResult } from '../tools/mcpToolSetup';
+import { actionDigest } from '../governance/toolPolicy';
+import { getHitlApprovalStorage, getHitlApprovalStorageStatus, type StoredApprovalRecord } from '../storage/hitlApprovalStorage';
 
 export type HitlApprovalLevel = 'L2' | 'L3';
-export type HitlApprovalStatus = 'pending' | 'approved' | 'approved_with_edits' | 'declined' | 'cancelled';
+export type HitlApprovalStatus = 'pending' | 'approved' | 'approved_with_edits' | 'declined' | 'cancelled' | 'expired' | 'executing' | 'executed' | 'failed';
 export type HitlApprovalDecision = 'approve' | 'approve_with_edits' | 'decline' | 'cancel';
 
 export interface HitlApprovalRequest {
@@ -29,8 +32,15 @@ export interface HitlApprovalRequest {
   createdAt: string;
   timeoutAt: string;
   status: HitlApprovalStatus;
+  version: number;
+  action: { tool: string; params: Record<string, unknown> };
+  actionDigest: string;
+  decisionNonce?: string;
+  transitionHistory: Array<{ at: string; status: HitlApprovalStatus; actor: string; reason?: string }>;
   decidedAt?: string;
   decidedBy?: string;
+  decidedByOid?: string;
+  decidedByTenantId?: string;
   rationaleFromApprover?: string;
   editedBody?: string;
 }
@@ -39,6 +49,14 @@ export interface HitlApprovalDecisionResult {
   ok: boolean;
   request?: HitlApprovalRequest;
   error?: string;
+  code?: 'unknown' | 'already-decided' | 'expired' | 'unauthorized' | 'stale-version' | 'digest-mismatch' | 'invalid-signature' | 'storage-error';
+}
+
+export interface HitlApproverIdentity {
+  oid?: string;
+  tenantId?: string;
+  email?: string;
+  name?: string;
 }
 
 export interface HitlApprovalCardDeliveryResult {
@@ -63,8 +81,19 @@ export interface HitlApprovalCardSubmitResult {
 const seededAt = new Date().toISOString();
 const timeoutAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
 
-const approvalRequests = new Map<string, HitlApprovalRequest>([
-  ['approval-pnl-board-report-l2', {
+function seededRequest(input: Omit<HitlApprovalRequest, 'version' | 'action' | 'actionDigest' | 'transitionHistory'> & {
+  action: { tool: string; params: Record<string, unknown> };
+}): HitlApprovalRequest {
+  return {
+    ...input,
+    version: 1,
+    actionDigest: actionDigest(input.action.tool, input.action.params),
+    transitionHistory: [{ at: input.createdAt, status: input.status, actor: 'Morgan demo seed', reason: 'Seeded showcase approval.' }],
+  };
+}
+
+const seededApprovalRequests: HitlApprovalRequest[] = [
+  seededRequest({
     id: 'approval-pnl-board-report-l2',
     caseId: 'FIN-2026-0041',
     customer: 'Group FP&A',
@@ -84,8 +113,9 @@ const approvalRequests = new Map<string, HitlApprovalRequest>([
     createdAt: seededAt,
     timeoutAt,
     status: 'pending',
-  }],
-  ['approval-budget-reforecast-l3', {
+    action: { tool: 'sendEmail', params: { to: 'CFO distribution list', subject: 'FIN-2026-0041 board-ready P&L distribution', body: '[board-ready P&L artifact]' } },
+  }),
+  seededRequest({
     id: 'approval-budget-reforecast-l3',
     caseId: 'FIN-2026-0042',
     customer: 'Corporate FP&A',
@@ -105,8 +135,9 @@ const approvalRequests = new Map<string, HitlApprovalRequest>([
     createdAt: seededAt,
     timeoutAt,
     status: 'pending',
-  }],
-  ['approval-variance-summary-l2', {
+    action: { tool: 'commitBudgetReforecast', params: { amountUsd: 250000, caseId: 'FIN-2026-0042' } },
+  }),
+  seededRequest({
     id: 'approval-variance-summary-l2',
     caseId: 'FIN-2026-0043',
     customer: 'Finance Leadership',
@@ -126,8 +157,9 @@ const approvalRequests = new Map<string, HitlApprovalRequest>([
     createdAt: seededAt,
     timeoutAt,
     status: 'pending',
-  }],
-  ['approval-vendor-payment-l3', {
+    action: { tool: 'sendTeamsMessage', params: { channel_id: 'Finance Leadership', subject: 'FIN-2026-0043 Q3 variance summary post', message: '[Q3 variance summary]' } },
+  }),
+  seededRequest({
     id: 'approval-vendor-payment-l3',
     caseId: 'FIN-2026-0044',
     customer: 'Accounts Payable',
@@ -147,8 +179,106 @@ const approvalRequests = new Map<string, HitlApprovalRequest>([
     createdAt: seededAt,
     timeoutAt,
     status: 'pending',
-  }],
-]);
+    action: { tool: 'releaseVendorPayment', params: { amountUsd: 180000, caseId: 'FIN-2026-0044' } },
+  }),
+];
+
+function isApprovalRequest(value: StoredApprovalRecord): value is HitlApprovalRequest & StoredApprovalRecord {
+  const candidate = value as unknown as Record<string, unknown>;
+  return typeof candidate.id === 'string'
+    && typeof candidate.status === 'string'
+    && typeof candidate.version === 'number'
+    && typeof candidate.actionDigest === 'string'
+    && Boolean(candidate.action && typeof candidate.action === 'object');
+}
+
+function loadApprovalRequests(): Map<string, HitlApprovalRequest> {
+  const storage = getHitlApprovalStorage();
+  const stored = storage.load();
+  if (stored.length) {
+    const requests = stored.filter(isApprovalRequest);
+    if (requests.length !== stored.length) throw new Error('HITL approval store contains unsupported records.');
+    return new Map(requests.map((request) => [request.id, request]));
+  }
+  const shouldSeed = process.env.MORGAN_SEED_DEMO_APPROVALS === 'true'
+    || (process.env.NODE_ENV === 'development' && process.env.MORGAN_SEED_DEMO_APPROVALS !== 'false');
+  const initial = shouldSeed ? seededApprovalRequests : [];
+  storage.save(initial);
+  return new Map(initial.map((request) => [request.id, request]));
+}
+
+const approvalRequests = loadApprovalRequests();
+
+function persistApprovalRequests(): HitlApprovalDecisionResult | undefined {
+  try {
+    getHitlApprovalStorage().save(Array.from(approvalRequests.values()));
+    return undefined;
+  } catch (error) {
+    return { ok: false, code: 'storage-error', error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function configuredList(name: string): string[] {
+  return (process.env[name] || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
+}
+
+export function isAuthorizedHitlApprover(identity: HitlApproverIdentity): boolean {
+  if (process.env.NODE_ENV === 'development' && identity.oid === 'local-development') return true;
+  const oidAllowlist = configuredList('MORGAN_HITL_APPROVER_OIDS');
+  const emailAllowlist = configuredList('MORGAN_HITL_APPROVER_EMAILS');
+  const expectedTenant = (process.env.MORGAN_HITL_APPROVER_TENANT_ID || process.env.MicrosoftAppTenantId || '').toLowerCase();
+  if (expectedTenant && (!identity.tenantId || identity.tenantId.toLowerCase() !== expectedTenant)) return false;
+  if (oidAllowlist.length) return Boolean(identity.oid && oidAllowlist.includes(identity.oid.toLowerCase()));
+  if (emailAllowlist.length) return Boolean(identity.email && emailAllowlist.includes(identity.email.toLowerCase()));
+  return process.env.MORGAN_HITL_REQUIRE_EXPLICIT_APPROVERS === 'false' && Boolean(identity.oid);
+}
+
+function approvalSigningSecret(): string | undefined {
+  return process.env.MORGAN_HITL_SIGNING_SECRET;
+}
+
+function signApprovalValue(value: string): string | undefined {
+  const secret = approvalSigningSecret();
+  return secret ? crypto.createHmac('sha256', secret).update(value).digest('base64url') : undefined;
+}
+
+function signaturesMatch(expected: string, actual: string): boolean {
+  const left = Buffer.from(expected);
+  const right = Buffer.from(actual);
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function signedDecisionToken(request: HitlApprovalRequest, decision: HitlApprovalDecision): string | undefined {
+  const payload = Buffer.from(JSON.stringify({
+    approvalId: request.id,
+    version: request.version,
+    actionDigest: request.actionDigest,
+    decision,
+    exp: new Date(request.timeoutAt).getTime(),
+  })).toString('base64url');
+  const signature = signApprovalValue(payload);
+  return signature ? `${payload}.${signature}` : undefined;
+}
+
+function verifyDecisionToken(token: string | undefined, request: HitlApprovalRequest, decision: HitlApprovalDecision): boolean {
+  if (!approvalSigningSecret()) return process.env.NODE_ENV === 'development';
+  if (!token) return false;
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature) return false;
+  const expected = signApprovalValue(payload);
+  if (!expected || !signaturesMatch(expected, signature)) return false;
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
+    return decoded.approvalId === request.id
+      && decoded.version === request.version
+      && decoded.actionDigest === request.actionDigest
+      && decoded.decision === decision
+      && typeof decoded.exp === 'number'
+      && decoded.exp >= Date.now();
+  } catch {
+    return false;
+  }
+}
 
 function configuredBaseUrl(): string {
   const localBaseUrl = `localhost:${process.env.PORT || '3978'}`;
@@ -168,7 +298,25 @@ function mapDecisionToStatus(decision: HitlApprovalDecision): HitlApprovalStatus
   return 'cancelled';
 }
 
-export function listHitlApprovalRequests(params: { status?: HitlApprovalStatus | 'open' | 'all'; level?: HitlApprovalLevel } = {}) {
+function expirePendingApprovals(): void {
+  const now = Date.now();
+  let changed = false;
+  for (const [id, request] of approvalRequests) {
+    if (request.status !== 'pending' || new Date(request.timeoutAt).getTime() >= now) continue;
+    const at = new Date().toISOString();
+    approvalRequests.set(id, {
+      ...request,
+      status: 'expired',
+      version: request.version + 1,
+      transitionHistory: [...request.transitionHistory, { at, status: 'expired', actor: 'Morgan policy gateway', reason: 'Approval window elapsed.' }],
+    });
+    changed = true;
+  }
+  if (changed) persistApprovalRequests();
+}
+
+export function listHitlApprovalRequests(params: { status?: HitlApprovalStatus | 'open' | 'all'; level?: HitlApprovalLevel; includeDecisionTokens?: boolean } = {}) {
+  expirePendingApprovals();
   const status = params.status || 'open';
   const requests = Array.from(approvalRequests.values())
     .filter((request) => !params.level || request.level === params.level)
@@ -182,7 +330,22 @@ export function listHitlApprovalRequests(params: { status?: HitlApprovalStatus |
     generatedAt: new Date().toISOString(),
     approvalSurfaceUrl: `${configuredBaseUrl()}/approvals`,
     pendingCount: requests.filter((request) => request.status === 'pending').length,
-    requests,
+    storage: getHitlApprovalStorageStatus(),
+    enforcement: {
+      mode: 'server-side-policy',
+      approverAllowlistConfigured: configuredList('MORGAN_HITL_APPROVER_OIDS').length > 0 || configuredList('MORGAN_HITL_APPROVER_EMAILS').length > 0,
+      signedCardActions: Boolean(approvalSigningSecret()),
+      singleInstanceOnly: true,
+    },
+    requests: requests.map((request) => ({
+      ...request,
+      decisionTokens: params.includeDecisionTokens && request.status === 'pending' ? {
+        approve: signedDecisionToken(request, 'approve'),
+        approve_with_edits: signedDecisionToken(request, 'approve_with_edits'),
+        decline: signedDecisionToken(request, 'decline'),
+        cancel: signedDecisionToken(request, 'cancel'),
+      } : undefined,
+    })),
   };
 }
 
@@ -199,27 +362,217 @@ export function getHitlApprovalSurface(params: { requestId?: string } = {}) {
   };
 }
 
+export function requestHitlApproval(params: {
+  level: HitlApprovalLevel;
+  action: { tool: string; params: Record<string, unknown> };
+  title?: string;
+  actionType?: string;
+  recipient?: string;
+  rationale?: string;
+  evidence?: string[];
+  triggeredBy?: string;
+  expiresInMinutes?: number;
+  expiresAt?: string;
+}): HitlApprovalDecisionResult {
+  const digest = actionDigest(params.action.tool, params.action.params);
+  const existing = Array.from(approvalRequests.values()).find((request) =>
+    request.status === 'pending'
+    && request.actionDigest === digest
+    && new Date(request.timeoutAt).getTime() >= Date.now(),
+  );
+  if (existing) return { ok: true, request: existing };
+
+  const now = new Date();
+  const createdAt = now.toISOString();
+  const timeoutAtValue = params.expiresAt || new Date(now.getTime() + Math.max(5, params.expiresInMinutes || 240) * 60_000).toISOString();
+  const safeActionParams = Object.fromEntries(Object.entries(params.action.params).map(([key, value]) => {
+    if (/body|message|content|instructions|notes/i.test(key) && typeof value === 'string') {
+      return [key, `[redacted content: ${Buffer.byteLength(value, 'utf8')} bytes; sha256 ${crypto.createHash('sha256').update(value).digest('hex').slice(0, 12)}…]`];
+    }
+    return [key, value];
+  }));
+  const request: HitlApprovalRequest = {
+    id: `approval-${params.level.toLowerCase()}-${crypto.randomUUID()}`,
+    caseId: `MORGAN-${now.toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`,
+    customer: 'Morgan governed execution',
+    level: params.level,
+    stage: 'Policy gate',
+    title: params.title || `${params.level} approval required for ${params.action.tool}`,
+    actionType: params.actionType || params.action.tool,
+    recipient: params.recipient || summarizeApprovalRecipient(params.action.params),
+    sponsor: 'CFO / Finance Approver',
+    subject: params.title || `${params.level} approval required`,
+    bodyPreview: `Morgan has prepared ${params.action.tool} but has not executed it. The action digest is ${digest.slice(0, 12)}…`,
+    rationale: params.rationale || `${params.level} server-side policy requires an authorized human decision before execution.`,
+    triggeredBy: params.triggeredBy || 'tool-policy-gateway',
+    specialist: 'Morgan policy gateway',
+    tool: params.action.tool,
+    evidence: params.evidence || [`actionDigest: ${digest}`, `tool: ${params.action.tool}`],
+    createdAt,
+    timeoutAt: timeoutAtValue,
+    status: 'pending',
+    version: 1,
+    action: { tool: params.action.tool, params: safeActionParams },
+    actionDigest: digest,
+    transitionHistory: [{ at: createdAt, status: 'pending', actor: 'Morgan policy gateway', reason: params.rationale }],
+  };
+  approvalRequests.set(request.id, request);
+  const storageError = persistApprovalRequests();
+  if (storageError) {
+    approvalRequests.delete(request.id);
+    return storageError;
+  }
+  recordAuditEvent({
+    kind: 'hitl.approval.requested',
+    label: `${params.level} approval requested for ${params.action.tool}`,
+    correlationId: request.id,
+    actor: 'Morgan policy gateway',
+    data: { requestId: request.id, level: request.level, tool: request.action.tool, actionDigest: request.actionDigest },
+  });
+  return { ok: true, request };
+}
+
+function summarizeApprovalRecipient(params: Record<string, unknown>): string {
+  const value = params.to || params.recipient || params.channel_id || params.teams_user_aad_oid || params.assigned_to;
+  if (Array.isArray(value)) return value.map(String).join(', ').slice(0, 160) || 'Configured destination';
+  return typeof value === 'string' && value.trim() ? value.trim().slice(0, 160) : 'Configured destination';
+}
+
 export function recordHitlApprovalDecision(params: {
   requestId: string;
   decision: HitlApprovalDecision;
-  decidedBy?: string;
+  identity: HitlApproverIdentity;
   rationale?: string;
   editedBody?: string;
+  expectedVersion?: number;
+  expectedActionDigest?: string;
+  decisionToken?: string;
 }): HitlApprovalDecisionResult {
   const request = approvalRequests.get(params.requestId);
-  if (!request) return { ok: false, error: `Unknown HITL approval request: ${params.requestId}` };
-  if (request.status !== 'pending') return { ok: false, request, error: `Request is already ${request.status}` };
+  if (!request) return { ok: false, code: 'unknown', error: `Unknown HITL approval request: ${params.requestId}` };
+  if (!isAuthorizedHitlApprover(params.identity)) {
+    return { ok: false, code: 'unauthorized', request, error: 'The signed-in identity is not authorized to decide Morgan finance approvals.' };
+  }
+  if (request.status === 'expired' || new Date(request.timeoutAt).getTime() < Date.now()) {
+    return { ok: false, code: 'expired', request, error: 'This approval request has expired. Morgan must create a fresh request before execution.' };
+  }
+  if (request.status !== 'pending') return { ok: false, code: 'already-decided', request, error: `Request is already ${request.status}` };
+  if (params.expectedVersion !== undefined && params.expectedVersion !== request.version) {
+    return { ok: false, code: 'stale-version', request, error: `Approval version changed from ${params.expectedVersion} to ${request.version}; refresh before deciding.` };
+  }
+  if (params.expectedActionDigest && params.expectedActionDigest !== request.actionDigest) {
+    return { ok: false, code: 'digest-mismatch', request, error: 'The approved action no longer matches the action shown to the approver.' };
+  }
+  if (!verifyDecisionToken(params.decisionToken, request, params.decision)) {
+    return { ok: false, code: 'invalid-signature', request, error: 'The approval action signature is invalid or expired.' };
+  }
 
+  const now = new Date().toISOString();
+  const actor = params.identity.name || params.identity.email || params.identity.oid || 'Authorized finance approver';
+  let approvedAction = request.action;
+  let approvedDigest = request.actionDigest;
+  if (params.decision === 'approve_with_edits') {
+    if (!params.editedBody?.trim()) {
+      return { ok: false, code: 'digest-mismatch', request, error: 'Approve with edits requires the exact edited content.' };
+    }
+    const contentKey = Object.keys(request.action.params).find((key) => /body|message|content|instructions|notes/i.test(key));
+    if (!contentKey) {
+      return { ok: false, code: 'digest-mismatch', request, error: 'This action does not expose an editable content field; create a fresh approval request.' };
+    }
+    const exactEditedParams = { ...request.action.params, [contentKey]: params.editedBody };
+    approvedDigest = actionDigest(request.action.tool, exactEditedParams);
+    approvedAction = {
+      tool: request.action.tool,
+      params: {
+        ...request.action.params,
+        [contentKey]: `[approved edited content: ${Buffer.byteLength(params.editedBody, 'utf8')} bytes; sha256 ${crypto.createHash('sha256').update(params.editedBody).digest('hex').slice(0, 12)}…]`,
+      },
+    };
+  }
   const updated: HitlApprovalRequest = {
     ...request,
     status: mapDecisionToStatus(params.decision),
-    decidedAt: new Date().toISOString(),
-    decidedBy: params.decidedBy || 'Morgan chat operator',
+    version: request.version + 1,
+    decidedAt: now,
+    decidedBy: actor,
+    decidedByOid: params.identity.oid,
+    decidedByTenantId: params.identity.tenantId,
     rationaleFromApprover: params.rationale,
     editedBody: params.editedBody,
+    action: approvedAction,
+    actionDigest: approvedDigest,
+    transitionHistory: [
+      ...request.transitionHistory,
+      { at: now, status: mapDecisionToStatus(params.decision), actor, reason: params.rationale },
+    ],
   };
   approvalRequests.set(updated.id, updated);
+  const storageError = persistApprovalRequests();
+  if (storageError) {
+    approvalRequests.set(request.id, request);
+    return storageError;
+  }
   return { ok: true, request: updated };
+}
+
+export function getApprovalForAction(tool: string, params: Record<string, unknown>): HitlApprovalRequest | undefined {
+  const digest = actionDigest(tool, params);
+  const request = Array.from(approvalRequests.values()).find((request) =>
+    (request.status === 'approved' || request.status === 'approved_with_edits')
+    && request.actionDigest === digest
+    && new Date(request.timeoutAt).getTime() >= Date.now(),
+  );
+  return request ? structuredClone(request) : undefined;
+}
+
+export function reserveApprovedAction(requestId: string, expectedDigest: string): HitlApprovalDecisionResult {
+  const request = approvalRequests.get(requestId);
+  if (!request) return { ok: false, code: 'unknown', error: `Unknown HITL approval request: ${requestId}` };
+  if (request.actionDigest !== expectedDigest) return { ok: false, code: 'digest-mismatch', request, error: 'Approved action digest does not match the requested execution.' };
+  if (request.status !== 'approved' && request.status !== 'approved_with_edits') {
+    return { ok: false, code: 'already-decided', request, error: `Approval cannot execute from state ${request.status}.` };
+  }
+  if (new Date(request.timeoutAt).getTime() < Date.now()) return { ok: false, code: 'expired', request, error: 'Approval expired before execution.' };
+  const now = new Date().toISOString();
+  const updated: HitlApprovalRequest = {
+    ...request,
+    status: 'executing',
+    version: request.version + 1,
+    transitionHistory: [...request.transitionHistory, { at: now, status: 'executing', actor: 'Morgan policy gateway', reason: 'Reserved for one execution attempt.' }],
+  };
+  approvalRequests.set(requestId, updated);
+  const storageError = persistApprovalRequests();
+  if (storageError) {
+    approvalRequests.set(requestId, request);
+    return storageError;
+  }
+  return { ok: true, request: updated };
+}
+
+export function completeApprovedAction(requestId: string, succeeded: boolean, reason?: string): HitlApprovalDecisionResult {
+  const request = approvalRequests.get(requestId);
+  if (!request) return { ok: false, code: 'unknown', error: `Unknown HITL approval request: ${requestId}` };
+  if (request.status !== 'executing') return { ok: false, code: 'already-decided', request, error: `Approval is ${request.status}, not executing.` };
+  const now = new Date().toISOString();
+  const status: HitlApprovalStatus = succeeded ? 'executed' : 'failed';
+  const updated: HitlApprovalRequest = {
+    ...request,
+    status,
+    version: request.version + 1,
+    transitionHistory: [...request.transitionHistory, { at: now, status, actor: 'Morgan policy gateway', reason }],
+  };
+  approvalRequests.set(requestId, updated);
+  const storageError = persistApprovalRequests();
+  if (storageError) {
+    approvalRequests.set(requestId, request);
+    return storageError;
+  }
+  return { ok: true, request: updated };
+}
+
+export function getApprovalRequestById(requestId: string): HitlApprovalRequest | undefined {
+  const request = approvalRequests.get(requestId);
+  return request ? structuredClone(request) : undefined;
 }
 
 function configuredValue(value: string | undefined): string | undefined {
@@ -317,10 +670,10 @@ export function buildHitlApprovalAdaptiveCard(params: { requestId?: string; leve
             {
               type: 'ActionSet',
               actions: [
-                { type: 'Action.Submit', title: 'Approve', data: { morganAction: 'hitlApprovalDecision', requestId: request.id, decision: 'approve', notesFieldId: fieldId } },
-                { type: 'Action.Submit', title: 'Approve with edits', data: { morganAction: 'hitlApprovalDecision', requestId: request.id, decision: 'approve_with_edits', notesFieldId: fieldId } },
-                { type: 'Action.Submit', title: 'Decline', style: 'destructive', data: { morganAction: 'hitlApprovalDecision', requestId: request.id, decision: 'decline', notesFieldId: fieldId } },
-                { type: 'Action.Submit', title: 'Cancel', data: { morganAction: 'hitlApprovalDecision', requestId: request.id, decision: 'cancel', notesFieldId: fieldId } },
+                { type: 'Action.Submit', title: 'Approve', data: { morganAction: 'hitlApprovalDecision', requestId: request.id, version: request.version, actionDigest: request.actionDigest, decision: 'approve', decisionToken: signedDecisionToken(request, 'approve'), notesFieldId: fieldId } },
+                { type: 'Action.Submit', title: 'Approve with edits', data: { morganAction: 'hitlApprovalDecision', requestId: request.id, version: request.version, actionDigest: request.actionDigest, decision: 'approve_with_edits', decisionToken: signedDecisionToken(request, 'approve_with_edits'), notesFieldId: fieldId } },
+                { type: 'Action.Submit', title: 'Decline', style: 'destructive', data: { morganAction: 'hitlApprovalDecision', requestId: request.id, version: request.version, actionDigest: request.actionDigest, decision: 'decline', decisionToken: signedDecisionToken(request, 'decline'), notesFieldId: fieldId } },
+                { type: 'Action.Submit', title: 'Cancel', data: { morganAction: 'hitlApprovalDecision', requestId: request.id, version: request.version, actionDigest: request.actionDigest, decision: 'cancel', decisionToken: signedDecisionToken(request, 'cancel'), notesFieldId: fieldId } },
               ],
             },
           ],
@@ -453,7 +806,7 @@ function isHitlDecision(value: string): value is HitlApprovalDecision {
   return ['approve', 'approve_with_edits', 'decline', 'cancel'].includes(value);
 }
 
-export function handleHitlApprovalCardSubmit(value: unknown, approverName?: string): HitlApprovalCardSubmitResult | null {
+export function handleHitlApprovalCardSubmit(value: unknown, identity: HitlApproverIdentity): HitlApprovalCardSubmitResult | null {
   if (!value || typeof value !== 'object') return null;
   const payload = value as Record<string, unknown>;
   if (payload.morganAction !== 'hitlApprovalDecision') return null;
@@ -468,11 +821,20 @@ export function handleHitlApprovalCardSubmit(value: unknown, approverName?: stri
     : typeof payload.decisionNotes === 'string'
       ? payload.decisionNotes
       : undefined;
-  const result = recordHitlApprovalDecision({ requestId, decision: decisionRaw, decidedBy: approverName || 'CFO / Finance Approver', rationale, editedBody: decisionRaw === 'approve_with_edits' ? rationale : undefined });
+  const result = recordHitlApprovalDecision({
+    requestId,
+    decision: decisionRaw,
+    identity,
+    rationale,
+    editedBody: decisionRaw === 'approve_with_edits' ? rationale : undefined,
+    expectedVersion: typeof payload.version === 'number' ? payload.version : undefined,
+    expectedActionDigest: typeof payload.actionDigest === 'string' ? payload.actionDigest : undefined,
+    decisionToken: typeof payload.decisionToken === 'string' ? payload.decisionToken : undefined,
+  });
   if (!result.ok) {
     return { handled: true, decision: decisionRaw, result, reply: `I could not record that L2 HITL decision: ${result.error || 'unknown error'}.` };
   }
-  recordAuditEvent({ kind: 'hitl.approval.card.decision', label: `HITL approval ${decisionRaw} recorded from Adaptive Card`, actor: approverName || 'CFO / Finance Approver', data: { requestId, decision: decisionRaw, status: result.request?.status } });
+  recordAuditEvent({ kind: 'hitl.approval.card.decision', label: `HITL approval ${decisionRaw} recorded from Adaptive Card`, correlationId: requestId, actor: identity.name || identity.email || identity.oid || 'Authorized finance approver', data: { requestId, decision: decisionRaw, status: result.request?.status, approverOid: identity.oid } });
   return {
     handled: true,
     decision: decisionRaw,
@@ -490,7 +852,7 @@ export const HITL_APPROVAL_TOOL_DEFINITIONS: ChatCompletionTool[] = [
       parameters: {
         type: 'object',
         properties: {
-          status: { type: 'string', enum: ['open', 'all', 'pending', 'approved', 'approved_with_edits', 'declined', 'cancelled'] },
+          status: { type: 'string', enum: ['open', 'all', 'pending', 'approved', 'approved_with_edits', 'declined', 'cancelled', 'expired', 'executing', 'executed', 'failed'] },
           level: { type: 'string', enum: ['L2', 'L3'] },
         },
         required: [],
@@ -506,24 +868,6 @@ export const HITL_APPROVAL_TOOL_DEFINITIONS: ChatCompletionTool[] = [
         type: 'object',
         properties: { requestId: { type: 'string' } },
         required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'recordHitlApprovalDecision',
-      description: 'Record a CFO / Finance Approver decision for a pending Morgan HITL approval request. This records the decision only; it does not send external messages by itself.',
-      parameters: {
-        type: 'object',
-        properties: {
-          requestId: { type: 'string' },
-          decision: { type: 'string', enum: ['approve', 'approve_with_edits', 'decline', 'cancel'] },
-          decidedBy: { type: 'string' },
-          rationale: { type: 'string' },
-          editedBody: { type: 'string' },
-        },
-        required: ['requestId', 'decision'],
       },
     },
   },

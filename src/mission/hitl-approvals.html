@@ -41,6 +41,8 @@
     .preview { border: 1px solid var(--line); border-radius: 6px; padding: 10px; background: #fbfdff; color: #29364d; min-height: 76px; }
     .evidence { display: flex; flex-wrap: wrap; gap: 6px; }
     .evidence span { border: 1px solid var(--line); border-radius: 999px; padding: 3px 8px; background: #fbfdff; font-size: 12px; }
+    .continuation { border: 1px solid #f4c97b; border-radius: 6px; padding: 9px 10px; background: #fff7e8; color: #7c3e06; font-size: 12px; }
+    .continuation a { color: inherit; font-weight: 650; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; }
     button, a.button { border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); padding: 8px 10px; font: inherit; cursor: pointer; text-decoration: none; }
     button.primary { background: var(--blue); color: white; border-color: var(--blue); }
@@ -82,6 +84,9 @@
     const queue = document.getElementById('approvalQueue');
     const statusEl = document.getElementById('status');
     const refreshButton = document.getElementById('refreshButton');
+    const hitlDecisionChannel = (() => {
+      try { return 'BroadcastChannel' in window ? new BroadcastChannel('morgan-hitl') : null; } catch { return null; }
+    })();
 
     function escapeHtml(value) {
       return String(value || '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
@@ -100,7 +105,15 @@
 
     function renderApproval(item) {
       const disabled = item.status !== 'pending' ? 'disabled' : '';
-      return `<article class="approval ${item.status === 'pending' ? '' : 'decided'}" id="${escapeHtml(item.id)}">
+      const isTeamsCall = item.tool === 'initiateTeamsFederatedCall';
+      const continuation = isTeamsCall
+        ? item.status === 'pending'
+          ? '<div class="continuation">This approval protects an outbound Teams call. After approval, keep this tab open briefly; Mission Control will resume the exact approved call automatically.</div>'
+          : item.status === 'approved' || item.status === 'approved_with_edits'
+            ? '<div class="continuation">Call approved. <a href="/mission-control#teamsCallControl">Return to Teams Call Control</a> if the originating dashboard is not still open.</div>'
+            : ''
+        : '';
+      return `<article class="approval ${item.status === 'pending' ? '' : 'decided'}" id="${escapeHtml(item.id)}" data-version="${escapeHtml(String(item.version))}" data-action-digest="${escapeHtml(item.actionDigest)}">
         <div class="title-row">
           <div>
             <h2>${escapeHtml(item.title)}</h2>
@@ -117,12 +130,13 @@
         <div class="preview">${escapeHtml(item.bodyPreview)}</div>
         <div>${escapeHtml(item.rationale)}</div>
         <div class="evidence">${(item.evidence || []).map(value => `<span>${escapeHtml(value)}</span>`).join('')}</div>
+        ${continuation}
         <textarea id="note-${escapeHtml(item.id)}" placeholder="Optional decision note or edited body" ${disabled}></textarea>
         <div class="actions">
-          <button class="primary" type="button" ${disabled} data-id="${escapeHtml(item.id)}" data-decision="approve">Approve</button>
-          <button type="button" ${disabled} data-id="${escapeHtml(item.id)}" data-decision="approve_with_edits">Approve With Edits</button>
-          <button class="danger" type="button" ${disabled} data-id="${escapeHtml(item.id)}" data-decision="decline">Decline</button>
-          <button type="button" ${disabled} data-id="${escapeHtml(item.id)}" data-decision="cancel">Cancel</button>
+          <button class="primary" type="button" ${disabled} data-id="${escapeHtml(item.id)}" data-decision="approve" data-decision-token="${escapeHtml(item.decisionTokens?.approve || '')}">Approve</button>
+          <button type="button" ${disabled} data-id="${escapeHtml(item.id)}" data-decision="approve_with_edits" data-decision-token="${escapeHtml(item.decisionTokens?.approve_with_edits || '')}">Approve With Edits</button>
+          <button class="danger" type="button" ${disabled} data-id="${escapeHtml(item.id)}" data-decision="decline" data-decision-token="${escapeHtml(item.decisionTokens?.decline || '')}">Decline</button>
+          <button type="button" ${disabled} data-id="${escapeHtml(item.id)}" data-decision="cancel" data-decision-token="${escapeHtml(item.decisionTokens?.cancel || '')}">Cancel</button>
         </div>
       </article>`;
     }
@@ -148,24 +162,37 @@
       }
     }
 
-    async function decide(id, decision) {
+    async function decide(id, decision, decisionToken) {
       const note = document.getElementById(`note-${id}`)?.value || '';
+      const record = document.getElementById(id);
       statusEl.textContent = `Recording ${decision}...`;
       const response = await fetch(`/api/hitl/approvals/${encodeURIComponent(id)}/decision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ decision, rationale: note, editedBody: decision === 'approve_with_edits' ? note : undefined }),
+        body: JSON.stringify({
+          decision,
+          rationale: note,
+          editedBody: decision === 'approve_with_edits' ? note : undefined,
+          version: Number(record?.dataset.version),
+          actionDigest: record?.dataset.actionDigest,
+          decisionToken,
+        }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body.ok) throw new Error(body.error || `Decision API returned ${response.status}`);
-      statusEl.textContent = `Recorded ${decision} for ${body.request.title}.`;
       await loadApprovals();
+      const decisionEvent = { type: 'morgan-hitl-decision', id, decision, status: body.request.status };
+      hitlDecisionChannel?.postMessage(decisionEvent);
+      if (window.opener && window.opener !== window) window.opener.postMessage(decisionEvent, location.origin);
+      statusEl.textContent = body.request.tool === 'initiateTeamsFederatedCall' && (decision === 'approve' || decision === 'approve_with_edits')
+        ? `Approved ${body.request.title}. Mission Control is resuming the exact approved call.`
+        : `Recorded ${decision} for ${body.request.title}.`;
     }
 
     queue.addEventListener('click', (event) => {
       const button = event.target.closest('button[data-id]');
       if (!button) return;
-      decide(button.dataset.id, button.dataset.decision).catch(error => { statusEl.textContent = error.message; });
+      decide(button.dataset.id, button.dataset.decision, button.dataset.decisionToken).catch(error => { statusEl.textContent = error.message; });
     });
     refreshButton.addEventListener('click', () => loadApprovals().catch(error => { statusEl.textContent = error.message; }));
     loadApprovals().catch(error => { statusEl.textContent = error.message; });

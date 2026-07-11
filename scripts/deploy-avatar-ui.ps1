@@ -1,3 +1,6 @@
+# Legacy filename retained for compatibility. This script deploys the complete
+# Morgan App Service runtime, including Teams/ACS calling and Mission Control.
+# New tasks should invoke deploy-appservice.ps1.
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot '..')

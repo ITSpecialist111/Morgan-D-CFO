@@ -1,5 +1,7 @@
 import { getEndOfDayReport, runAutonomousCfoWorkday } from '../mission/missionControl';
 import { recordAuditEvent } from '../observability/agentAudit';
+import fs from 'fs';
+import path from 'path';
 
 interface SchedulerState {
   enabled: boolean;
@@ -14,6 +16,8 @@ interface SchedulerState {
   lastCycleDate?: string;
   lastEndOfDayDate?: string;
   lastError?: string;
+  leaseBackend: 'shared-file';
+  leaseContended: boolean;
 }
 
 let intervalHandle: NodeJS.Timeout | null = null;
@@ -26,7 +30,52 @@ const state: SchedulerState = {
   pollMs: Number(process.env.AUTONOMOUS_WORKDAY_POLL_MS || 60_000),
   started: false,
   running: false,
+  leaseBackend: 'shared-file',
+  leaseContended: false,
 };
+
+function schedulerLeasePath(): string {
+  if (process.env.MORGAN_SCHEDULER_LEASE_FILE) return path.resolve(process.env.MORGAN_SCHEDULER_LEASE_FILE);
+  const home = process.env.HOME || process.env.USERPROFILE;
+  const root = home ? path.join(home, 'data') : path.join(process.cwd(), '.morgan-state');
+  return path.join(root, 'autonomous-workday.lock');
+}
+
+function acquireSchedulerLease(now = Date.now()): { acquired: boolean; release: () => void } {
+  const filePath = schedulerLeasePath();
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const staleAfterMs = Math.max(state.intervalMinutes * 2 * 60_000, 30 * 60_000);
+  const attempt = (): number | undefined => {
+    try {
+      const fd = fs.openSync(filePath, 'wx', 0o600);
+      fs.writeFileSync(fd, JSON.stringify({ acquiredAt: new Date(now).toISOString(), pid: process.pid, instance: process.env.WEBSITE_INSTANCE_ID || 'local' }), 'utf8');
+      fs.fsyncSync(fd);
+      return fd;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      return undefined;
+    }
+  };
+
+  let fd = attempt();
+  if (fd === undefined) {
+    try {
+      const stat = fs.statSync(filePath);
+      if (now - stat.mtimeMs > staleAfterMs) {
+        fs.unlinkSync(filePath);
+        fd = attempt();
+      }
+    } catch { /* another instance may have released the lease */ }
+  }
+  if (fd === undefined) return { acquired: false, release: () => undefined };
+  return {
+    acquired: true,
+    release: () => {
+      try { fs.closeSync(fd!); } catch { /* ignore */ }
+      try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+    },
+  };
+}
 
 function zonedParts(date = new Date()): { dateKey: string; hour: number; minute: number } {
   try {
@@ -90,7 +139,14 @@ async function runSchedulerTick(): Promise<void> {
 
   if (!dueForCycle(now)) return;
 
+  const lease = acquireSchedulerLease(now);
+  if (!lease.acquired) {
+    state.leaseContended = true;
+    return;
+  }
+
   state.running = true;
+  state.leaseContended = false;
   try {
     const result = await runAutonomousCfoWorkday({ source: 'autonomous_cycle' });
     state.lastCycleAt = new Date(now).toISOString();
@@ -115,6 +171,7 @@ async function runSchedulerTick(): Promise<void> {
     });
   } finally {
     state.running = false;
+    lease.release();
   }
 }
 

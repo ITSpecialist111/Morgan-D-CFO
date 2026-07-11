@@ -86,9 +86,19 @@ export async function callSubAgent(params: {
     };
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), params.timeout_ms || Number(process.env.AGENT_FETCH_TIMEOUT_MS) || 30_000);
-  try {
+  if (params.path && (!params.path.startsWith('/') || params.path.includes('..') || /^\/\//.test(params.path))) {
+    return { success: false, agentId: params.agent_id, error: 'Sub-agent path override must be a safe relative URL path.' };
+  }
+  if (!params.message.trim() || params.message.length > 12_000) {
+    return { success: false, agentId: params.agent_id, error: 'Sub-agent message must contain 1-12000 characters.' };
+  }
+
+  const maxAttempts = Math.max(1, Math.min(3, Number(process.env.SUB_AGENT_MAX_ATTEMPTS || 2)));
+  let lastError = '';
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), params.timeout_ms || Number(process.env.AGENT_FETCH_TIMEOUT_MS) || 30_000);
+    try {
     const url = `${agent.endpoint}${params.path || agent.defaultPath}`;
     const response = await fetch(url, {
       method: 'POST',
@@ -97,18 +107,25 @@ export async function callSubAgent(params: {
         'x-agent-id': process.env.AGENT_NAME || 'Morgan',
         ...handoffAuthHeaders(agent.id),
       },
-      body: JSON.stringify({ message: params.message, sourceAgent: 'Morgan' }),
+      body: JSON.stringify({ message: params.message, sourceAgent: 'Morgan', attempt }),
       signal: controller.signal,
     });
     const text = await response.text();
     let parsed: unknown = text;
     try { parsed = JSON.parse(text); } catch { /* keep text */ }
-    return { success: response.ok, agentId: agent.id, status: response.status, response: parsed };
-  } catch (err) {
-    return { success: false, agentId: agent.id, error: err instanceof Error ? err.message : String(err) };
-  } finally {
-    clearTimeout(timeout);
+      if (response.ok || ![408, 429, 500, 502, 503, 504].includes(response.status) || attempt === maxAttempts) {
+        return { success: response.ok, agentId: agent.id, status: response.status, response: parsed, error: response.ok ? undefined : `Sub-agent HTTP ${response.status} after ${attempt} attempt(s).` };
+      }
+      lastError = `Sub-agent HTTP ${response.status}`;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      if (attempt === maxAttempts) return { success: false, agentId: agent.id, error: `${lastError} after ${attempt} attempt(s).` };
+    } finally {
+      clearTimeout(timeout);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** (attempt - 1)));
   }
+  return { success: false, agentId: agent.id, error: lastError || 'Sub-agent call failed.' };
 }
 
 export const SUB_AGENT_TOOL_DEFINITIONS: ChatCompletionTool[] = [

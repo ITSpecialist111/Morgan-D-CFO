@@ -52,7 +52,7 @@ Morgan follows a repeatable control loop that maps directly to the CorpGen worke
 | Foundry IQ | Model, knowledge, trace, evaluation, artifact readiness, hosted Responses protocol | Foundry IQ card, `.foundry`, `/responses` |
 | Fabric IQ | Finance and cross-functional metrics from a semantic-model style adapter | Fabric IQ metrics and production path |
 | Human-facing presence | Aria-as-Morgan avatar, Voice Live, black background, moving orbs, live activity overlay | `/voice`, `/avatar` |
-| Governed escalation | Teams messages, Teams federation call control, approval boundaries, escalation rules | Teams Call Control, ACS federation status |
+| Governed escalation | Server-side tool policy, L2/L3 action-bound approvals, Teams call controls, identity authorization, replay prevention | Morgan Trust Center, approval queue, policy audit events |
 | Audit and observability | Application Insights-ready custom events, audit endpoint, Agent Mind ring buffer | `/api/observability`, `/api/audit/events`, `/api/mission-control/events` |
 | Cost/value management | Azure Cost Management actuals plus transparent showback estimates | `/mission-control/costs` |
 
@@ -65,7 +65,7 @@ It includes:
 - Job Description: Morgan's Digital CFO purpose, mandate, visible instructions, escalation rules, and success measures.
 - Cost of Morgan: daily and weekly run-rate, avatar share, value-to-cost estimate, Azure actuals, and link to the detailed dashboard.
 - Beta Starfield: CorpGen graph showing mission, tools, sub-agents, finance signals, memory, governance, and live events.
-- Agent Mind: visible events for prompts, replies, LLM turns, tool calls, tool results, MCP/Graph discovery, voice sessions, Teams calls, and mission tasks.
+- Morgan Trust Center and Agent Mind: visible request, safe decision summary, policy verdict, tool, provenance, approval, outcome, MCP/Graph discovery, voice, Teams, and mission-task events.
 - Microsoft IQ Command Layer: WorkIQ, Foundry IQ, and Fabric IQ pillars in one CFO briefing.
 - Teams Call Control: EasyAuth-protected operator panel for Teams federation calls.
 - Enterprise Capabilities and Readiness: the current implementation state and production hardening boundaries.
@@ -113,7 +113,7 @@ Morgan is intentionally honest about what is live, what is deterministic demo da
 | Work context | Deterministic WorkIQ adapter plus MCP visibility when configured | Graph/Agent 365 MCP and customer Microsoft 365 tenant data |
 | Foundry intelligence | Synthetic knowledge/eval signals and hosted Responses protocol | Foundry project assets, eval datasets, traces, model deployments |
 | Fabric intelligence | Contoso semantic-model adapter | Fabric Lakehouse/Warehouse/Power BI semantic model |
-| Memory | Process-local mission records plus optional Agent SDK Cosmos state | Durable mission records, audit export, retention, Purview/Sentinel workflow |
+| Memory | Atomic App Service files for mission work and HITL plus optional Agent SDK Cosmos conversation state | Cosmos transactional task/approval state, audit export, retention, Purview/Sentinel workflow |
 | Sub-agents | Endpoint registry with configured/missing status | Cassidy, Avatar, AI Kanban, and specialist production endpoints |
 | Teams calls | ACS bridge and tenant federation policy required | Production ACS resource, policy allow-list, call monitoring, approved operator flow |
 
@@ -139,10 +139,13 @@ Morgan is built for demos and pilots that need enterprise discipline:
 
 - Browser Mission Control, cost, and avatar surfaces require Microsoft web sign-in outside development.
 - Scheduled endpoints require `SCHEDULED_SECRET`.
+- External tools are re-checked by a server-side policy gateway; unknown tools fail closed and directly discovered MCP tools require an exact allowlist entry.
+- HITL decisions require an authorized Entra identity, action digest, version, expiry, and—on Adaptive Cards—a signed action token. Approved work is reserved for one execution attempt.
 - M365/Graph/MCP actions inherit Microsoft 365 auditability under the executing identity.
 - Morgan emits custom audit events with correlation IDs for joining to App Insights, Log Analytics, Purview, and Sentinel workflows.
 - Artifact evaluation and Paper Match Matrix rows show production-hardening boundaries instead of pretending every enterprise dependency is already complete.
 - Cost assumptions are visible and configurable.
+- Private model chain-of-thought is not exposed; Trust Center presents safe decision summaries and observable evidence instead.
 
 ## One-Sentence Narrative
 

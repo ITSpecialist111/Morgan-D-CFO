@@ -75,7 +75,7 @@
 | "Any anomalies I should worry about?" | `detectAnomalies` | Severity-classified variance alerts |
 | "Give me a Microsoft IQ briefing for the board." | `synthesizeMicrosoftIQBriefing` | WorkIQ + Foundry IQ + Fabric IQ → one exec update |
 | "Run your autonomous workday." | `runAutonomousCfoWorkday` | The full day loop: plan → analyse → anomalies → IQ → digest |
-| "Send the board P&L to the distribution list." | HITL **L2** | Morgan **stops** and raises an approval card |
+| "Send the board P&L to the distribution list." | HITL **L2** | Morgan **stops** and creates an approval request; an authorized operator may dispatch the signed card |
 | "Approve the $250k budget reforecast." | HITL **L3** | Dollar-bearing gate; approve/edit/decline/cancel |
 | "Ring me back in 5 minutes." | `scheduleAutonomousCallback` | She commits to an outbound Teams call on her own clock |
 | "What would you do differently next quarter?" | retrospective / insights | Data → recommendation, grounded in the period |
@@ -208,9 +208,9 @@ When a buyer asks *"what does it take to run this for real?"*, the contracts are
 | Capability | Today (demo) | Production swap |
 |---|---|---|
 | Financial data | Deterministic Contoso (`financialTools`, IQ pillars) | Read-only **Fabric / Power BI semantic model** or **GL/ERP** (SAP S/4HANA, Oracle NetSuite, Dynamics 365 Finance) behind the same `analyzeBudgetVsActuals` / `getLatestPnL` / `queryFabricIQFinancials` contracts |
-| Durable state | Process-local task ledger & memory | **Azure Cosmos DB** (`COSMOS_DB_*`) for records, memory, evaluations |
+| Durable state | Atomic App Service files for mission work/HITL plus optional Cosmos conversation state | **Azure Cosmos DB** transactional records, approvals, evaluations, and distributed leases |
 | M365 actions | MCP → Graph → honest fallback | Provision **Agent 365 MCP** + **Microsoft Graph** app credentials (Mail, Calendar, Teams, SharePoint, Planner) |
-| Approvals | Surface + prompt-level gating | Add a **dispatcher-level interceptor** that blocks gated tools until an approval record exists |
+| Approvals | Server-side L2/L3 interceptor, Entra allowlist, signed cards, digest/version/expiry checks, one-attempt reservation | Replace the single-instance file repository with Cosmos ETag/transactional storage before horizontal scale |
 | Voice / calling | Voice Live + D-ID + ACS (config-gated) | **ACS** connection + Teams federation policy + public host |
 | Evaluation & audit | Heuristic scoring; in-memory audit | **Foundry** eval datasets + **Purview / App Insights** export |
 | Model | Azure OpenAI deployment you configure | Pin the deployment + region your governance requires |
@@ -219,7 +219,7 @@ When a buyer asks *"what does it take to run this for real?"*, the contracts are
 
 ## 9. Proof points & metrics (label them honestly on camera)
 
-**Live / real (state as fact):** the deployed app and Mission Control; the finance tool registry (60 tools) with correctly-computed variance, margin, EBITDA, runway, P&L and trend math; Agent 365 **identity** config; **Teams/ACS calling** path; **Voice Live + D-ID** avatar; **audit events with correlation IDs**; **live Azure cost** data and break-even economics; the **L2/L3 approval** surface with real Adaptive Cards.
+**Live application features (state narrowly):** Mission Control and Trust Center; deterministic finance calculations with DEMO provenance; server-side L2/L3 policy; audit events with correlation IDs; authenticated operator surfaces; configured avatar/calling paths. Describe Adaptive Card delivery, tenant actions, and Azure cost actuals as live only when the current trace proves success.
 
 **Illustrative / modelled (label as such):**
 - ~**30–45%** of FP&A/reporting hours are repeatable assembly — *(target, varies by org)*.

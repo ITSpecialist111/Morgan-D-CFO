@@ -4,6 +4,13 @@ import { recordAgentEvent } from '../observability/agentEvents';
 
 export type MicrosoftIQPillar = 'WorkIQ' | 'FoundryIQ' | 'FabricIQ';
 
+export interface IQDataProvenance {
+  mode: 'deterministic-demo';
+  live: false;
+  source: string;
+  productionPath: string;
+}
+
 export interface IQCapability {
   pillar: MicrosoftIQPillar;
   roleInMorgan: string;
@@ -15,6 +22,7 @@ export interface IQCapability {
 }
 
 export interface WorkIQSignals {
+  provenance: IQDataProvenance;
   pillar: 'WorkIQ';
   generatedAt: string;
   period: string;
@@ -28,6 +36,7 @@ export interface WorkIQSignals {
 }
 
 export interface FabricIQMetrics {
+  provenance: IQDataProvenance;
   pillar: 'FabricIQ';
   generatedAt: string;
   period: string;
@@ -48,6 +57,7 @@ export interface FabricIQMetrics {
 }
 
 export interface FoundryIQInsights {
+  provenance: IQDataProvenance;
   pillar: 'FoundryIQ';
   generatedAt: string;
   period: string;
@@ -136,6 +146,7 @@ export function queryWorkIQSignals(params: { period?: string; focus?: string } =
   const pendingApprovals = 3 + (seed % 4);
   const plannerTasksDue = 6 + (seed % 6);
   return {
+    provenance: { mode: 'deterministic-demo', live: false, source: 'Contoso Microsoft 365 work-graph fixture', productionPath: 'Agent 365 MCP and Microsoft Graph with tenant authorization.' },
     pillar: 'WorkIQ',
     generatedAt: new Date().toISOString(),
     period,
@@ -169,6 +180,7 @@ export function queryFabricIQFinancials(params: { period?: string; business_unit
   const headcountCost = 1_420_000 + (seed % 220_000);
   const supportCostPerCustomer = 128 + (seed % 34);
   return {
+    provenance: { mode: 'deterministic-demo', live: false, source: 'Contoso CFO semantic-model fixture', productionPath: 'Microsoft Fabric Lakehouse/Warehouse or Power BI semantic model.' },
     pillar: 'FabricIQ',
     generatedAt: new Date().toISOString(),
     period,
@@ -202,6 +214,7 @@ export function queryFoundryIQInsights(params: { period?: string; focus?: string
   const revenueTrend = calculateTrend({ metric: 'revenue', periods: 6 });
   const evaluationBase = anomalies.totalAnomalies > 0 ? 84 : 91;
   return {
+    provenance: { mode: 'deterministic-demo', live: false, source: 'Synthetic Foundry knowledge and evaluation fixture', productionPath: 'Foundry knowledge indexes, traces, datasets, evaluators, and model deployments.' },
     pillar: 'FoundryIQ',
     generatedAt: new Date().toISOString(),
     period,

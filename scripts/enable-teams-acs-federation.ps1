@@ -12,10 +12,15 @@
   user is not enabled for ACS federation. Those are Teams admin operations and
   cannot be performed by the web app.
 
-  This script (run by a Teams Administrator) performs the two required steps:
-    1. Set-CsTeamsAcsFederationConfiguration  -> allow-list the immutable ACS
+    This script (run by a Teams Administrator) validates the target and performs
+    the two required policy steps:
+     1. Verify the target is a human Teams user with Teams Phone Standard
+       (MCOEV), Enterprise Voice, SIP, and registrar provisioning. Resource-
+       account licensing (PHONESYSTEM_VIRTUALUSER / MCOEV_VIRTUALUSER) is
+       rejected because it causes direct user calls to fail with 403/10391.
+     2. Set-CsTeamsAcsFederationConfiguration  -> allow-list the immutable ACS
        resource ID at tenant scope (EnableAcsUsers = true).
-    2. Set/Grant-CsExternalAccessPolicy       -> enable ACS federation access for
+     3. Set/Grant-CsExternalAccessPolicy       -> enable ACS federation access for
        the target Teams user.
   It then verifies and prints the resulting state. The target user must also be
   Teams Phone / Enterprise Voice eligible to receive the call.
@@ -111,15 +116,49 @@ if ($whatIf) {
 }
 
 # ---------------------------------------------------------------------------
+# 2a. Validate that the destination is a human Teams Phone user
+# ---------------------------------------------------------------------------
+Write-Step "Validating the target as a callable Teams Phone user"
+if ($whatIf) {
+  Write-Warn2 "Would verify Get-CsOnlineUser for Teams Phone Standard, Enterprise Voice, SIP, and registrar provisioning"
+} else {
+  $targetUser = Get-CsOnlineUser -Identity $TargetUserUpn -ErrorAction Stop
+  $enabledCapabilities = @($targetUser.AssignedPlan | Where-Object CapabilityStatus -eq 'Enabled' | Select-Object -ExpandProperty Capability)
+  $isApplicationInstance = [string]$targetUser.InterpretedUserType -match 'ApplicationInstance'
+  $hasHumanPhonePlan = @($enabledCapabilities | Where-Object { $_ -eq 'MCOEV' }).Count -gt 0
+  $hasVirtualUserPlan = @($enabledCapabilities | Where-Object { $_ -eq 'MCOEV_VIRTUALUSER' }).Count -gt 0
+  if ($isApplicationInstance -or $hasVirtualUserPlan) {
+    throw 'The target is provisioned as a Teams application/resource account. Direct ACS-to-Teams user calls require a human Teams user with Teams Phone Standard, not PHONESYSTEM_VIRTUALUSER.'
+  }
+  if (-not $hasHumanPhonePlan) {
+    throw 'The target does not have the human Teams Phone Standard (MCOEV) service plan.'
+  }
+  if (-not $targetUser.EnterpriseVoiceEnabled) {
+    throw 'The target is not Enterprise Voice enabled. Run Set-CsPhoneNumberAssignment -Identity <target> -EnterpriseVoiceEnabled $true.'
+  }
+  if ([string]::IsNullOrWhiteSpace([string]$targetUser.RegistrarPool) -or [string]::IsNullOrWhiteSpace([string]$targetUser.SipAddress)) {
+    throw 'Teams has not completed SIP/registrar provisioning for the target. Wait for license propagation, then retry.'
+  }
+  Write-Ok 'Target is a human Teams Phone user with Enterprise Voice and SIP/registrar provisioning.'
+}
+
+# ---------------------------------------------------------------------------
 # 3. Tenant: allow-list the ACS resource for federation
 # ---------------------------------------------------------------------------
 Write-Step "Allow-listing the ACS resource for Teams<->ACS federation (tenant scope)"
-$federationCmd = "Set-CsTeamsAcsFederationConfiguration -Identity Global -EnableAcsUsers `$true -AllowedAcsResources @{Add='$AcsResourceId'}"
+$federationCmd = "Set-CsTeamsAcsFederationConfiguration -Identity Global -EnableAcsUsers `$true -AllowedAcsResources @{Replace=@('$AcsResourceId')}"
 if ($whatIf) {
   Write-Warn2 "Would run: $federationCmd"
 } else {
-  Set-CsTeamsAcsFederationConfiguration -Identity Global -EnableAcsUsers $true -AllowedAcsResources @{Add = $AcsResourceId }
-  Write-Ok "Federation configuration updated."
+  $currentFederation = Get-CsTeamsAcsFederationConfiguration -ErrorAction Stop
+  $currentAllowedResources = @($currentFederation.AllowedAcsResources | ForEach-Object { [string]$_ })
+  if ($currentFederation.EnableAcsUsers -and $currentAllowedResources -contains $AcsResourceId) {
+    Write-Ok 'Federation configuration already contains the immutable ACS resource ID.'
+  } else {
+    $nextAllowedResources = @($currentAllowedResources + $AcsResourceId | Sort-Object -Unique)
+    Set-CsTeamsAcsFederationConfiguration -Identity Global -EnableAcsUsers $true -AllowedAcsResources @{ Replace = $nextAllowedResources } -Force
+    Write-Ok "Federation configuration updated."
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -132,7 +171,12 @@ if ($whatIf) {
   Write-Warn2 "Would run: $policyCmd"
   Write-Warn2 "Would run: $grantCmd  (omit -PolicyName to use the Global policy)"
 } else {
-  Set-CsExternalAccessPolicy -Identity $ExternalAccessPolicyName -EnableAcsFederationAccess $true
+  $currentExternalPolicy = Get-CsExternalAccessPolicy -Identity $ExternalAccessPolicyName -ErrorAction Stop
+  if ($currentExternalPolicy.EnableAcsFederationAccess) {
+    Write-Ok "External access policy '$ExternalAccessPolicyName' already enables ACS federation."
+  } else {
+    Set-CsExternalAccessPolicy -Identity $ExternalAccessPolicyName -EnableAcsFederationAccess $true
+  }
   if ($ExternalAccessPolicyName -ne 'Global') {
     Grant-CsExternalAccessPolicy -Identity $TargetUserUpn -PolicyName $ExternalAccessPolicyName
   }
