@@ -9,10 +9,12 @@ _Latest hardening pass: 2026-07-11. Morgan now has server-side execution policy,
 - **Server-side governance** — Every model tool call is classified and re-checked before execution. External/mutable actions require L2, financial commitments require L3, unknown tools fail closed, and directly discovered MCP tools require an exact allowlist entry.
 - **Action-bound HITL** — Decisions require an allowlisted Entra identity, version/digest/expiry checks, signed card actions, atomic persistence, and one-attempt reservation. The model cannot approve its own work.
 - **Morgan Trust Center** — Mission Control distinguishes live, verified, configured-only, deterministic demo, and unavailable evidence, then joins request → decision summary → policy → tool/provenance → human gate → outcome.
+- **Direct operator Teams calling** — The EasyAuth-protected, finance-operator-only Mission Control button now uses the configured target and treats the explicit click as authorization for one immediate ACS-to-Teams call; autonomous/model calls remain L2-gated.
+- **README visual proof refresh** — Current-build screenshots now cover Trust Center evidence grades, unclipped Agent Mind events, safe governance timelines, and direct Teams Call Control alongside the wider showcase gallery.
 
 - **LLM-driven autonomous Kanban** — Each workday cycle Morgan now *reasons* about which 1-2 CFO cards to advance next and why, instead of following a fixed coded order, with a deterministic fallback when the model is unavailable. (`src/mission/cfoWorkReasoner.ts`, `advanceCfoWorkCardsAutonomously`, audit event `mission.kanban.advanced` with `reasoningMode: "llm" | "deterministic"`.)
 - **Persistent card-driven CFO work backlog** — Concrete CFO cards (board pack, month-end close, marketing overspend, cash/runway, anomaly scan, headcount, weekly digest, plus HITL gates) advance through `queue → active → review → done` each cycle and persist to `$HOME/data` (durable Azure Files), so progress and history survive restarts and redeploys.
-- **Runs every day on its own** — App Service upgraded to **Basic B1 + Always On**; the in-process scheduler runs the workday automatically, **09:00–17:00 Europe/London**, every 25 min, with an end-of-day report. No external trigger needed.
+- **Runs every day on its own** — App Service upgraded to **Basic B1 + Always On**; the in-process scheduler runs the workday automatically, **09:00–17:00 Australia/Sydney**, every 25 min, with an end-of-day report. The timezone remains configurable through `AUTONOMOUS_WORKDAY_TIME_ZONE`; no external trigger is required.
 - **Expressive D-ID humanoid avatar** — Mia Elegant now speaks with an expressive-but-executive ElevenLabs profile (`eleven_turbo_v2_5` with tuned `stability`/`style`/`speaker_boost`, all env-tunable) instead of a flat read. Two API-only ops helpers ship with it: `scripts/did-allow-domain.cjs` (authorize a deployment domain on the D-ID client key) and `scripts/did-set-voice-expressiveness.cjs` (apply/dial/revert the voice).
 - **Visual + work parity upgrade** — Beta Starfield renders stakeholder profile photos, the Kanban carries CFO-specific work (not generic tasks), and four Mission Control sections were added (sub-agents, avatar production proof, WorkIQ graph proof, agent unit economics).
 - **Digital-worker capability port** — D-ID avatar, HITL L2/L3 approvals (`/approvals`), agentic Kanban, operational retrospectives, governance observability, and WorkIQ status, all on the Digital CFO persona and the upgraded Agent SDK.
@@ -129,15 +131,27 @@ flowchart LR
 
 ## Showcase Screenshot Walkthrough
 
-The screenshots below are captured from the live Morgan showcase. Together they tell the customer story end-to-end: the digital worker contract and operating graph, the Microsoft IQ intelligence behind the briefings, the autonomous work board, the governance and audit trail, the ROI and cost case, the human-facing avatar, Morgan inside Microsoft Teams, and how Morgan appears in the Microsoft 365 admin surface.
+The repository-hosted screenshots below combine current-build deterministic captures with authenticated live-showcase captures. Evidence-grade labels remain visible so a demo fixture is not mistaken for live tenant proof. Together they show the digital-worker contract and operating graph, Trust Center, Agent Mind, Microsoft IQ, autonomous work board, governance trail, direct Teams calling, ROI and cost case, avatar, Teams agent experience, and Microsoft 365 administration.
 
 For a shareable static preview, open [src/mission/mission-control-mockup.html](src/mission/mission-control-mockup.html). After build or deployment, the same mockup is served at `/mission-control/mockup` with fixed demo data so reviewers can see the dashboard shape without a live signed-in session.
+
+### Morgan Trust Center
+
+![Morgan Trust Center showing LIVE, DEMO, TENANT PENDING, ENFORCED, and VERIFIED evidence grades](docs/screenshots/trust-center-evidence-grades.png)
+
+The Trust Center makes capability boundaries explicit. This current-build capture intentionally includes a tenant-pending connector alongside enforced HITL and the verified Foundry baseline, demonstrating that Morgan reports configuration and evidence honestly instead of presenting every integration as live.
 
 ### Mission Control and Beta Starfield
 
 ![Morgan Mission Control with the Beta Starfield operating graph, stakeholder profile photos, identity strip, and daily counters](docs/screenshots/mission-control-beta-starfield.png)
 
-Mission Control is Morgan's cockpit. The header pins the Digital CFO identity, the avatar toggle, and the 09:00-17:00 seven-day window; the top navigation jumps to Agent Mind, Governance, Cost, CFO ROI, Digest, Microsoft IQ, Teams Call, Approvals, Retrospectives, and the D-CFO Kanban. The Beta Starfield renders Morgan's operating graph (228 nodes / 414 paths across plan, execute, delegate, govern, prove) with live stakeholder profile photos of the people Morgan is reasoning about (for example Sofia Costa, the HITL approver). It proves Morgan is a worker with a visible contract, not a hidden chat agent.
+Mission Control is Morgan's cockpit. The header pins the Digital CFO identity, the avatar toggle, and the 09:00-17:00 seven-day window; the top navigation jumps to Agent Mind, Governance, Cost, CFO ROI, Digest, Microsoft IQ, Teams Call, Approvals, Retrospectives, and the D-CFO Kanban. The Beta Starfield renders a runtime-generated operating graph across plan, execute, delegate, govern, and prove; node/path counters grow with current tools, tasks, stakeholders, and audit events. Stakeholder profile photos make human relationships and approval authority visible. It proves Morgan is a worker with a contract, not a hidden chat agent.
+
+### Agent Mind: Tool Calling and Auditability
+
+![Agent Mind showing live, fully readable mission-task and tool-result rows with event filters and activity counters](docs/screenshots/agent-mind-audit-trace.png)
+
+Agent Mind exposes the operational trace without publishing private model chain-of-thought. Timestamps, event types, labels, provenance chips, filters, and expandable details remain readable inside a bounded event list, including dense autonomous-workday activity.
 
 ### Microsoft IQ Command Layer
 
@@ -153,9 +167,15 @@ The Autonomous Kanban is the proof-of-work surface. CFO-specific cards flow from
 
 ### Governance Observability and Audit
 
-![Governance Observability and Audit run timeline with decision traces, reasoning turns, tool selections, HITL gates, and audit events](docs/screenshots/governance-observability-audit.png)
+![Governance Observability and Audit run timeline with decision traces, safe decision summaries, provenance, HITL gates, and audit events](docs/screenshots/governance-observability-audit.png)
 
 Morgan Trust Center gives a full observable timeline for each CFO run, joined by correlation ID with the request, safe decision summary, policy verdict, tool selection, provenance, response, HITL gate, outcome, and audit severity. Private model chain-of-thought is not exposed.
+
+### Teams Call Control
+
+![Teams Call Control showing configured ACS bridge, server-side default target, explicit operator authorization, call brief, and direct dial action](docs/screenshots/teams-call-control.png)
+
+The signed-in finance operator can place one immediate ACS-to-Teams call from Mission Control without entering an object ID or completing a redundant second approval. The server supplies the configured default target, while EasyAuth, the finance-operator allowlist, same-origin validation, rate limiting, and audit events protect the route. Model- and scheduler-initiated calls remain L2-gated.
 
 ### CFO ROI Work Graph
 
@@ -191,7 +211,7 @@ This is how Morgan and other agentic workloads are governed inside the Microsoft
 
 - **Production app**: `https://morganfinanceagent-webapp.azurewebsites.net`
 - **Azure host**: Linux Azure App Service on Basic B1 with Node.js 20 and WebSockets enabled
-- **Foundry hosted-agent target**: Morgan should be deployed as a Microsoft Foundry hosted agent named `morgan-digital-cfo-hosted`, using the existing `/responses` protocol and containerized runtime. See [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md).
+- **Foundry hosted-agent proof**: `morgan-digital-cfo-hosted` version 10 is the preserved verified baseline in the North Central US Foundry project, using the Responses protocol and containerized runtime. That proof is limited to hosted reachability, Azure OpenAI routing, and bounded P0 behavior. See [docs/morgan-foundry-hosted-agent.md](docs/morgan-foundry-hosted-agent.md).
 - **Mission Control**: `/mission-control` shows Morgan's job description, operating contract, autonomous instructions, key tasks, CorpGen alignment, live task log, day-end summary, D-CFO Kanban, cost panel, Agent Mind, and a cinematic interactive Beta Starfield
 - **Mission Control mockup**: `/mission-control/mockup` serves a static customer-preview dashboard with fixed data for the Beta Starfield, Agent Mind, Microsoft IQ, cost, Kanban, and readiness surfaces
 - **Agent Mind**: Mission Control exposes live tool calls, Graph/MCP activity, safe reasoning summaries, voice turns, Teams call events, and autonomous task records without exposing hidden chain-of-thought
@@ -376,6 +396,7 @@ Morgan-D-CFO/
 | `/api/hitl/approvals` (+ `/surface`, `/send-mod-card`, `/:id/decision`) | List approvals, send signed card, and record an identity-authorized, version/digest-bound human decision | EasyAuth + finance approver allowlist |
 | `/api/health` | Minimal public liveness only | Public |
 | `/api/readiness` | Integration, scheduler, storage, and calling readiness | EasyAuth or `SCHEDULED_SECRET` |
+| `/api/voice/status` | Voice interface enabled/disabled status | Public |
 | `/api/workiq/status` | Morgan identity + WorkIQ MCP coverage + Graph readiness | EasyAuth |
 | `/api/avatar/config` and `/api/avatar/readiness` | Avatar config (voice style, agentic kanban) and readiness | EasyAuth |
 | `/api/avatar/did/*` | D-ID avatar config, session, status | EasyAuth |
@@ -410,7 +431,7 @@ The dashboard also includes a CorpGen paper match matrix. Each row shows the pap
 
 The current implementation goes beyond a static paper mapping. Morgan can call `generateCfoOperatingPlan`, `listOpenMissionTasks`, `getAutonomousKanbanBoard`, `getAdaptiveMemorySummary`, `getExperientialLearningPlaybook`, `getEnterpriseReadiness`, `evaluateMissionArtifact`, `queryWorkIQSignals`, `queryFoundryIQInsights`, `queryFabricIQFinancials`, and `synthesizeMicrosoftIQBriefing` during real turns, voice sessions, and autonomous workday runs. These tools make the showcase inspectable: customers can see what Morgan plans to do, why it chose the next task, what is on the autonomous Kanban board, what memory it preserved, which enterprise controls are ready, which IQ sources informed the business insight, and whether an artifact is good enough to present.
 
-Morgan's autonomous CFO operating window is `09:00-17:00`, seven days a week. The production App Service runs on **Basic B1 with Always On**, so the in-process workday loop runs reliably every day when `AUTONOMOUS_WORKDAY_ENABLED=true` (currently enabled, timezone `Europe/London`) without needing an external trigger. The scheduled endpoints can also trigger the same workday loop from an external Function App or the optional `.github/workflows/morgan-daily-workday.yml` cron. Mission Control shows the cadence, task evidence, and day-end priorities.
+Morgan's autonomous CFO operating window is `09:00-17:00`, seven days a week. The production App Service runs on **Basic B1 with Always On**, so the in-process workday loop runs reliably every day when `AUTONOMOUS_WORKDAY_ENABLED=true` (currently enabled, timezone `Australia/Sydney`) without needing an external trigger. Override the timezone with `AUTONOMOUS_WORKDAY_TIME_ZONE`. The scheduled endpoints can also trigger the same workday loop from an external Function App or the optional `.github/workflows/morgan-daily-workday.yml` cron. Mission Control shows the cadence, task evidence, and day-end priorities.
 
 The Azure Functions trigger app now contains three scheduler paths into Morgan:
 
