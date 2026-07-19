@@ -54,6 +54,7 @@ import { registerMicrosoftWebAuthRoutes } from './microsoftWebAuth';
 import { getSubAgentRegistry } from './orchestrator/subAgents';
 import { executeTool } from './tools';
 import { createExecutionContext, systemExecutionContext } from './governance/executionContext';
+import { registerBadgeRoutes } from './badge/badgeRoutes';
 
 // Only NODE_ENV=development disables authentication
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -390,6 +391,7 @@ server.use(
 );
 
 registerAvatarRoutes(server, requireEasyAuth);
+registerBadgeRoutes(server);
 
 // D-ID humanoid avatar routes (separate platform).
 server.use('/api/avatar/did', requireEasyAuth, didAvatarRouter);

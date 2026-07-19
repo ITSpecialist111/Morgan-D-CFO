@@ -11,7 +11,8 @@ export type AgentEventKind =
   | 'mcp.discover'
   | 'mcp.invoke'
   | 'graph.call'
-  | 'mission.task';
+  | 'mission.task'
+  | 'badge.telemetry';
 
 export interface AgentEvent {
   id: string;
