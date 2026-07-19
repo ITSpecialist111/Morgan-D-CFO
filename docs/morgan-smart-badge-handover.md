@@ -423,14 +423,15 @@ browser mock for Rev A component validation.
 | --- | --- |
 | `src/badge-emulator/emulator-core.js` | Deterministic component, timing, power, PCM, telemetry, optional-peripheral, and fault model |
 | `src/badge-emulator/emulator-ui.js` | Interactive controls, microphone PCM capture, Voice Live events, speaker playback, transcript, waveform, live health probe, and test presentation |
-| `src/badge-emulator/index.html` | Responsive 240 x 320 test-bench interface |
+| `src/badge-emulator/index.html` | Responsive Solara-style rugged shell and portrait-first 240 x 320 test-bench interface |
 | `src/badge-emulator/README.md` | Coverage, commands, and emulation boundary |
 | `src/__tests__/badge-emulator.test.ts` | Rev A pin, timing, external voice state, browser media controls, power, optional-peripheral, telemetry, and fault tests |
 
 Emulated component groups:
 
 - XIAO ESP32-C5 identity, memory, uptime, state, and user LED.
-- ST7789 240 x 320 framebuffer and Morgan portrait.
+- ST7789 240 x 320 framebuffer presented as recessed black glass with Morgan's
+  full-height portrait, centered identity, rugged rails, lanyard mount, and side PTT.
 - ICS-43434 deterministic 24 kHz PCM16, level, noise, clipping, slot, and clock behavior.
 - MAX98357A shutdown, gain, I2S, and PCM output behavior.
 - Differential 1511 speaker with audible browser tone and open/short faults.
@@ -447,6 +448,8 @@ Automated evidence:
   firmware delays.
 - Browser tests verified the real portrait and nonblank waveform, individual
   display/NFC/IMU/haptic controls, and public health response.
+- Desktop and 390 px screenshots verified the Solara-style shell, portrait crop,
+  identity hierarchy, physical side control, and absence of horizontal overflow.
 - A real emulator Voice Live turn reached `session.updated`, returned seven
   `response.audio.delta` chunks (179,200 base64 characters), completed with the
   transcript "Badge audio is active and working correctly.", and reported no

@@ -158,7 +158,7 @@ test('badge component emulator', async (suite) => {
     });
   });
 
-  await suite.test('ships microphone, transcript, and speaker controls', () => {
+  await suite.test('ships Solara shell, microphone, transcript, and speaker controls', () => {
     const htmlPath = path.join(__dirname, '..', 'badge-emulator', 'index.html');
     const scriptPath = path.join(__dirname, '..', 'badge-emulator', 'emulator-ui.js');
     const html = fs.readFileSync(htmlPath, 'utf8');
@@ -177,5 +177,8 @@ test('badge component emulator', async (suite) => {
     assert.match(script, /\/api\/badge-emulator\/voice/);
     assert.match(script, /getUserMedia/);
     assert.match(script, /response\.audio\.delta/);
+    assert.match(html, /class="badge-rig"/);
+    assert.match(html, /class="microsoft-mark"/);
+    assert.match(html, /class="screen-role">Digital CFO</);
   });
 });

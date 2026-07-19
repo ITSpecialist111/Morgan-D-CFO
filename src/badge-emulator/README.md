@@ -9,7 +9,7 @@ optional peripherals to be soldered.
 | Component | Emulated behavior |
 | --- | --- |
 | XIAO ESP32-C5 | 240 MHz identity, 8 MB flash/PSRAM, monotonic uptime, user LED, state machine |
-| ST7789 | 240 x 320 portrait framebuffer, Morgan portrait, state/detail/cloud/battery presentation |
+| ST7789 | Solara-style 240 x 320 black-glass display, full-height Morgan portrait, identity, state, cloud, and battery presentation |
 | ICS-43434 | Deterministic 24 kHz PCM16 input, level/noise/clipping, left-slot and clock faults |
 | MAX98357A | Shutdown state, gain, PCM RMS, clock/data faults |
 | 1511 speaker | Differential-output contract, audible test tone, open/short faults |
