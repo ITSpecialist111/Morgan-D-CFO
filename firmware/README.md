@@ -3,6 +3,9 @@
 For the consolidated architecture, deployment, validation, risk, and next-owner
 record, see `../docs/morgan-smart-badge-handover.md`.
 
+Before soldering, use the deterministic component test bench documented at
+`../src/badge-emulator/README.md` and served from `/badge-emulator`.
+
 The `morgan_badge` sketch targets the Seeed Studio XIAO ESP32-C5 and implements
 the Rev A Morgan Smart ID Badge core:
 

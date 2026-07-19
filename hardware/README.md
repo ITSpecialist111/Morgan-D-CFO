@@ -3,6 +3,9 @@
 For the consolidated architecture, deployment, validation, risk, and next-owner
 record, see `../docs/morgan-smart-badge-handover.md`.
 
+Use `/badge-emulator` to exercise digital component behavior and injected faults
+before following the physical solder and measurement sequence below.
+
 This directory contains the build package for the first physical Morgan badge
 prototype:
 

@@ -48,6 +48,10 @@ not soldered. Their electrical behavior is therefore not yet verified. The MCU,
 firmware, local state machine, cloud API, telemetry, and badge WebSocket path have
 been verified independently.
 
+A deterministic browser component emulator is also available at
+`/badge-emulator`. It exercises every Rev A digital component contract plus the
+optional PN532, MPU6050, and DRV2605L behavior before soldering.
+
 ## Scope And Product Boundary
 
 The target is a **Solara-style Morgan badge prototype**, not an exact hardware
@@ -406,6 +410,61 @@ voice session closes any existing browser avatar Voice Live session before the
 badge session starts. Do not run badge voice tests during a browser-avatar demo.
 Multi-session capacity and fair admission control are future work.
 
+## Component Emulator
+
+The current, firmware-aligned test bench is implemented under
+`src/badge-emulator/` and served at `/badge-emulator`. It supersedes the older
+browser mock for Rev A component validation.
+
+| Artifact | Responsibility |
+| --- | --- |
+| `src/badge-emulator/emulator-core.js` | Deterministic component, timing, power, PCM, telemetry, optional-peripheral, and fault model |
+| `src/badge-emulator/emulator-ui.js` | Interactive controls, rendering, waveform, audio tone, live health probe, and test presentation |
+| `src/badge-emulator/index.html` | Responsive 240 x 320 test-bench interface |
+| `src/badge-emulator/README.md` | Coverage, commands, and emulation boundary |
+| `src/__tests__/badge-emulator.test.ts` | Rev A pin, timing, audio, power, optional-peripheral, telemetry, and fault tests |
+
+Emulated component groups:
+
+- XIAO ESP32-C5 identity, memory, uptime, state, and user LED.
+- ST7789 240 x 320 framebuffer and Morgan portrait.
+- ICS-43434 deterministic 24 kHz PCM16, level, noise, clipping, slot, and clock behavior.
+- MAX98357A shutdown, gain, I2S, and PCM output behavior.
+- Differential 1511 speaker with audible browser tone and open/short faults.
+- Active-low D0 PTT with the real 35 ms debounce and cloud/local timing paths.
+- 303040 LiPo and SGM40567 USB charge, discharge, state loads, voltage sag, and brownout.
+- Wi-Fi association/RSSI, NTP, pinned TLS, badge authentication, API, telemetry, and voice readiness.
+- Optional PN532 authorized/denied tags, MPU6050 35-degree motion interrupt, and DRV2605L patterns.
+
+Automated evidence:
+
+- Twelve baseline component groups pass.
+- All twenty-four exposed fault controls are injected and detected.
+- PTT traverses `LISTENING -> THINKING -> SPEAKING -> STANDBY` with the modeled
+  firmware delays.
+- Browser tests verified the real portrait and nonblank waveform, individual
+  display/NFC/IMU/haptic controls, and public health response.
+- Desktop and 390 px mobile views have no page-level overflow or clipped controls.
+- Emulator assets are served with `Cache-Control: no-store` so stale test logic
+  cannot appear to validate a newer build.
+
+Run locally:
+
+```powershell
+npm run test:badge-emulator
+npm run build
+$env:PORT='3981'
+$env:NODE_ENV='development'
+node dist\index.js
+```
+
+Open `http://localhost:3981/badge-emulator`.
+
+The emulator does **not** prove real voltage levels, signal integrity, RF,
+microphone noise/sensitivity, acoustic echo, amplifier distortion, speaker sound
+pressure, charger thermals, LiPo protection/capacity, solder quality, or enclosure
+reliability. The staged physical bring-up remains mandatory.
+
 ### TLS
 
 The deployed App Service certificate chain was inspected and terminated at
@@ -491,8 +550,9 @@ verification returned:
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 11 tests passed, 0 failed |
-| Governance and security suite | Passed |
+| `npm test` | 20 tests passed, 0 failed |
+| Governance and security suite | 11 tests passed |
+| Badge emulator suite | 9 tests passed, including 8 component subtests |
 | Badge fail-closed authentication test | Passed |
 | Strict telemetry unknown-field rejection | Passed |
 | Valid telemetry acceptance | Passed |
@@ -500,6 +560,11 @@ verification returned:
 | `npm run audit:prod` | 0 vulnerabilities |
 | TypeScript language-service errors | None in changed server files |
 | `git diff --check` | Passed |
+
+After adding the component emulator, the combined repository command reports 20
+passing tests: 11 governance/security tests plus the emulator suite and its
+subtests. The focused `npm run test:badge-emulator` command reports nine passing
+Node tests, including the eight component-emulator subtests.
 
 ### Firmware And Device
 
@@ -750,6 +815,7 @@ Tracked files changed by this work:
 New source-controlled deliverables intended for review:
 
 - `src/badge/`
+- `src/badge-emulator/`
 - `firmware/`
 - `hardware/`
 - `scripts/configure-badge.ps1`
@@ -827,6 +893,7 @@ Git, deployment logs, or screenshots.
 
 ```powershell
 npm test
+npm run test:badge-emulator
 npm run audit:prod
 ```
 
@@ -867,6 +934,10 @@ without printing the authorization header.
 - [x] Badge API deployed to existing App Service.
 - [x] HTTPS 200 and telemetry 202 proven from XIAO.
 - [x] Authenticated WSS `Speak now` proven from XIAO.
+- [x] Deterministic component emulator implemented at `/badge-emulator`.
+- [x] Twelve baseline component groups validated in Node and browser.
+- [x] All twenty-four exposed fault controls injected and detected.
+- [x] Desktop/mobile emulator layouts and live public health probe validated.
 - [x] Cloud and governance tests passed.
 - [x] Production dependency audit passed with zero vulnerabilities.
 - [x] Secrets confirmed ignored and untracked.
@@ -888,6 +959,7 @@ Repository references:
 - `hardware/morgan-badge-rev-a-wiring.csv`
 - `src/badge/badgeAuth.ts`
 - `src/badge/badgeRoutes.ts`
+- `src/badge-emulator/README.md`
 - `src/voice/voiceProxy.ts`
 - `src/__tests__/governance.test.ts`
 

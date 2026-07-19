@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("scoutTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <title>Morgan Badge Component Emulator</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --cp-bg: #f7f4ef;
+      --cp-bg-elevated: #fcfbf8;
+      --cp-surface: #ffffff;
+      --cp-surface-soft: #f5f5f5;
+      --cp-border: #dedede;
+      --cp-border-strong: #919191;
+      --cp-text: #242424;
+      --cp-text-muted: #5c5c5c;
+      --cp-text-soft: #6f6f6f;
+      --cp-accent: #b11f4b;
+      --cp-accent-hover: #9a1a41;
+      --cp-accent-soft: rgba(177, 31, 75, 0.08);
+      --cp-accent-fg: #ffffff;
+      --cp-success: #16a34a;
+      --cp-danger: #dc2626;
+      --cp-warning: #f59e0b;
+      --cp-link: #0078d4;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+      --cp-overlay: rgba(255, 255, 255, 0.8);
+      --cp-panel: rgba(255, 255, 255, 0.86);
+      --cp-panel-strong: rgba(255, 255, 255, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.55);
+      --cp-highlight: rgba(177, 31, 75, 0.12);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --cp-bg: #3d3b3a;
+      --cp-bg-elevated: #343231;
+      --cp-surface: #292929;
+      --cp-surface-soft: #2e2e2e;
+      --cp-border: #474747;
+      --cp-border-strong: #5f5f5f;
+      --cp-text: #dedede;
+      --cp-text-muted: #919191;
+      --cp-text-soft: #b0b0b0;
+      --cp-accent: #fd8ea1;
+      --cp-accent-hover: #fb7b91;
+      --cp-accent-soft: rgba(253, 142, 161, 0.14);
+      --cp-accent-fg: #1a1a1a;
+      --cp-success: #4ade80;
+      --cp-danger: #f87171;
+      --cp-warning: #fbbf24;
+      --cp-link: #4da6ff;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --cp-overlay: rgba(41, 41, 41, 0.88);
+      --cp-panel: rgba(41, 41, 41, 0.72);
+      --cp-panel-strong: rgba(41, 41, 41, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.04);
+      --cp-highlight: rgba(253, 142, 161, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      background: var(--cp-bg);
+      color: var(--cp-text);
+      font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+      letter-spacing: 0;
+    }
+    button, input, select { font: inherit; letter-spacing: 0; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--cp-link);
+      outline-offset: 2px;
+    }
+    .app-shell { min-height: 100vh; }
+    .topbar {
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 12px 24px;
+      background: var(--cp-bg-elevated);
+      border-bottom: 1px solid var(--cp-border);
+    }
+    .identity { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      background: var(--cp-accent);
+      color: var(--cp-accent-fg);
+      border-radius: 0.625rem;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+    h1 { margin: 0; font-size: 18px; line-height: 1.2; }
+    .subtitle { margin-top: 3px; color: var(--cp-text-muted); font-size: 12px; }
+    .top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .button {
+      border: 1px solid var(--cp-border-strong);
+      background: var(--cp-surface);
+      color: var(--cp-text);
+      border-radius: 0.625rem;
+      min-height: 36px;
+      padding: 7px 12px;
+      font-weight: 650;
+    }
+    .button:hover { background: var(--cp-surface-soft); }
+    .button.primary { background: var(--cp-accent); color: var(--cp-accent-fg); border-color: var(--cp-accent); }
+    .button.primary:hover { background: var(--cp-accent-hover); }
+    .button.danger { color: var(--cp-danger); border-color: var(--cp-danger); }
+    .button.small { min-height: 30px; padding: 4px 9px; font-size: 12px; }
+    .state-chip, .grade-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 4px 9px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      font: 700 11px Consolas, "Courier New", Courier, monospace;
+    }
+    .state-chip::before, .grade-chip::before, .status-dot {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cp-text-muted);
+      flex: 0 0 auto;
+    }
+    .state-chip.listening::before { background: var(--cp-link); }
+    .state-chip.thinking::before { background: var(--cp-accent); }
+    .state-chip.speaking::before { background: var(--cp-success); }
+    .state-chip.fault::before { background: var(--cp-danger); }
+    .grade-chip::before { background: var(--cp-warning); }
+
+    .notice {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 9px 24px;
+      background: var(--cp-accent-soft);
+      border-bottom: 1px solid var(--cp-border);
+      color: var(--cp-text-muted);
+      font-size: 12px;
+    }
+    .notice strong { color: var(--cp-text); }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
+      gap: 20px;
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 20px 24px 32px;
+    }
+    .left-rail, .main-rail { min-width: 0; }
+    .left-rail { display: flex; flex-direction: column; gap: 16px; }
+    .section {
+      background: var(--cp-surface);
+      border: 1px solid var(--cp-border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--cp-border);
+      background: var(--cp-bg-elevated);
+    }
+    .section-header h2 { margin: 0; font-size: 14px; }
+    .section-body { padding: 14px; }
+
+    .badge-stage {
+      display: grid;
+      place-items: center;
+      min-height: 450px;
+      padding: 18px;
+      background: var(--cp-surface-soft);
+    }
+    .badge-body {
+      width: min(300px, 84vw);
+      padding: 14px;
+      background: var(--cp-text);
+      border: 1px solid var(--cp-border-strong);
+      border-radius: 16px;
+      position: relative;
+    }
+    .badge-screen {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      overflow: hidden;
+      background: var(--cp-bg-elevated);
+      color: var(--cp-text);
+      border: 2px solid var(--cp-border-strong);
+      border-radius: 0.625rem;
+    }
+    .screen-header {
+      position: absolute;
+      inset: 0 0 auto;
+      height: 43px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      background: var(--cp-panel-strong);
+      border-bottom: 1px solid var(--cp-border);
+      z-index: 3;
+    }
+    .screen-name { font-size: 18px; font-weight: 800; }
+    .screen-meta { text-align: right; font: 700 9px Consolas, "Courier New", Courier, monospace; color: var(--cp-text-muted); }
+    .portrait-wrap {
+      position: absolute;
+      inset: 43px 0 76px;
+      display: grid;
+      place-items: center;
+      background: var(--cp-bg-elevated);
+    }
+    .portrait-wrap img {
+      width: 78%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border: 2px solid var(--cp-accent);
+      border-radius: 0.625rem;
+    }
+    .portrait-wrap.disconnected img { opacity: 0.12; }
+    .screen-footer {
+      position: absolute;
+      inset: auto 0 0;
+      min-height: 76px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 4px;
+      padding: 8px 10px;
+      background: var(--cp-panel-strong);
+      border-top: 1px solid var(--cp-border);
+      z-index: 3;
+    }
+    .screen-state { font: 800 17px Consolas, "Courier New", Courier, monospace; color: var(--cp-accent); }
+    .screen-detail { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cp-text-muted); font-size: 10px; }
+    .overlay {
+      position: absolute;
+      inset: 43px 0 0;
+      z-index: 5;
+      display: none;
+      place-items: center;
+      text-align: center;
+      background: var(--cp-overlay);
+      font: 800 25px Consolas, "Courier New", Courier, monospace;
+    }
+    .overlay.active { display: grid; }
+    .overlay.alert { color: var(--cp-danger); }
+    .overlay.access { color: var(--cp-success); }
+    .badge-led {
+      position: absolute;
+      right: 19px;
+      bottom: 20px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cp-text-muted);
+    }
+    .badge-led.on { background: var(--cp-warning); }
+    .ptt-button {
+      position: absolute;
+      right: -13px;
+      top: 108px;
+      width: 19px;
+      height: 72px;
+      padding: 0;
+      border: 1px solid var(--cp-border-strong);
+      background: var(--cp-accent);
+      border-radius: 0.625rem;
+    }
+    .ptt-button.pressed { background: var(--cp-success); transform: translateX(-3px); }
+    .ptt-hint { margin-top: 12px; text-align: center; color: var(--cp-text-muted); font-size: 11px; }
+    .waveform {
+      width: 100%;
+      height: 94px;
+      display: block;
+      background: var(--cp-surface-soft);
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+    }
+
+    .component-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .component {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface-soft);
+    }
+    .component-top { display: flex; align-items: center; gap: 7px; }
+    .component.pass .status-dot { background: var(--cp-success); }
+    .component.fail .status-dot { background: var(--cp-danger); }
+    .component b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    .component p { margin: 5px 0 0 15px; color: var(--cp-text-muted); font-size: 10px; line-height: 1.35; }
+
+    .tabs {
+      display: flex;
+      gap: 2px;
+      overflow-x: auto;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--cp-border);
+      background: var(--cp-bg-elevated);
+    }
+    .tab {
+      min-height: 42px;
+      padding: 8px 11px;
+      border: 0;
+      border-bottom: 3px solid var(--cp-bg-elevated);
+      background: var(--cp-bg-elevated);
+      color: var(--cp-text-muted);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tab.active { color: var(--cp-accent); border-bottom-color: var(--cp-accent); }
+    .tab-panel { display: none; padding: 16px; }
+    .tab-panel.active { display: block; }
+    .control-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+    .control-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .control { min-width: 0; }
+    .control label, .control .label { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; font-size: 12px; font-weight: 650; }
+    .control small { color: var(--cp-text-muted); font-weight: 400; }
+    .control input[type="range"] { width: 100%; accent-color: var(--cp-accent); }
+    .control select {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--cp-border-strong);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      color: var(--cp-text);
+      padding: 6px 9px;
+    }
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 38px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--cp-border);
+      font-size: 12px;
+    }
+    .switch-row:last-child { border-bottom: 0; }
+    .switch-row input { width: 18px; height: 18px; accent-color: var(--cp-accent); }
+    .control-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+    .metric { padding: 10px; border-left: 3px solid var(--cp-accent); background: var(--cp-surface-soft); }
+    .metric span { display: block; color: var(--cp-text-muted); font-size: 10px; }
+    .metric b { display: block; margin-top: 3px; font: 800 15px Consolas, "Courier New", Courier, monospace; }
+    .fault-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 14px; }
+    .fault-grid .switch-row { min-height: 32px; padding: 4px 0; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { padding: 8px 9px; text-align: left; border-bottom: 1px solid var(--cp-border); vertical-align: top; }
+    th { color: var(--cp-text-muted); background: var(--cp-bg-elevated); font-weight: 700; }
+    td code { font-family: Consolas, "Courier New", Courier, monospace; color: var(--cp-accent); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--cp-border); border-radius: 0.625rem; }
+    .result-pass { color: var(--cp-success); font-weight: 800; }
+    .result-fail { color: var(--cp-danger); font-weight: 800; }
+    .result-pending { color: var(--cp-text-muted); }
+    .telemetry {
+      margin: 0;
+      max-height: 250px;
+      overflow: auto;
+      padding: 12px;
+      background: var(--cp-surface-soft);
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      font: 11px/1.5 Consolas, "Courier New", Courier, monospace;
+      white-space: pre-wrap;
+    }
+
+    .log {
+      height: 235px;
+      overflow: auto;
+      background: var(--cp-bg-elevated);
+      font: 11px/1.45 Consolas, "Courier New", Courier, monospace;
+    }
+    .log-row {
+      display: grid;
+      grid-template-columns: 72px 54px minmax(0, 1fr);
+      gap: 8px;
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--cp-border);
+    }
+    .log-time, .log-tag { color: var(--cp-text-muted); }
+    .log-row.ok .log-tag { color: var(--cp-success); }
+    .log-row.warn .log-tag { color: var(--cp-warning); }
+    .log-row.error .log-tag { color: var(--cp-danger); }
+    .empty { padding: 24px; text-align: center; color: var(--cp-text-muted); }
+
+    @media (max-width: 1050px) {
+      .workspace { grid-template-columns: 1fr; }
+      .left-rail { display: grid; grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.15fr); align-items: start; }
+      .component-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .topbar { align-items: flex-start; padding: 12px 14px; }
+      .top-actions { width: 100%; justify-content: flex-start; }
+      .topbar { flex-direction: column; }
+      .notice { padding: 9px 14px; align-items: flex-start; flex-direction: column; }
+      .workspace { padding: 14px; }
+      .left-rail { display: flex; }
+      .component-grid, .control-grid, .control-grid.three, .fault-grid { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .badge-stage { min-height: 420px; }
+      .log-row { grid-template-columns: 64px 48px minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="identity">
+        <div class="mark">M</div>
+        <div>
+          <h1>Morgan Badge Component Emulator</h1>
+          <div class="subtitle">Rev A digital test bench · firmware 0.1.0 · protocol 1</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="state-chip" id="state-chip">BOOT</span>
+        <span class="grade-chip">DIGITAL EMULATION</span>
+        <button class="button primary" id="run-validation">Run validation</button>
+        <button class="button" id="run-fault-matrix">Run fault matrix</button>
+        <button class="button" id="reset-emulator">Reset</button>
+      </div>
+    </header>
+
+    <div class="notice">
+      <span><strong>Scope:</strong> Digital interfaces, firmware timing, component contracts, power model, and injected failures.</span>
+      <span><strong>Not proof:</strong> voltage integrity, RF, acoustics, charging thermals, or solder quality.</span>
+    </div>
+
+    <main class="workspace">
+      <aside class="left-rail">
+        <section class="section">
+          <div class="section-header">
+            <h2>240 × 320 ST7789</h2>
+            <span id="display-status" class="result-pending">BOOT</span>
+          </div>
+          <div class="badge-stage">
+            <div>
+              <div class="badge-body">
+                <div class="badge-screen" id="badge-screen">
+                  <div class="screen-header">
+                    <div class="screen-name">MORGAN</div>
+                    <div class="screen-meta"><span id="screen-cloud">LOCAL</span><br><span id="screen-battery">4.03 V</span></div>
+                  </div>
+                  <div class="portrait-wrap" id="portrait-wrap">
+                    <img src="morgan-portrait.png?v=1" alt="Morgan Digital CFO portrait">
+                  </div>
+                  <div class="screen-footer">
+                    <div class="screen-state" id="screen-state">BOOT</div>
+                    <div class="screen-detail" id="screen-detail">Hardware self-test</div>
+                  </div>
+                  <div class="overlay" id="screen-overlay"></div>
+                </div>
+                <button class="ptt-button" id="ptt-button" aria-label="Hold push-to-talk" title="Hold PTT (Space)"></button>
+                <div class="badge-led" id="badge-led" title="XIAO user LED"></div>
+              </div>
+              <div class="ptt-hint">PTT_N · D0 / GPIO1 · active low · 35 ms debounce</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-header"><h2>I2S Signal Monitor</h2><span id="pcm-label">24 kHz · PCM16</span></div>
+          <div class="section-body"><canvas class="waveform" id="waveform" width="760" height="180"></canvas></div>
+        </section>
+
+        <section class="section">
+          <div class="section-header"><h2>Component Readiness</h2><span id="component-score">0 / 12</span></div>
+          <div class="section-body"><div class="component-grid" id="component-grid"></div></div>
+        </section>
+      </aside>
+
+      <div class="main-rail">
+        <section class="section">
+          <div class="tabs" role="tablist" aria-label="Emulator controls">
+            <button class="tab active" data-tab="core" role="tab">Core</button>
+            <button class="tab" data-tab="audio" role="tab">Audio</button>
+            <button class="tab" data-tab="power" role="tab">Power &amp; network</button>
+            <button class="tab" data-tab="optional" role="tab">Optional peripherals</button>
+            <button class="tab" data-tab="faults" role="tab">Fault injection</button>
+            <button class="tab" data-tab="wiring" role="tab">Wiring</button>
+          </div>
+
+          <div class="tab-panel active" id="panel-core" role="tabpanel">
+            <div class="metrics">
+              <div class="metric"><span>Uptime</span><b id="metric-uptime">0.0 s</b></div>
+              <div class="metric"><span>State age</span><b id="metric-state-age">0 ms</b></div>
+              <div class="metric"><span>Flash / PSRAM</span><b>8 MB / 8 MB</b></div>
+              <div class="metric"><span>User LED</span><b id="metric-led">ON</b></div>
+            </div>
+            <div class="control-actions">
+              <button class="button" data-state="STANDBY">Standby</button>
+              <button class="button" data-state="LISTENING">Listening</button>
+              <button class="button" data-state="THINKING">Thinking</button>
+              <button class="button" data-state="SPEAKING">Speaking</button>
+              <button class="button danger" data-state="FAULT">Fault</button>
+              <button class="button" id="copy-telemetry">Copy telemetry</button>
+            </div>
+            <h3>Badge telemetry contract</h3>
+            <pre class="telemetry" id="telemetry-preview"></pre>
+          </div>
+
+          <div class="tab-panel" id="panel-audio" role="tabpanel">
+            <div class="control-grid">
+              <div class="control">
+                <label for="mic-level"><span>Microphone level</span><small id="mic-level-value">42%</small></label>
+                <input id="mic-level" type="range" min="0" max="150" value="42">
+              </div>
+              <div class="control">
+                <label for="mic-noise"><span>Input noise</span><small id="mic-noise-value">1.5%</small></label>
+                <input id="mic-noise" type="range" min="0" max="50" value="2">
+              </div>
+              <div class="control">
+                <label for="amp-gain"><span>Amplifier gain</span><small id="amp-gain-value">35%</small></label>
+                <input id="amp-gain" type="range" min="0" max="100" value="35">
+              </div>
+              <div class="control">
+                <div class="label"><span>Measured model</span><small id="audio-measurement">RMS 0.000 · peak 0.000</small></div>
+                <div class="control-actions">
+                  <button class="button" id="sample-mic">Sample microphone</button>
+                  <button class="button" id="speaker-test">Play speaker tone</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="panel-power" role="tabpanel">
+            <div class="metrics">
+              <div class="metric"><span>Battery</span><b id="metric-battery">86%</b></div>
+              <div class="metric"><span>Voltage</span><b id="metric-voltage">4.06 V</b></div>
+              <div class="metric"><span>Net current</span><b id="metric-current">0 mA</b></div>
+              <div class="metric"><span>RSSI</span><b id="metric-rssi">-57 dBm</b></div>
+            </div>
+            <div class="control-grid">
+              <div class="control">
+                <label for="battery-soc"><span>Battery state of charge</span><small id="battery-soc-value">86%</small></label>
+                <input id="battery-soc" type="range" min="0" max="100" value="86">
+              </div>
+              <div class="control">
+                <label for="rssi"><span>Wi-Fi RSSI</span><small id="rssi-value">-57 dBm</small></label>
+                <input id="rssi" type="range" min="-127" max="-20" value="-57">
+              </div>
+            </div>
+            <div class="switch-row"><span>USB-C connected</span><input id="usb-connected" type="checkbox" checked></div>
+            <div class="switch-row"><span>Wi-Fi enabled</span><input id="wifi-enabled" type="checkbox" checked></div>
+            <div class="switch-row"><span>Wi-Fi associated</span><input id="wifi-connected" type="checkbox" checked></div>
+            <div class="switch-row"><span>NTP synchronized</span><input id="clock-synchronized" type="checkbox" checked></div>
+            <div class="switch-row"><span>TLS root valid</span><input id="tls-valid" type="checkbox" checked></div>
+            <div class="switch-row"><span>Badge authentication valid</span><input id="auth-valid" type="checkbox" checked></div>
+            <div class="switch-row"><span>Voice Live configured</span><input id="voice-configured" type="checkbox" checked></div>
+            <div class="control-actions"><button class="button" id="live-health">Probe live public health</button><span id="health-result" class="result-pending">Not probed</span></div>
+          </div>
+
+          <div class="tab-panel" id="panel-optional" role="tabpanel">
+            <div class="control-grid three">
+              <div class="control">
+                <div class="label"><span>PN532 NFC</span><small id="nfc-result">idle</small></div>
+                <div class="control-actions">
+                  <button class="button" id="nfc-authorized">Authorized tag</button>
+                  <button class="button danger" id="nfc-denied">Denied tag</button>
+                </div>
+              </div>
+              <div class="control">
+                <label for="pitch"><span>MPU6050 pitch</span><small id="pitch-value">0°</small></label>
+                <input id="pitch" type="range" min="-90" max="90" value="0">
+                <label for="roll"><span>Roll</span><small id="roll-value">0°</small></label>
+                <input id="roll" type="range" min="-180" max="180" value="0">
+              </div>
+              <div class="control">
+                <div class="label"><span>DRV2605L</span><small id="haptic-result">idle</small></div>
+                <div class="control-actions">
+                  <button class="button" data-haptic="click">Click</button>
+                  <button class="button" data-haptic="ramp">Ramp</button>
+                  <button class="button danger" data-haptic="alert">Alert</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="panel-faults" role="tabpanel">
+            <div class="fault-grid" id="fault-grid"></div>
+            <div class="control-actions">
+              <button class="button" id="clear-faults">Clear all faults</button>
+              <button class="button primary" id="fault-matrix-panel">Verify fault detectors</button>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="panel-wiring" role="tabpanel">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Function</th><th>XIAO pad</th><th>GPIO</th><th>Net</th><th>Direction</th></tr></thead>
+                <tbody id="wiring-table"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" style="margin-top:16px">
+          <div class="section-header"><h2>Automated Test Results</h2><span id="test-summary" class="result-pending">Not run</span></div>
+          <div class="table-wrap" style="border:0;border-radius:0">
+            <table>
+              <thead><tr><th>Check</th><th>Result</th><th>Evidence</th></tr></thead>
+              <tbody id="test-results"><tr><td colspan="3" class="empty">Run validation or the fault matrix.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section" style="margin-top:16px">
+          <div class="section-header"><h2>Firmware Event Log</h2><button class="button small" id="clear-log">Clear</button></div>
+          <div class="log" id="event-log"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="emulator-core.js?v=1"></script>
+  <script src="emulator-ui.js?v=1"></script>
+</body>
+</html>

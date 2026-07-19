@@ -390,6 +390,20 @@ server.use(
   }),
 );
 
+// Deterministic Rev A component emulator and fault-injection test bench.
+server.use(
+  '/badge-emulator',
+  express.static(path.join(__dirname, 'badge-emulator'), {
+    etag: false,
+    fallthrough: false,
+    extensions: ['html'],
+    index: 'index.html',
+    lastModified: false,
+    maxAge: 0,
+    setHeaders: (res) => res.setHeader('Cache-Control', 'no-store'),
+  }),
+);
+
 registerAvatarRoutes(server, requireEasyAuth);
 registerBadgeRoutes(server);
 
