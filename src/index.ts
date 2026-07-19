@@ -416,6 +416,14 @@ server.get('/api/voice', requireEasyAuth, (_req, res: Response) => {
   });
 });
 
+server.get('/api/badge-emulator/voice', requireEasyAuth, (_req, res: Response) => {
+  res.status(426).json({
+    error: 'Badge emulator voice requires a WebSocket upgrade.',
+    websocketPath: '/api/badge-emulator/voice',
+    toolsEnabled: false,
+  });
+});
+
 server.get('/favicon.ico', (_req, res: Response) => {
   res.status(204).end();
 });

@@ -369,6 +369,39 @@
     .switch-row:last-child { border-bottom: 0; }
     .switch-row input { width: 18px; height: 18px; accent-color: var(--cp-accent); }
     .control-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .voice-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--cp-border);
+    }
+    .voice-transcript {
+      height: 180px;
+      overflow: auto;
+      margin-top: 12px;
+      padding: 10px;
+      background: var(--cp-surface-soft);
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+    }
+    .voice-empty { display: grid; min-height: 100%; place-items: center; color: var(--cp-text-muted); font-size: 12px; }
+    .voice-turn { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--cp-border); font-size: 12px; }
+    .voice-turn:last-child { border-bottom: 0; }
+    .voice-role { color: var(--cp-accent); font-weight: 800; }
+    .voice-text { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .voice-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 10px; }
+    .voice-form input {
+      min-width: 0;
+      min-height: 38px;
+      padding: 7px 10px;
+      border: 1px solid var(--cp-border-strong);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      color: var(--cp-text);
+    }
     .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
     .metric { padding: 10px; border-left: 3px solid var(--cp-accent); background: var(--cp-surface-soft); }
     .metric span { display: block; color: var(--cp-text-muted); font-size: 10px; }
@@ -553,6 +586,18 @@
                 </div>
               </div>
             </div>
+            <div class="voice-toolbar">
+              <button class="button primary" id="voice-connect">Connect Morgan voice</button>
+              <button class="button" id="voice-disconnect" disabled>Disconnect</button>
+              <span id="voice-status" class="result-pending" aria-live="polite">Disconnected</span>
+            </div>
+            <div class="voice-transcript" id="voice-transcript" aria-live="polite">
+              <div class="voice-empty" id="voice-empty">No conversation</div>
+            </div>
+            <form class="voice-form" id="voice-text-form">
+              <input id="voice-text-input" type="text" maxlength="500" autocomplete="off" placeholder="Ask Morgan">
+              <button class="button" type="submit">Send</button>
+            </form>
           </div>
 
           <div class="tab-panel" id="panel-power" role="tabpanel">

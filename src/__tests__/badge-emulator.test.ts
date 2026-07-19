@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 
 const emulatorModule = require('../badge-emulator/emulator-core.js') as {
@@ -79,6 +81,23 @@ test('badge component emulator', async (suite) => {
     assert.equal(emulator.state, STATES.STANDBY);
   });
 
+  await suite.test('accepts externally timed Voice Live responses', () => {
+    const emulator = new BadgeEmulator();
+    emulator.advance(500);
+    emulator.pressPtt();
+    emulator.advance(35);
+    assert.equal(emulator.state, STATES.LISTENING);
+    emulator.submitExternalVoiceInput();
+    emulator.advance(35);
+    assert.equal(emulator.state, STATES.THINKING);
+    emulator.beginExternalResponse();
+    assert.equal(emulator.state, STATES.SPEAKING);
+    emulator.completeExternalResponse();
+    assert.equal(emulator.state, STATES.STANDBY);
+    emulator.disconnectExternalVoice();
+    assert.equal(emulator.voiceConnected, false);
+  });
+
   await suite.test('models charging, discharge, and brownout detection', () => {
     const emulator = new BadgeEmulator();
     emulator.advance(500);
@@ -137,5 +156,26 @@ test('badge component emulator', async (suite) => {
       microphone: 'ready',
       amplifier: 'ready',
     });
+  });
+
+  await suite.test('ships microphone, transcript, and speaker controls', () => {
+    const htmlPath = path.join(__dirname, '..', 'badge-emulator', 'index.html');
+    const scriptPath = path.join(__dirname, '..', 'badge-emulator', 'emulator-ui.js');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const script = fs.readFileSync(scriptPath, 'utf8');
+    for (const id of [
+      'voice-connect',
+      'voice-disconnect',
+      'voice-status',
+      'voice-transcript',
+      'voice-text-form',
+      'voice-text-input',
+      'ptt-button',
+    ]) {
+      assert.match(html, new RegExp(`id=["']${id}["']`));
+    }
+    assert.match(script, /\/api\/badge-emulator\/voice/);
+    assert.match(script, /getUserMedia/);
+    assert.match(script, /response\.audio\.delta/);
   });
 });

@@ -38,6 +38,22 @@ The top-level **Run validation** button checks the current configuration. **Run
 fault matrix** temporarily injects faults and verifies that each intended
 detector fails closed. Hold the badge side switch or Space to exercise PTT.
 
+## Realtime Voice
+
+Open the **Audio** tab, select **Connect Morgan voice**, and allow microphone
+access. Hold the badge side switch or Space while speaking, then release it to
+commit the 24 kHz PCM16 turn. Morgan's transcript is shown in the panel and the
+returned audio plays through the computer speakers.
+
+Typed prompts use the same dedicated `/api/badge-emulator/voice` WebSocket but
+do not request microphone permission. If Voice Live is unavailable, typed input
+falls back to `/responses` plus browser speech synthesis. The emulator route is
+browser-authenticated and uses the badge session's tool-free policy.
+
+If the status reads `Connected · text only`, allow microphone access for the
+site and select **Connect Morgan voice** again. Browser media permission and
+speaker autoplay require an explicit user action.
+
 ## Automated Tests
 
 ```powershell
@@ -45,8 +61,9 @@ npm run test:badge-emulator
 ```
 
 The tests cover the exact Rev A pin map, baseline components, cloud and local PTT
-timings, PCM generation, battery/charger behavior, optional peripherals,
-telemetry shape, and the complete fault matrix.
+timings, PCM generation, externally timed Voice Live states, shipped browser
+microphone/transcript/speaker controls, battery/charger behavior, optional
+peripherals, telemetry shape, and the complete fault matrix.
 
 ## Boundary
 

@@ -139,7 +139,8 @@ export function attachVoiceWebSocket(server: Server): void {
   server.on('upgrade', (request, socket, head) => {
     const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
     const isBadgeVoice = pathname === '/api/badge/voice';
-    if (pathname !== '/api/voice' && !isBadgeVoice) {
+    const isBadgeEmulatorVoice = pathname === '/api/badge-emulator/voice';
+    if (pathname !== '/api/voice' && !isBadgeVoice && !isBadgeEmulatorVoice) {
       // Not our route — leave the socket alone so other listeners (e.g. the
       // ACS media bridge on /api/calls/acs-media) can handle the upgrade.
       return;
@@ -165,7 +166,7 @@ export function attachVoiceWebSocket(server: Server): void {
     }
     if (!isBadgeVoice && browserAuthRequired() && !getPrincipalFromHeaders(request.headers)?.oid) {
       console.log('[voice] Connection rejected — browser user is not signed in');
-      socket.write(`HTTP/1.1 401 Unauthorized\r\nLocation: ${loginUrlFor('/voice')}\r\n\r\n`);
+      socket.write(`HTTP/1.1 401 Unauthorized\r\nLocation: ${loginUrlFor(isBadgeEmulatorVoice ? '/badge-emulator' : '/voice')}\r\n\r\n`);
       socket.destroy();
       return;
     }
@@ -177,16 +178,18 @@ export function attachVoiceWebSocket(server: Server): void {
   wss.on('connection', async (clientWs, request) => {
     const requestUrl = new URL(request.url || '', `http://${request.headers.host || 'localhost'}`);
     const isBadgeClient = requestUrl.pathname === '/api/badge/voice';
-    const clientLabel = isBadgeClient ? 'Badge' : 'Browser';
+    const isBadgeEmulatorClient = requestUrl.pathname === '/api/badge-emulator/voice';
+    const isWearableClient = isBadgeClient || isBadgeEmulatorClient;
+    const clientLabel = isBadgeClient ? 'Badge' : isBadgeEmulatorClient ? 'Badge emulator' : 'Browser';
     console.log(`[voice] ${clientLabel} client connected`);
-    const sessionCorrelationId = `${isBadgeClient ? 'badge-voice' : 'voice'}-${Date.now()}`;
+    const sessionCorrelationId = `${isBadgeClient ? 'badge-voice' : isBadgeEmulatorClient ? 'badge-emulator-voice' : 'voice'}-${Date.now()}`;
     const sessionVoiceName = configuredVoiceName();
     const sessionVoiceStyle = configuredVoiceStyle(request);
     // Skip Azure Voice Live's own avatar config when the browser opts out
     // (avatar=false) or when the D-ID page drives the avatar (source=did /
     // noAvatar=1). In those cases we only need text/audio transcripts from
     // Voice Live; the page renders the avatar itself.
-    const skipAvatar = isBadgeClient ||
+    const skipAvatar = isWearableClient ||
       requestUrl.searchParams.get('avatar') === 'false' ||
       requestUrl.searchParams.get('source') === 'did' ||
       requestUrl.searchParams.get('noAvatar') === '1';
@@ -284,7 +287,7 @@ export function attachVoiceWebSocket(server: Server): void {
         };
         if (sessionVoiceStyle) voiceConfig.style = sessionVoiceStyle;
 
-        const sessionInstructions = isBadgeClient
+        const sessionInstructions = isWearableClient
           ? `${MORGAN_SYSTEM_PROMPT}\n\nYou are speaking through Morgan's wearable badge prototype. Keep every response to two short spoken sentences. Do not call tools, execute work, disclose sensitive financial data, or make financial claims from memory. Direct action requests and detailed finance questions to authenticated Mission Control.`
           : MORGAN_SYSTEM_PROMPT + '\n\nYou are speaking via voice. Keep responses concise and conversational — no markdown, no tables, no emoji. Speak numbers clearly. When citing financial figures, round to the nearest thousand or million for clarity.';
 
@@ -321,7 +324,7 @@ export function attachVoiceWebSocket(server: Server): void {
             },
             input_audio_noise_reduction: { type: 'azure_deep_noise_suppression' },
             input_audio_echo_cancellation: { type: 'server_echo_cancellation' },
-            ...(isBadgeClient
+            ...(isWearableClient
               ? { tool_choice: 'none' }
               : { tools: VOICE_TOOLS, tool_choice: 'auto' }),
           },
@@ -405,7 +408,7 @@ export function attachVoiceWebSocket(server: Server): void {
 
         // Handle function calls server-side — don't forward raw tool events to browser
         if (event.type === 'response.function_call_arguments.done') {
-          if (isBadgeClient) {
+          if (isWearableClient) {
             console.warn('[voice] Ignored unexpected function call from tool-free badge session');
             return;
           }

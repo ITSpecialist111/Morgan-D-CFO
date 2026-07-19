@@ -382,6 +382,40 @@
       this.emit();
     }
 
+    submitExternalVoiceInput() {
+      this.rawPtt = false;
+      this.log('PTT', 'Raw release', 'info');
+      this.cancelTimer('ptt-debounce');
+      this.schedule(35, () => {
+        if (this.rawPtt || !this.stablePtt) return;
+        this.stablePtt = false;
+        this.awaitingResponse = true;
+        this.enterState(STATES.THINKING, 'Morgan is thinking');
+      }, 'ptt-debounce');
+      this.emit();
+    }
+
+    beginExternalResponse(detail = 'Morgan is speaking') {
+      this.awaitingResponse = false;
+      this.enterState(STATES.SPEAKING, detail);
+    }
+
+    completeExternalResponse() {
+      this.amplifier.enabled = false;
+      this.speaker.audible = false;
+      this.enterState(STATES.STANDBY, 'Ready');
+    }
+
+    disconnectExternalVoice() {
+      this.rawPtt = false;
+      this.stablePtt = false;
+      this.voiceConnected = false;
+      this.awaitingResponse = false;
+      this.cancelTimer('ptt-debounce');
+      if (this.state !== STATES.STANDBY) this.enterState(STATES.STANDBY, 'Voice disconnected');
+      else this.emit();
+    }
+
     generateMicrophoneSamples(sampleCount = 240, frequencyHz = this.microphone.frequencyHz) {
       const samples = new Int16Array(sampleCount);
       const micReady = this.checkById('microphone').pass;

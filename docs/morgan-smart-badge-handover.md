@@ -50,7 +50,10 @@ been verified independently.
 
 A deterministic browser component emulator is also available at
 `/badge-emulator`. It exercises every Rev A digital component contract plus the
-optional PN532, MPU6050, and DRV2605L behavior before soldering.
+optional PN532, MPU6050, and DRV2605L behavior before soldering. Its Audio panel
+can now use the computer microphone and speakers for a real, tool-free Morgan
+Voice Live conversation, with a text-only path when microphone access is not
+available.
 
 ## Scope And Product Boundary
 
@@ -419,10 +422,10 @@ browser mock for Rev A component validation.
 | Artifact | Responsibility |
 | --- | --- |
 | `src/badge-emulator/emulator-core.js` | Deterministic component, timing, power, PCM, telemetry, optional-peripheral, and fault model |
-| `src/badge-emulator/emulator-ui.js` | Interactive controls, rendering, waveform, audio tone, live health probe, and test presentation |
+| `src/badge-emulator/emulator-ui.js` | Interactive controls, microphone PCM capture, Voice Live events, speaker playback, transcript, waveform, live health probe, and test presentation |
 | `src/badge-emulator/index.html` | Responsive 240 x 320 test-bench interface |
 | `src/badge-emulator/README.md` | Coverage, commands, and emulation boundary |
-| `src/__tests__/badge-emulator.test.ts` | Rev A pin, timing, audio, power, optional-peripheral, telemetry, and fault tests |
+| `src/__tests__/badge-emulator.test.ts` | Rev A pin, timing, external voice state, browser media controls, power, optional-peripheral, telemetry, and fault tests |
 
 Emulated component groups:
 
@@ -444,6 +447,13 @@ Automated evidence:
   firmware delays.
 - Browser tests verified the real portrait and nonblank waveform, individual
   display/NFC/IMU/haptic controls, and public health response.
+- A real emulator Voice Live turn reached `session.updated`, returned seven
+  `response.audio.delta` chunks (179,200 base64 characters), completed with the
+  transcript "Badge audio is active and working correctly.", and reported no
+  protocol errors.
+- Browser microphone instrumentation reached `LISTENING`, measured RMS 0.084,
+  and sent 178 PCM frames totaling 364,544 bytes through the same PTT path used
+  by a real microphone.
 - Desktop and 390 px mobile views have no page-level overflow or clipped controls.
 - Emulator assets are served with `Cache-Control: no-store` so stale test logic
   cannot appear to validate a newer build.
@@ -459,6 +469,29 @@ node dist\index.js
 ```
 
 Open `http://localhost:3981/badge-emulator`.
+
+### Realtime Emulator Voice
+
+1. Open the **Audio** tab and select **Connect Morgan voice**.
+2. Allow microphone access when the browser asks.
+3. Hold the badge PTT switch or Space, speak, and release it when finished.
+4. Morgan's transcript appears in the Audio panel and the returned 24 kHz PCM16
+  audio plays through the computer speakers.
+5. Use **Disconnect** to close the microphone, browser audio contexts, and Voice
+  Live socket.
+
+Typed prompts connect without requesting microphone permission. If the realtime
+socket cannot be established, the typed path falls back to `/responses` and the
+browser speech synthesizer. The dedicated `/api/badge-emulator/voice` WebSocket
+uses browser authentication and the same `tool_choice: none` boundary as the
+physical badge. Only one Voice Live client is admitted by the current proxy, so
+disconnect the avatar page or physical badge before starting an emulator call.
+
+Browser microphone and speaker access require a user gesture. If the Audio panel
+shows `Connected · text only`, check site microphone permission, select
+**Connect Morgan voice**, and confirm that the operating-system input and output
+devices are not muted. Typed prompts remain available while microphone access is
+blocked.
 
 The emulator does **not** prove real voltage levels, signal integrity, RF,
 microphone noise/sensitivity, acoustic echo, amplifier distortion, speaker sound
@@ -550,21 +583,23 @@ verification returned:
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 20 tests passed, 0 failed |
+| `npm test` | 22 tests passed, 0 failed |
 | Governance and security suite | 11 tests passed |
-| Badge emulator suite | 9 tests passed, including 8 component subtests |
+| Badge emulator suite | 11 tests passed, including 10 component and voice subtests |
 | Badge fail-closed authentication test | Passed |
 | Strict telemetry unknown-field rejection | Passed |
 | Valid telemetry acceptance | Passed |
 | Tool-free voice contract assertion | Passed |
+| Live emulator Voice Live response | 7 audio chunks, transcript complete, 0 errors |
+| Browser microphone/PTT instrumentation | 178 PCM frames, 364,544 bytes sent |
 | `npm run audit:prod` | 0 vulnerabilities |
 | TypeScript language-service errors | None in changed server files |
 | `git diff --check` | Passed |
 
-After adding the component emulator, the combined repository command reports 20
+After adding realtime emulator voice, the combined repository command reports 22
 passing tests: 11 governance/security tests plus the emulator suite and its
-subtests. The focused `npm run test:badge-emulator` command reports nine passing
-Node tests, including the eight component-emulator subtests.
+subtests. The focused `npm run test:badge-emulator` command reports 11 passing
+Node tests, including the ten component and voice subtests.
 
 ### Firmware And Device
 

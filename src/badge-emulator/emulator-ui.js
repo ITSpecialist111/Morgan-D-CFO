@@ -6,6 +6,23 @@
   let latestSnapshot = emulator.snapshot();
   let lastTestResult = null;
   let pttHeld = false;
+  let pttRequested = false;
+  let voiceSocket = null;
+  let voiceConnecting = false;
+  let voiceSessionReady = false;
+  let voiceIntentionalClose = false;
+  let micStream = null;
+  let micContext = null;
+  let micSource = null;
+  let micProcessor = null;
+  let micSilentGain = null;
+  let micWorkletUrl = null;
+  let livePcmSamples = null;
+  let playbackContext = null;
+  let nextPlaybackTime = 0;
+  let activePlaybackSources = [];
+  let activeResponseText = '';
+  let responseCompleteTimer = null;
 
   const byId = (id) => document.getElementById(id);
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -91,7 +108,10 @@
   function renderWaveform(snapshot) {
     const canvas = byId('waveform');
     const context = canvas.getContext('2d');
-    const { samples, rms, peak } = emulator.generateMicrophoneSamples(480);
+    const source = livePcmSamples && voiceSessionReady && snapshot.checks.find((check) => check.id === 'microphone').pass
+      ? measurePcm(livePcmSamples)
+      : emulator.generateMicrophoneSamples(480);
+    const { samples, rms, peak } = source;
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.fillStyle = css('--cp-surface-soft');
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -153,16 +173,482 @@
     return result;
   }
 
-  function pressPtt() {
-    if (pttHeld) return;
+  async function pressPtt() {
+    if (pttHeld || pttRequested) return;
+    pttRequested = true;
+    const voiceWasReady = voiceSessionReady;
+    if (!voiceSessionReady) {
+      const connected = await connectVoice({ requestMicrophone: true });
+      if (!pttRequested) return;
+      if (!connected) {
+        pttRequested = false;
+        setVoiceStatus('Voice unavailable', 'fail');
+        return;
+      }
+    }
+    if (!micStream && voiceWasReady) await enableMicrophone();
+    if (micStream && !micProcessor) await startMicCapture().catch(() => false);
+    if (!micStream || !micProcessor) {
+      pttRequested = false;
+      setVoiceStatus('Microphone unavailable · use text', 'fail');
+      return;
+    }
+    pttRequested = false;
     pttHeld = true;
+    flushVoicePlayback();
+    if (voiceSocket?.readyState === WebSocket.OPEN) {
+      voiceSocket.send(JSON.stringify({ type: 'response.cancel' }));
+    }
+    if (micContext?.state === 'suspended') void micContext.resume();
     emulator.pressPtt();
   }
 
   function releasePtt() {
+    pttRequested = false;
     if (!pttHeld) return;
     pttHeld = false;
-    emulator.releasePtt();
+    if (voiceSessionReady && voiceSocket?.readyState === WebSocket.OPEN) {
+      emulator.submitExternalVoiceInput();
+      voiceSocket.send(JSON.stringify({ type: 'input_audio_buffer.commit' }));
+      voiceSocket.send(JSON.stringify({ type: 'response.create' }));
+      setVoiceStatus('Thinking', 'pending');
+    } else {
+      emulator.releasePtt();
+    }
+  }
+
+  function setVoiceStatus(message, state = 'pending') {
+    const status = byId('voice-status');
+    status.textContent = message;
+    status.className = state === 'pass' ? 'result-pass' : state === 'fail' ? 'result-fail' : 'result-pending';
+  }
+
+  function addVoiceTurn(role, text) {
+    const value = String(text || '').trim();
+    if (!value) return;
+    byId('voice-empty')?.remove();
+    const row = document.createElement('div');
+    row.className = 'voice-turn';
+    const roleElement = document.createElement('span');
+    roleElement.className = 'voice-role';
+    roleElement.textContent = role === 'user' ? 'You' : 'Morgan';
+    const textElement = document.createElement('span');
+    textElement.className = 'voice-text';
+    textElement.textContent = value;
+    row.append(roleElement, textElement);
+    const transcript = byId('voice-transcript');
+    transcript.appendChild(row);
+    transcript.scrollTop = transcript.scrollHeight;
+  }
+
+  function getMicrophoneWithTimeout(timeoutMs = 10000) {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return Promise.reject(new Error('Microphone capture is not available in this browser.'));
+    }
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        settled = true;
+        reject(new Error('Microphone permission timed out.'));
+      }, timeoutMs);
+      navigator.mediaDevices.getUserMedia({
+        audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      }).then((stream) => {
+        if (settled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        resolve(stream);
+      }, (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      });
+    });
+  }
+
+  function createMicWorkletUrl() {
+    if (micWorkletUrl) return micWorkletUrl;
+    const source = `
+      class MorganBadgeMicProcessor extends AudioWorkletProcessor {
+        constructor() {
+          super();
+          this.buffer = new Float32Array(2048);
+          this.offset = 0;
+        }
+        process(inputs) {
+          const channel = inputs[0] && inputs[0][0];
+          if (!channel) return true;
+          for (let index = 0; index < channel.length; index += 1) {
+            this.buffer[this.offset] = channel[index];
+            this.offset += 1;
+            if (this.offset >= this.buffer.length) {
+              const packet = this.buffer;
+              this.port.postMessage(packet, [packet.buffer]);
+              this.buffer = new Float32Array(2048);
+              this.offset = 0;
+            }
+          }
+          return true;
+        }
+      }
+      registerProcessor('morgan-badge-mic', MorganBadgeMicProcessor);
+    `;
+    micWorkletUrl = URL.createObjectURL(new Blob([source], { type: 'application/javascript' }));
+    return micWorkletUrl;
+  }
+
+  function resampleToPcm16(float32, sourceRate, targetRate) {
+    const ratio = sourceRate / targetRate;
+    const length = Math.max(0, Math.floor(float32.length / ratio));
+    const pcm16 = new Int16Array(length);
+    for (let index = 0; index < length; index += 1) {
+      const sourceIndex = index * ratio;
+      const lower = Math.floor(sourceIndex);
+      const fraction = sourceIndex - lower;
+      const first = float32[lower] || 0;
+      const sample = first + ((float32[lower + 1] || first) - first) * fraction;
+      const clipped = Math.max(-1, Math.min(1, sample));
+      pcm16[index] = clipped < 0 ? clipped * 0x8000 : clipped * 0x7fff;
+    }
+    return pcm16;
+  }
+
+  function measurePcm(samples) {
+    let sumSquares = 0;
+    let peak = 0;
+    for (const sample of samples) {
+      const normalized = sample / (sample < 0 ? 0x8000 : 0x7fff);
+      sumSquares += normalized * normalized;
+      peak = Math.max(peak, Math.abs(normalized));
+    }
+    return {
+      samples,
+      rms: Math.sqrt(sumSquares / Math.max(1, samples.length)),
+      peak,
+      clipped: peak >= 0.999,
+    };
+  }
+
+  async function startMicCapture() {
+    if (!micContext || !micStream || micProcessor) return Boolean(micProcessor);
+    if (!micContext.audioWorklet || typeof AudioWorkletNode === 'undefined') {
+      setVoiceStatus('AudioWorklet unavailable · use text', 'fail');
+      return false;
+    }
+    await micContext.audioWorklet.addModule(createMicWorkletUrl());
+    micSource = micContext.createMediaStreamSource(micStream);
+    micProcessor = new AudioWorkletNode(micContext, 'morgan-badge-mic', {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+    });
+    micSilentGain = micContext.createGain();
+    micSilentGain.gain.value = 0;
+    micSilentGain.connect(micContext.destination);
+    micProcessor.port.onmessage = (event) => {
+      const input = event.data instanceof Float32Array ? event.data : new Float32Array(event.data);
+      const pcm16 = resampleToPcm16(input, micContext.sampleRate, 24000);
+      livePcmSamples = pcm16;
+      const measured = measurePcm(pcm16);
+      emulator.microphone.lastRms = measured.rms;
+      emulator.microphone.lastPeak = measured.peak;
+      if (pttHeld && voiceSocket?.readyState === WebSocket.OPEN && pcm16.byteLength) {
+        voiceSocket.send(pcm16.buffer);
+      }
+    };
+    micSource.connect(micProcessor);
+    micProcessor.connect(micSilentGain);
+    return true;
+  }
+
+  async function enableMicrophone() {
+    if (micStream) return true;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      setVoiceStatus('Web Audio is not available in this browser', 'fail');
+      return false;
+    }
+    try {
+      micStream = await getMicrophoneWithTimeout();
+      micContext = new AudioContextClass();
+      await micContext.resume();
+      if (voiceSessionReady) await startMicCapture();
+      return true;
+    } catch (error) {
+      micStream = null;
+      micContext = null;
+      setVoiceStatus(`${error instanceof Error ? error.message : 'Microphone unavailable'} · use text`, 'fail');
+      return false;
+    }
+  }
+
+  async function connectVoice(options = {}) {
+    const requestMicrophone = options.requestMicrophone !== false;
+    if (voiceSessionReady && voiceSocket?.readyState === WebSocket.OPEN) {
+      if (!requestMicrophone || (micStream && micProcessor)) return true;
+      const micReady = await enableMicrophone();
+      byId('voice-connect').disabled = micReady;
+      byId('voice-disconnect').disabled = false;
+      if (micReady) setVoiceStatus('Connected · PTT ready', 'pass');
+      return micReady;
+    }
+    if (voiceConnecting) return false;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      setVoiceStatus('Web Audio is not available in this browser', 'fail');
+      return false;
+    }
+    voiceConnecting = true;
+    voiceIntentionalClose = false;
+    setVoiceStatus(requestMicrophone ? 'Requesting microphone' : 'Connecting Morgan voice', 'pending');
+    byId('voice-connect').disabled = true;
+    let micError = null;
+    if (requestMicrophone && !(await enableMicrophone())) micError = 'Microphone unavailable';
+    if (!playbackContext) playbackContext = new AudioContextClass();
+    if (playbackContext.state === 'suspended') await playbackContext.resume();
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const settle = (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        voiceConnecting = false;
+        resolve(value);
+      };
+      const timeout = setTimeout(() => {
+        setVoiceStatus('Voice connection timed out', 'fail');
+        try { voiceSocket?.close(); } catch { /* no-op */ }
+        settle(false);
+      }, 20000);
+      try {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        voiceSocket = new WebSocket(`${protocol}//${location.host}/api/badge-emulator/voice`);
+        voiceSocket.binaryType = 'arraybuffer';
+        voiceSocket.onopen = () => setVoiceStatus('Voice socket connected', 'pending');
+        voiceSocket.onmessage = async (event) => {
+          let message;
+          try { message = JSON.parse(event.data); } catch { return; }
+          await handleVoiceEvent(message);
+          if (message.type === 'session.updated') settle(true);
+        };
+        voiceSocket.onerror = () => setVoiceStatus('Voice connection error', 'fail');
+        voiceSocket.onclose = (event) => {
+          voiceSessionReady = false;
+          byId('voice-connect').disabled = false;
+          byId('voice-disconnect').disabled = true;
+          emulator.disconnectExternalVoice();
+          if (!voiceIntentionalClose) setVoiceStatus(event.reason || 'Voice disconnected', 'fail');
+          settle(false);
+          cleanupVoiceMedia();
+        };
+      } catch (error) {
+        setVoiceStatus(error instanceof Error ? error.message : 'Voice connection failed', 'fail');
+        settle(false);
+      }
+      if (micError) setVoiceStatus(`${micError} · text remains available`, 'pending');
+    });
+  }
+
+  async function handleVoiceEvent(event) {
+    switch (event.type) {
+      case 'session.created':
+        setVoiceStatus('Voice session created', 'pending');
+        break;
+      case 'session.updated': {
+        voiceSessionReady = true;
+        const micReady = await startMicCapture().catch(() => false);
+        byId('voice-connect').disabled = micReady;
+        byId('voice-disconnect').disabled = false;
+        setVoiceStatus(micReady ? 'Connected · PTT ready' : 'Connected · text only', 'pass');
+        emulator.log('VOICE', 'Browser Voice Live session ready', 'ok');
+        emulator.emit();
+        break;
+      }
+      case 'input_audio_buffer.speech_started':
+        setVoiceStatus('Listening', 'pass');
+        break;
+      case 'input_audio_buffer.speech_stopped':
+        setVoiceStatus('Thinking', 'pending');
+        break;
+      case 'conversation.item.input_audio_transcription.completed':
+        addVoiceTurn('user', event.transcript || '');
+        break;
+      case 'response.created':
+        activeResponseText = '';
+        emulator.beginExternalResponse();
+        setVoiceStatus('Morgan speaking', 'pass');
+        break;
+      case 'response.audio.delta':
+        if (event.delta) queueVoiceAudio(event.delta);
+        if (latestSnapshot.state !== STATES.SPEAKING) emulator.beginExternalResponse();
+        break;
+      case 'response.audio_transcript.delta':
+        if (event.delta) activeResponseText += event.delta;
+        break;
+      case 'response.audio_transcript.done':
+        addVoiceTurn('assistant', event.transcript || activeResponseText);
+        activeResponseText = '';
+        break;
+      case 'response.output_text.done':
+      case 'response.text.done':
+        addVoiceTurn('assistant', event.text || '');
+        break;
+      case 'response.done':
+        finishResponseAfterPlayback();
+        break;
+      case 'error':
+        if (!String(event.error?.message || '').includes('no active response')) {
+          setVoiceStatus(event.error?.message || 'Voice error', 'fail');
+          emulator.log('VOICE', event.error?.message || 'Voice error', 'error');
+          emulator.emit();
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  function queueVoiceAudio(base64) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!playbackContext && AudioContextClass) playbackContext = new AudioContextClass();
+    if (!playbackContext) return;
+    const raw = atob(base64);
+    const bytes = new Uint8Array(raw.length);
+    for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
+    const int16 = new Int16Array(bytes.buffer);
+    const floatData = new Float32Array(int16.length);
+    for (let index = 0; index < int16.length; index += 1) {
+      floatData[index] = int16[index] / (int16[index] < 0 ? 0x8000 : 0x7fff);
+    }
+    const buffer = playbackContext.createBuffer(1, floatData.length, 24000);
+    buffer.copyToChannel(floatData, 0);
+    const source = playbackContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(playbackContext.destination);
+    const startTime = Math.max(playbackContext.currentTime, nextPlaybackTime);
+    source.start(startTime);
+    nextPlaybackTime = startTime + buffer.duration;
+    activePlaybackSources.push(source);
+    source.onended = () => { activePlaybackSources = activePlaybackSources.filter((item) => item !== source); };
+  }
+
+  function flushVoicePlayback() {
+    clearTimeout(responseCompleteTimer);
+    responseCompleteTimer = null;
+    for (const source of activePlaybackSources) {
+      try { source.stop(); } catch { /* already stopped */ }
+    }
+    activePlaybackSources = [];
+    nextPlaybackTime = 0;
+  }
+
+  function finishResponseAfterPlayback() {
+    const remainingMs = playbackContext
+      ? Math.max(0, (nextPlaybackTime - playbackContext.currentTime) * 1000)
+      : 0;
+    clearTimeout(responseCompleteTimer);
+    responseCompleteTimer = setTimeout(() => {
+      emulator.completeExternalResponse();
+      setVoiceStatus(micStream && micProcessor ? 'Connected · PTT ready' : 'Connected · text only', 'pass');
+    }, remainingMs + 80);
+  }
+
+  async function sendVoiceText(text) {
+    const prompt = String(text || '').trim();
+    if (!prompt) return;
+    addVoiceTurn('user', prompt);
+    emulator.enterState(STATES.THINKING, 'Morgan is thinking');
+    if (!(await connectVoice({ requestMicrophone: false })) || voiceSocket?.readyState !== WebSocket.OPEN) {
+      await runTextSpeechFallback(prompt);
+      return;
+    }
+    voiceSocket.send(JSON.stringify({
+      type: 'conversation.item.create',
+      item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: prompt }] },
+    }));
+    voiceSocket.send(JSON.stringify({ type: 'response.create' }));
+    setVoiceStatus('Thinking', 'pending');
+  }
+
+  async function runTextSpeechFallback(prompt) {
+    setVoiceStatus('Text fallback', 'pending');
+    try {
+      const response = await fetch('/responses', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: prompt, metadata: { scenario: 'badge-emulator-voice-fallback' } }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      const reply = String(payload.output_text || 'Morgan completed the turn without text output.');
+      addVoiceTurn('assistant', reply);
+      speakBrowserFallback(reply);
+    } catch (error) {
+      setVoiceStatus(error instanceof Error ? error.message : 'Text fallback failed', 'fail');
+      emulator.completeExternalResponse();
+    }
+  }
+
+  function speakBrowserFallback(text) {
+    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+      setVoiceStatus('Text reply only', 'pending');
+      emulator.completeExternalResponse();
+      return;
+    }
+    const spoken = String(text).replace(/[*_#`|]/g, ' ').replace(/\s+/g, ' ').slice(0, 2500);
+    const utterance = new SpeechSynthesisUtterance(spoken);
+    const preferred = speechSynthesis.getVoices().find((voice) => /Ava|Sonia|Jenny|female/i.test(voice.name));
+    if (preferred) utterance.voice = preferred;
+    utterance.rate = 0.98;
+    utterance.volume = 0.9;
+    utterance.onstart = () => {
+      emulator.beginExternalResponse('Morgan is speaking · browser fallback');
+      setVoiceStatus('Morgan speaking · browser fallback', 'pass');
+    };
+    utterance.onend = () => {
+      emulator.completeExternalResponse();
+      setVoiceStatus('Text fallback ready', 'pass');
+    };
+    utterance.onerror = () => {
+      emulator.completeExternalResponse();
+      setVoiceStatus('Browser speech failed', 'fail');
+    };
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+  }
+
+  function disconnectVoice() {
+    voiceIntentionalClose = true;
+    pttHeld = false;
+    pttRequested = false;
+    if (voiceSocket && voiceSocket.readyState < WebSocket.CLOSING) voiceSocket.close(1000, 'User disconnected');
+    voiceSessionReady = false;
+    byId('voice-connect').disabled = false;
+    byId('voice-disconnect').disabled = true;
+    cleanupVoiceMedia();
+    emulator.disconnectExternalVoice();
+    setVoiceStatus('Disconnected', 'pending');
+  }
+
+  function cleanupVoiceMedia() {
+    if (micProcessor) {
+      try { micProcessor.port.onmessage = null; micProcessor.disconnect(); } catch { /* no-op */ }
+      micProcessor = null;
+    }
+    if (micSource) { try { micSource.disconnect(); } catch { /* no-op */ } micSource = null; }
+    if (micSilentGain) { try { micSilentGain.disconnect(); } catch { /* no-op */ } micSilentGain = null; }
+    if (micStream) { micStream.getTracks().forEach((track) => track.stop()); micStream = null; }
+    if (micContext) { void micContext.close().catch(() => {}); micContext = null; }
+    livePcmSamples = null;
+    flushVoicePlayback();
+    if (playbackContext) { void playbackContext.close().catch(() => {}); playbackContext = null; }
+    if (window.speechSynthesis) speechSynthesis.cancel();
   }
 
   function playBrowserTone() {
@@ -255,6 +741,7 @@
     byId('run-fault-matrix').addEventListener('click', runFaultMatrix);
     byId('fault-matrix-panel').addEventListener('click', runFaultMatrix);
     byId('reset-emulator').addEventListener('click', () => {
+      disconnectVoice();
       emulator.reset();
       lastTestResult = null;
       byId('test-results').innerHTML = '<tr><td colspan="3" class="empty">Run validation or the fault matrix.</td></tr>';
@@ -292,6 +779,16 @@
     });
     byId('sample-mic').addEventListener('click', () => { emulator.generateMicrophoneSamples(240); emulator.emit(); });
     byId('speaker-test').addEventListener('click', playBrowserTone);
+    byId('voice-connect').addEventListener('click', () => { void connectVoice({ requestMicrophone: true }); });
+    byId('voice-disconnect').addEventListener('click', disconnectVoice);
+    byId('voice-text-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const input = byId('voice-text-input');
+      const prompt = input.value.trim();
+      if (!prompt) return;
+      input.value = '';
+      void sendVoiceText(prompt);
+    });
     byId('battery-soc').addEventListener('input', (event) => emulator.setBatterySoc(event.target.value));
     byId('rssi').addEventListener('input', (event) => emulator.setRssi(event.target.value));
     byId('usb-connected').addEventListener('change', (event) => emulator.setUsbConnected(event.target.checked));
@@ -339,5 +836,21 @@
   setInterval(() => emulator.advance(100), 100);
 
   window.__badgeEmulator = emulator;
-  window.__badgeEmulatorUi = { runValidation, runFaultMatrix, pressPtt, releasePtt, getLastTestResult: () => lastTestResult };
+  window.__badgeEmulatorUi = {
+    runValidation,
+    runFaultMatrix,
+    pressPtt,
+    releasePtt,
+    connectVoice,
+    disconnectVoice,
+    sendVoiceText,
+    getLastTestResult: () => lastTestResult,
+    getVoiceState: () => ({
+      connecting: voiceConnecting,
+      ready: voiceSessionReady,
+      socketState: voiceSocket?.readyState ?? WebSocket.CLOSED,
+      microphone: Boolean(micStream && micProcessor),
+      playbackQueued: activePlaybackSources.length,
+    }),
+  };
 })();
