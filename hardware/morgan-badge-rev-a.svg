@@ -1,0 +1,259 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1180" viewBox="0 0 1800 1180">
+  <defs>
+    <style>
+      .sheet { fill: #ffffff; }
+      .symbol { fill: #fffdfd; stroke: #b74747; stroke-width: 2; }
+      .wire { fill: none; stroke: #2f9d50; stroke-width: 3; stroke-linecap: square; stroke-linejoin: round; }
+      .wire-thin { fill: none; stroke: #2f9d50; stroke-width: 2; }
+      .pin { stroke: #b74747; stroke-width: 2; }
+      .junction { fill: #2f9d50; }
+      .title { fill: #30343b; font: 700 26px 'Segoe UI', sans-serif; letter-spacing: 0; }
+      .subtitle { fill: #68707b; font: 14px 'Segoe UI', sans-serif; letter-spacing: 0; }
+      .ref { fill: #7a4b4b; font: 700 15px Consolas, monospace; letter-spacing: 0; }
+      .part { fill: #555b64; font: 14px Consolas, monospace; letter-spacing: 0; }
+      .pintext { fill: #8b8f96; font: 12px Consolas, monospace; letter-spacing: 0; }
+      .net { fill: #49704e; font: 700 12px Consolas, monospace; letter-spacing: 0; }
+      .note { fill: #4d535c; font: 13px 'Segoe UI', sans-serif; letter-spacing: 0; }
+      .note-head { fill: #30343b; font: 700 14px 'Segoe UI', sans-serif; letter-spacing: 0; }
+      .power { fill: #5b875f; font: 700 13px Consolas, monospace; letter-spacing: 0; }
+      .warning { fill: #9a5d12; font: 700 13px 'Segoe UI', sans-serif; letter-spacing: 0; }
+      .ground { stroke: #777d85; stroke-width: 2; fill: none; }
+      .frame { fill: none; stroke: #858b94; stroke-width: 1.5; }
+      .dash { fill: none; stroke: #9aa0a8; stroke-width: 1.5; stroke-dasharray: 7 6; }
+    </style>
+    <g id="ground">
+      <path class="ground" d="M0 0 V8 M-10 8 H10 M-7 12 H7 M-4 16 H4"/>
+    </g>
+    <g id="net-arrow-right">
+      <path class="wire" d="M0 0 H18 l-7 -5 M18 0 l-7 5"/>
+    </g>
+    <g id="net-arrow-left">
+      <path class="wire" d="M18 0 H0 l7 -5 M0 0 l7 5"/>
+    </g>
+  </defs>
+
+  <rect class="sheet" width="1800" height="1180"/>
+  <rect class="frame" x="22" y="22" width="1756" height="1136"/>
+  <text class="title" x="52" y="64">MORGAN SMART ID BADGE - REV A CORE PROTOTYPE</text>
+  <text class="subtitle" x="52" y="90">Module-level engineering schematic | XIAO ESP32-C5 + ST7789 + ICS-43434 + MAX98357A | 2026-07-18</text>
+
+  <!-- Power entry and battery -->
+  <text class="ref" x="55" y="145">BT1</text>
+  <text class="part" x="55" y="165">303040 LiPo</text>
+  <rect class="symbol" x="55" y="185" width="140" height="95"/>
+  <line class="pin" x1="195" y1="215" x2="220" y2="215"/>
+  <line class="pin" x1="195" y1="252" x2="220" y2="252"/>
+  <text class="pintext" x="156" y="219">+</text>
+  <text class="pintext" x="156" y="256">-</text>
+  <text class="note" x="72" y="235">3.7 V</text>
+  <path class="wire" d="M220 215 H275"/>
+  <text class="power" x="227" y="207">VBAT_RAW</text>
+  <path class="wire" d="M220 252 H245 V330"/>
+  <use href="#ground" x="245" y="330"/>
+  <text class="warning" x="55" y="302">Protected cell; verify polarity before soldering.</text>
+
+  <!-- XIAO -->
+  <text class="ref" x="315" y="142">U1</text>
+  <text class="part" x="315" y="163">SEEED XIAO ESP32-C5</text>
+  <rect class="symbol" x="315" y="180" width="420" height="635"/>
+  <text class="part" x="425" y="210">8 MB FLASH / 8 MB PSRAM</text>
+
+  <!-- XIAO power pins -->
+  <line class="pin" x1="315" y1="235" x2="285" y2="235"/>
+  <text class="pintext" x="325" y="240">BAT+</text>
+  <path class="wire" d="M285 235 H275 V215"/>
+  <circle class="junction" cx="275" cy="215" r="5"/>
+  <line class="pin" x1="315" y1="270" x2="285" y2="270"/>
+  <text class="pintext" x="325" y="275">BAT- / GND</text>
+  <path class="wire" d="M285 270 H245"/>
+  <circle class="junction" cx="245" cy="270" r="5"/>
+  <line class="pin" x1="735" y1="235" x2="770" y2="235"/>
+  <text class="pintext" x="658" y="240">3V3</text>
+  <path class="wire" d="M770 235 H810"/>
+  <text class="power" x="775" y="226">+3V3</text>
+  <line class="pin" x1="735" y1="270" x2="770" y2="270"/>
+  <text class="pintext" x="676" y="275">GND</text>
+  <path class="wire" d="M770 270 H795 V305"/>
+  <use href="#ground" x="795" y="305"/>
+
+  <!-- XIAO left-side PTT -->
+  <line class="pin" x1="315" y1="350" x2="285" y2="350"/>
+  <text class="pintext" x="325" y="355">D0 / GPIO1</text>
+  <path class="wire" d="M285 350 H245"/>
+  <text class="net" x="202" y="341">PTT_N</text>
+
+  <!-- XIAO signal pins and series resistors -->
+  <text class="pintext" x="595" y="330">D1 / GPIO0</text><line class="pin" x1="735" y1="325" x2="770" y2="325"/>
+  <path class="wire" d="M770 325 H825"/><text class="net" x="779" y="316">LCD_CS</text>
+
+  <text class="pintext" x="587" y="370">D2 / GPIO25</text><line class="pin" x1="735" y1="365" x2="770" y2="365"/>
+  <path class="wire" d="M770 365 H825"/><text class="net" x="779" y="356">LCD_DC</text>
+
+  <text class="pintext" x="595" y="410">D3 / GPIO7</text><line class="pin" x1="735" y1="405" x2="770" y2="405"/>
+  <rect class="symbol" x="770" y="394" width="62" height="22"/><text class="pintext" x="783" y="410">1k R5</text>
+  <path class="wire" d="M832 405 H885"/><text class="net" x="840" y="396">AMP_SD</text>
+
+  <text class="pintext" x="587" y="450">D4 / GPIO23</text><line class="pin" x1="735" y1="445" x2="770" y2="445"/>
+  <rect class="symbol" x="770" y="434" width="68" height="22"/><text class="pintext" x="781" y="450">22 R4</text>
+  <path class="wire" d="M838 445 H895"/><text class="net" x="845" y="436">MIC_SD</text>
+
+  <text class="pintext" x="587" y="490">D5 / GPIO24</text><line class="pin" x1="735" y1="485" x2="770" y2="485"/>
+  <rect class="symbol" x="770" y="474" width="68" height="22"/><text class="pintext" x="781" y="490">22 R1</text>
+  <path class="wire" d="M838 485 H930"/><text class="net" x="845" y="476">I2S_LRCLK</text>
+
+  <text class="pintext" x="587" y="530">D6 / GPIO11</text><line class="pin" x1="735" y1="525" x2="770" y2="525"/>
+  <rect class="symbol" x="770" y="514" width="68" height="22"/><text class="pintext" x="781" y="530">22 R2</text>
+  <path class="wire" d="M838 525 H930"/><text class="net" x="845" y="516">I2S_BCLK</text>
+
+  <text class="pintext" x="587" y="570">D7 / GPIO12</text><line class="pin" x1="735" y1="565" x2="770" y2="565"/>
+  <rect class="symbol" x="770" y="554" width="68" height="22"/><text class="pintext" x="781" y="570">22 R3</text>
+  <path class="wire" d="M838 565 H930"/><text class="net" x="845" y="556">AMP_DIN</text>
+
+  <text class="pintext" x="595" y="610">D8 / GPIO8</text><line class="pin" x1="735" y1="605" x2="770" y2="605"/>
+  <rect class="symbol" x="770" y="594" width="68" height="22"/><text class="pintext" x="781" y="610">22 R7</text>
+  <path class="wire" d="M838 605 H925"/><text class="net" x="845" y="596">LCD_SCK</text>
+
+  <text class="pintext" x="595" y="650">D9 / GPIO9</text><line class="pin" x1="735" y1="645" x2="770" y2="645"/>
+  <path class="wire" d="M770 645 H825"/><text class="net" x="779" y="636">STATUS_D9</text>
+  <text class="note" x="835" y="650">optional future status LED</text>
+
+  <text class="pintext" x="579" y="690">D10 / GPIO10</text><line class="pin" x1="735" y1="685" x2="770" y2="685"/>
+  <rect class="symbol" x="770" y="674" width="68" height="22"/><text class="pintext" x="781" y="690">22 R8</text>
+  <path class="wire" d="M838 685 H930"/><text class="net" x="845" y="676">LCD_MOSI</text>
+
+  <text class="note" x="350" y="760">USB-C: programming, debug, and charging</text>
+  <text class="note" x="350" y="785">U.FL antenna must be attached for reliable Wi-Fi.</text>
+
+  <!-- Push to talk -->
+  <text class="ref" x="58" y="390">SW1</text>
+  <text class="part" x="58" y="410">PTT MOMENTARY N.O.</text>
+  <line class="wire" x1="95" y1="455" x2="155" y2="455"/>
+  <circle class="junction" cx="155" cy="455" r="4"/>
+  <line class="symbol" x1="155" y1="455" x2="205" y2="430"/>
+  <circle class="junction" cx="215" cy="455" r="4"/>
+  <path class="wire" d="M215 455 H245 V350"/>
+  <path class="wire" d="M95 455 H75 V490"/>
+  <use href="#ground" x="75" y="490"/>
+  <text class="note" x="58" y="525">Firmware uses INPUT_PULLUP</text>
+  <text class="note" x="58" y="544">and 35 ms debounce.</text>
+
+  <!-- Display module -->
+  <text class="ref" x="1000" y="140">U2</text>
+  <text class="part" x="1000" y="161">2.0 IN ST7789 SPI MODULE</text>
+  <rect class="symbol" x="1000" y="178" width="355" height="318"/>
+  <text class="note-head" x="1082" y="205">240 x 320 IPS (ASSUMED)</text>
+  <line class="pin" x1="1000" y1="230" x2="970" y2="230"/><text class="pintext" x="1010" y="235">VCC</text>
+  <path class="wire" d="M970 230 H945"/><text class="power" x="892" y="221">+3V3</text>
+  <line class="pin" x1="1000" y1="265" x2="970" y2="265"/><text class="pintext" x="1010" y="270">GND</text>
+  <path class="wire" d="M970 265 H952 V300"/><use href="#ground" x="952" y="300"/>
+  <line class="pin" x1="1000" y1="305" x2="970" y2="305"/><text class="pintext" x="1010" y="310">DIN / SDA</text>
+  <path class="wire" d="M970 305 H920"/><text class="net" x="855" y="296">LCD_MOSI</text>
+  <line class="pin" x1="1000" y1="340" x2="970" y2="340"/><text class="pintext" x="1010" y="345">CLK / SCL</text>
+  <path class="wire" d="M970 340 H920"/><text class="net" x="866" y="331">LCD_SCK</text>
+  <line class="pin" x1="1000" y1="375" x2="970" y2="375"/><text class="pintext" x="1010" y="380">CS</text>
+  <path class="wire" d="M970 375 H920"/><text class="net" x="873" y="366">LCD_CS</text>
+  <line class="pin" x1="1000" y1="410" x2="970" y2="410"/><text class="pintext" x="1010" y="415">DC</text>
+  <path class="wire" d="M970 410 H920"/><text class="net" x="873" y="401">LCD_DC</text>
+  <line class="pin" x1="1355" y1="260" x2="1385" y2="260"/><text class="pintext" x="1290" y="265">RST</text>
+  <path class="wire-thin" d="M1385 260 H1415 V220"/>
+  <rect class="symbol" x="1390" y="198" width="52" height="22"/><text class="pintext" x="1394" y="214">10k R9</text>
+  <path class="wire-thin" d="M1415 198 V180"/><text class="power" x="1392" y="173">+3V3</text>
+  <path class="wire-thin" d="M1415 260 V300"/>
+  <line class="symbol" x1="1397" y1="300" x2="1433" y2="300"/><line class="symbol" x1="1397" y1="308" x2="1433" y2="308"/>
+  <text class="pintext" x="1439" y="308">C4 100n</text><path class="wire-thin" d="M1415 308 V322"/><use href="#ground" x="1415" y="322"/>
+  <line class="pin" x1="1355" y1="375" x2="1385" y2="375"/><text class="pintext" x="1298" y="380">BL</text>
+  <path class="wire" d="M1385 375 H1415 V350"/><text class="power" x="1393" y="343">+3V3</text>
+  <text class="note" x="1050" y="455">BL tied on for Rev A.</text>
+  <text class="note" x="1050" y="475">Use software sleep for standby.</text>
+
+  <!-- LCD decoupling -->
+  <path class="wire-thin" d="M1210 178 V132"/>
+  <line class="symbol" x1="1192" y1="130" x2="1228" y2="130"/><line class="symbol" x1="1192" y1="122" x2="1228" y2="122"/>
+  <text class="pintext" x="1235" y="130">C1 100n</text>
+  <path class="wire-thin" d="M1280 178 V132"/>
+  <line class="symbol" x1="1262" y1="130" x2="1298" y2="130"/><line class="symbol" x1="1262" y1="122" x2="1298" y2="122"/>
+  <text class="pintext" x="1305" y="130">C2 10u</text>
+  <path class="wire-thin" d="M1210 122 V108 H1280 V122"/><text class="power" x="1220" y="102">+3V3</text>
+
+  <!-- Microphone -->
+  <text class="ref" x="930" y="735">U3</text>
+  <text class="part" x="930" y="756">ICS-43434 I2S MIC MODULE</text>
+  <rect class="symbol" x="930" y="775" width="300" height="245"/>
+  <line class="pin" x1="930" y1="820" x2="900" y2="820"/><text class="pintext" x="940" y="825">VDD</text>
+  <path class="wire" d="M900 820 H870"/><text class="power" x="822" y="811">+3V3</text>
+  <line class="pin" x1="930" y1="860" x2="900" y2="860"/><text class="pintext" x="940" y="865">GND</text>
+  <path class="wire" d="M900 860 H880 V890"/><use href="#ground" x="880" y="890"/>
+  <line class="pin" x1="930" y1="900" x2="900" y2="900"/><text class="pintext" x="940" y="905">L/R</text>
+  <path class="wire" d="M900 900 H860 V930"/><use href="#ground" x="860" y="930"/>
+  <line class="pin" x1="1230" y1="835" x2="1260" y2="835"/><text class="pintext" x="1172" y="840">SCK</text>
+  <path class="wire" d="M1260 835 H1315"/><text class="net" x="1265" y="826">I2S_BCLK</text>
+  <line class="pin" x1="1230" y1="880" x2="1260" y2="880"/><text class="pintext" x="1168" y="885">WS</text>
+  <path class="wire" d="M1260 880 H1325"/><text class="net" x="1265" y="871">I2S_LRCLK</text>
+  <line class="pin" x1="1230" y1="925" x2="1260" y2="925"/><text class="pintext" x="1172" y="930">SD</text>
+  <path class="wire" d="M1260 925 H1310"/><text class="net" x="1265" y="916">MIC_SD</text>
+  <text class="note" x="958" y="985">L/R = GND selects left slot.</text>
+  <line class="symbol" x1="820" y1="796" x2="856" y2="796"/><line class="symbol" x1="820" y1="804" x2="856" y2="804"/>
+  <text class="pintext" x="785" y="784">C3 100n</text><path class="wire-thin" d="M838 796 V775"/><text class="power" x="817" y="768">+3V3</text>
+  <path class="wire-thin" d="M838 804 V820"/><use href="#ground" x="838" y="820"/>
+
+  <!-- Amplifier -->
+  <text class="ref" x="1395" y="535">U4</text>
+  <text class="part" x="1395" y="556">MAX98357A I2S AMP MODULE</text>
+  <rect class="symbol" x="1395" y="575" width="300" height="365"/>
+  <line class="pin" x1="1395" y1="630" x2="1365" y2="630"/><text class="pintext" x="1405" y="635">VIN</text>
+  <path class="wire" d="M1365 630 H1320 V595 H1270"/><text class="power" x="1258" y="587">VBAT_RAW</text>
+  <line class="pin" x1="1395" y1="675" x2="1365" y2="675"/><text class="pintext" x="1405" y="680">GND</text>
+  <path class="wire" d="M1365 675 H1340 V710"/><use href="#ground" x="1340" y="710"/>
+  <line class="pin" x1="1395" y1="725" x2="1365" y2="725"/><text class="pintext" x="1405" y="730">BCLK</text>
+  <path class="wire" d="M1365 725 H1295"/><text class="net" x="1275" y="716">I2S_BCLK</text>
+  <line class="pin" x1="1395" y1="770" x2="1365" y2="770"/><text class="pintext" x="1405" y="775">LRC</text>
+  <path class="wire" d="M1365 770 H1285"/><text class="net" x="1265" y="761">I2S_LRCLK</text>
+  <line class="pin" x1="1395" y1="815" x2="1365" y2="815"/><text class="pintext" x="1405" y="820">DIN</text>
+  <path class="wire" d="M1365 815 H1305"/><text class="net" x="1280" y="806">AMP_DIN</text>
+  <line class="pin" x1="1395" y1="860" x2="1365" y2="860"/><text class="pintext" x="1405" y="865">SD / MODE</text>
+  <path class="wire" d="M1365 860 H1315"/><text class="net" x="1317" y="851">AMP_SD</text>
+  <path class="wire-thin" d="M1335 860 V885"/><rect class="symbol" x="1310" y="885" width="50" height="22"/>
+  <text class="pintext" x="1315" y="901">100k</text><text class="ref" x="1365" y="901">R6</text>
+  <path class="wire-thin" d="M1335 907 V920"/><use href="#ground" x="1335" y="920"/>
+  <line class="pin" x1="1695" y1="705" x2="1705" y2="705"/><text class="pintext" x="1637" y="710">SPK+</text>
+  <line class="pin" x1="1695" y1="790" x2="1705" y2="790"/><text class="pintext" x="1637" y="795">SPK-</text>
+  <text class="note" x="1430" y="910">GAIN: module default</text>
+
+  <!-- Amp decoupling and speaker -->
+  <path class="wire-thin" d="M1500 575 V535"/>
+  <line class="symbol" x1="1482" y1="533" x2="1518" y2="533"/><line class="symbol" x1="1482" y1="525" x2="1518" y2="525"/>
+  <text class="pintext" x="1467" y="510">C5 100n</text>
+  <path class="wire-thin" d="M1585 575 V535"/>
+  <line class="symbol" x1="1567" y1="533" x2="1603" y2="533"/><line class="symbol" x1="1567" y1="525" x2="1603" y2="525"/>
+  <text class="pintext" x="1550" y="510">C6 100u</text>
+  <path class="wire-thin" d="M1500 525 V495 H1585 V525"/><text class="power" x="1504" y="487">VBAT_RAW</text>
+
+  <text class="ref" x="1642" y="995">SPK1</text>
+  <text class="part" x="1602" y="1016">1511 DYNAMIC SPEAKER</text>
+  <circle class="symbol" cx="1740" cy="747" r="35"/>
+  <path class="symbol" d="M1717 730 h10 l14 -14 v62 l-14 -14 h-10 z"/>
+  <path class="symbol" d="M1748 731 q14 16 0 32 M1757 725 q23 22 0 44"/>
+  <path class="wire" d="M1705 705 V730 H1717"/>
+  <path class="wire" d="M1705 790 V764 H1717"/>
+  <text class="warning" x="1470" y="1052">SPK- IS NOT GND. Verify speaker impedance (8 ohm assumed).</text>
+
+  <!-- Notes and title block -->
+  <rect class="dash" x="55" y="870" width="690" height="220"/>
+  <text class="note-head" x="75" y="900">REV A DESIGN RULES</text>
+  <text class="note" x="75" y="928">1. Microphone SD and amplifier DIN are separate, opposite-direction signals.</text>
+  <text class="note" x="75" y="953">2. Share only I2S BCLK and LRCLK between the microphone and amplifier.</text>
+  <text class="note" x="75" y="978">3. Power the amplifier from VBAT_RAW; do not load the XIAO 3V3 regulator with speaker current.</text>
+  <text class="note" x="75" y="1003">4. Keep clock wires short; place series resistors at the signal source and decouplers at modules.</text>
+  <text class="note" x="75" y="1028">5. Twist SPK+/SPK- together and route them away from the microphone and U.FL antenna.</text>
+  <text class="note" x="75" y="1053">6. Optional PN532, MPU6050, and DRV2605L are not populated on Rev A core.</text>
+
+  <rect class="frame" x="1180" y="1090" width="598" height="68"/>
+  <line class="frame" x1="1455" y1="1090" x2="1455" y2="1158"/>
+  <line class="frame" x1="1645" y1="1090" x2="1645" y2="1158"/>
+  <text class="note-head" x="1195" y="1115">PROJECT SOLARA-STYLE MORGAN BADGE</text>
+  <text class="note" x="1195" y="1140">Prototype module schematic</text>
+  <text class="note-head" x="1472" y="1115">SHEET 1 OF 1</text>
+  <text class="note" x="1472" y="1140">REV A - CORE</text>
+  <text class="note-head" x="1660" y="1115">DATE</text>
+  <text class="note" x="1660" y="1140">2026-07-18</text>
+</svg>

@@ -54,6 +54,7 @@ import { registerMicrosoftWebAuthRoutes } from './microsoftWebAuth';
 import { getSubAgentRegistry } from './orchestrator/subAgents';
 import { executeTool } from './tools';
 import { createExecutionContext, systemExecutionContext } from './governance/executionContext';
+import { registerBadgeRoutes } from './badge/badgeRoutes';
 
 // Only NODE_ENV=development disables authentication
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -389,7 +390,22 @@ server.use(
   }),
 );
 
+// Deterministic Rev A component emulator and fault-injection test bench.
+server.use(
+  '/badge-emulator',
+  express.static(path.join(__dirname, 'badge-emulator'), {
+    etag: false,
+    fallthrough: false,
+    extensions: ['html'],
+    index: 'index.html',
+    lastModified: false,
+    maxAge: 0,
+    setHeaders: (res) => res.setHeader('Cache-Control', 'no-store'),
+  }),
+);
+
 registerAvatarRoutes(server, requireEasyAuth);
+registerBadgeRoutes(server);
 
 // D-ID humanoid avatar routes (separate platform).
 server.use('/api/avatar/did', requireEasyAuth, didAvatarRouter);
@@ -397,6 +413,14 @@ server.use('/api/avatar/did', requireEasyAuth, didAvatarRouter);
 server.get('/api/voice', requireEasyAuth, (_req, res: Response) => {
   res.status(426).json({
     error: 'Voice Live uses a WebSocket connection. Open /voice in the browser or connect with wss://<host>/api/voice.',
+  });
+});
+
+server.get('/api/badge-emulator/voice', requireEasyAuth, (_req, res: Response) => {
+  res.status(426).json({
+    error: 'Badge emulator voice requires a WebSocket upgrade.',
+    websocketPath: '/api/badge-emulator/voice',
+    toolsEnabled: false,
   });
 });
 

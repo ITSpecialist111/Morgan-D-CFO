@@ -28,6 +28,7 @@ const hitlModule = import('../mission/hitlApprovals');
 const toolsModule = import('../tools');
 const responsesModule = import('../foundry/responsesAdapter');
 const acsModule = import('../voice/acsBridge');
+const badgeModule = import('../badge/badgeRoutes');
 
 async function withTestServer(
   configure: (app: express.Express) => void,
@@ -233,6 +234,63 @@ test('Morgan governance hardening', async (suite) => {
       assert.match(payload.output_text || '', /AZURE_OPENAI_ENDPOINT is not configured/);
     });
     if (priorEndpoint) process.env.AZURE_OPENAI_ENDPOINT = priorEndpoint;
+  });
+
+  await suite.test('badge API fails closed and accepts only strict authenticated telemetry', async () => {
+    const { registerBadgeRoutes } = await badgeModule;
+    const priorBadgeKey = process.env.MORGAN_BADGE_API_KEY;
+    process.env.MORGAN_BADGE_API_KEY = 'test-badge-key-with-at-least-32-characters';
+
+    await withTestServer((app) => registerBadgeRoutes(app), async (baseUrl) => {
+      const unauthorized = await fetch(`${baseUrl}/api/badge/status`);
+      assert.equal(unauthorized.status, 401);
+
+      const headers = {
+        Authorization: `Bearer ${process.env.MORGAN_BADGE_API_KEY}`,
+        'Content-Type': 'application/json',
+        'X-Morgan-Badge-Id': 'morgan-prototype-1',
+      };
+      const statusResponse = await fetch(`${baseUrl}/api/badge/status`, { headers });
+      assert.equal(statusResponse.status, 200);
+      const status = await statusResponse.json() as any;
+      assert.equal(status.protocolVersion, 1);
+      assert.equal(status.voice.toolsEnabled, false);
+      assert.equal(status.voice.websocketPath, '/api/badge/voice');
+
+      const invalidTelemetry = await fetch(`${baseUrl}/api/badge/telemetry`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          deviceId: 'morgan-prototype-1',
+          firmwareVersion: '0.1.0',
+          state: 'STANDBY',
+          unexpectedPrivilege: 'admin',
+        }),
+      });
+      assert.equal(invalidTelemetry.status, 400);
+
+      const acceptedTelemetry = await fetch(`${baseUrl}/api/badge/telemetry`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          deviceId: 'morgan-prototype-1',
+          firmwareVersion: '0.1.0',
+          state: 'STANDBY',
+          batteryVolts: 4.03,
+          batteryPresence: 'unverified',
+          psramBytes: 8388608,
+          peripherals: {
+            display: 'configured-no-readback',
+            microphone: 'unverified',
+            amplifier: 'unverified',
+          },
+        }),
+      });
+      assert.equal(acceptedTelemetry.status, 202);
+    });
+
+    if (priorBadgeKey === undefined) delete process.env.MORGAN_BADGE_API_KEY;
+    else process.env.MORGAN_BADGE_API_KEY = priorBadgeKey;
   });
 
   await suite.test('unlisted inbound callers are denied before ACS answer execution', async () => {

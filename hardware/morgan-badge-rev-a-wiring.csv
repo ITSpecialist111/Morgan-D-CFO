@@ -1,0 +1,23 @@
+source,source_pin,destination,destination_pin,net,series_or_note
+XIAO ESP32-C5,D0 GPIO1,PTT switch,terminal 1,PTT_N,Switch terminal 2 to GND; firmware INPUT_PULLUP
+XIAO ESP32-C5,D1 GPIO0,ST7789,CS,LCD_CS,Direct
+XIAO ESP32-C5,D2 GPIO25,ST7789,DC,LCD_DC,Direct
+XIAO ESP32-C5,D3 GPIO7,MAX98357A,SD or MODE,AMP_SD,1k series and 100k pull-down at amplifier
+ICS-43434,SD,XIAO ESP32-C5,D4 GPIO23,MIC_SD,22 ohm near microphone
+XIAO ESP32-C5,D5 GPIO24,ICS-43434 and MAX98357A,WS and LRC,I2S_LRCLK,22 ohm near XIAO then branch
+XIAO ESP32-C5,D6 GPIO11,ICS-43434 and MAX98357A,SCK and BCLK,I2S_BCLK,22 ohm near XIAO then branch
+XIAO ESP32-C5,D7 GPIO12,MAX98357A,DIN,AMP_DIN,22 ohm near XIAO
+XIAO ESP32-C5,D8 GPIO8,ST7789,CLK or SCL,LCD_SCK,22 ohm near XIAO
+XIAO ESP32-C5,D9 GPIO9,not populated,optional status LED,STATUS_D9,Reserve for later revision
+XIAO ESP32-C5,D10 GPIO10,ST7789,DIN or SDA,LCD_MOSI,22 ohm near XIAO
+XIAO ESP32-C5,3V3,ST7789,VCC,+3V3,100nF plus 10uF at display
+XIAO ESP32-C5,3V3,ST7789,BL,+3V3,Rev A always on; verify breakout accepts 3.3V BL input
+XIAO ESP32-C5,3V3,ICS-43434,VDD,+3V3,100nF at microphone
+XIAO ESP32-C5,BAT+,MAX98357A,VIN,VBAT_RAW,100nF plus 100uF low-ESR at amplifier
+303040 LiPo,positive,XIAO ESP32-C5,BAT+,VBAT_RAW,Use protected 3.7V cell and verify polarity
+303040 LiPo,negative,XIAO ESP32-C5,BAT-,GND,Do not connect battery during soldering
+ICS-43434,L or R,GND,GND,Select left I2S slot
+ST7789,RST,local RC reset,10k to 3V3 and 100nF to GND,LCD_RST,No XIAO GPIO consumed
+MAX98357A,SPK+,1511 speaker,positive,SPK_PLUS,Differential output
+MAX98357A,SPK-,1511 speaker,negative,SPK_MINUS,Do not connect to GND
+all modules,GND,XIAO ESP32-C5,GND,GND,Common ground; keep amplifier return short

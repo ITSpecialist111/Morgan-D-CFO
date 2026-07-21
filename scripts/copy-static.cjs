@@ -11,6 +11,9 @@ const files = [
   ['src/mission/cost-dashboard.html', 'dist/mission/cost-dashboard.html'],
   ['src/mission/hitl-approvals.html', 'dist/mission/hitl-approvals.html'],
   ['src/mission/avatar-toggle-ui.js', 'dist/mission/avatar-toggle-ui.js'],
+  ['src/badge-emulator/index.html', 'dist/badge-emulator/index.html'],
+  ['src/badge-emulator/emulator-core.js', 'dist/badge-emulator/emulator-core.js'],
+  ['src/badge-emulator/emulator-ui.js', 'dist/badge-emulator/emulator-ui.js'],
 ];
 
 for (const [sourceRel, targetRel] of files) {
@@ -23,6 +26,7 @@ for (const [sourceRel, targetRel] of files) {
 
 const assetDirs = [
   ['docs/avatar-backgrounds', 'dist/voice/assets', /\.(jpe?g|png|webp|gif|svg)$/i],
+  ['firmware/assets', 'dist/badge-emulator', /^morgan-portrait\.png$/i],
 ];
 
 for (const [sourceDirRel, targetDirRel, filter] of assetDirs) {

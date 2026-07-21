@@ -7,8 +7,9 @@
   "scripts": {
     "start": "node scripts/start-production.cjs",
     "build": "tsc && node scripts/copy-static.cjs",
-    "test": "npm run build && node --test dist/__tests__/governance.test.js",
+    "test": "npm run build && node --test dist/__tests__/governance.test.js dist/__tests__/badge-emulator.test.js",
     "test:security": "npm run build && node --test dist/__tests__/governance.test.js",
+    "test:badge-emulator": "npm run build && node --test dist/__tests__/badge-emulator.test.js",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
     "dev": "nodemon",
     "clean": "rimraf dist",

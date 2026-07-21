@@ -8,6 +8,7 @@ dist/
 .env
 .env.local
 .env.*.local
+firmware/**/secrets.h
 
 # Agent 365 config (contains tenant/subscription IDs)
 a365.config.json
