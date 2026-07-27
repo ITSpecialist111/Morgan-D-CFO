@@ -19,6 +19,7 @@ export type AuditEventCategory =
   | 'subagent-call'
   | 'notification'
   | 'artifact-evaluation'
+  | 'security'
   | 'system';
 
 export interface AuditRecord {

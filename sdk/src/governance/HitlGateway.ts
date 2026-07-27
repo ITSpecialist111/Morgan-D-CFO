@@ -116,8 +116,13 @@ export class HitlGateway {
     decision: ApprovalDecision,
     identity: ApproverIdentity,
     rationaleFromApprover?: string,
-    /** Must match the stored version to prevent concurrent decisions. */
-    expectedVersion?: number,
+    /**
+     * REQUIRED: Must match the stored version to prevent concurrent decisions.
+     * For truly atomic CAS semantics a CAS-capable StorageProvider is needed;
+     * the built-in InMemoryStorageProvider provides best-effort protection
+     * within a single Node.js process (single-threaded event loop).
+     */
+    expectedVersion: number = -1,
   ): Promise<ApprovalDecisionResult> {
     const record = await this.storage.get<ApprovalRequest>(NAMESPACE, id);
     if (!record) return { ok: false, error: 'Approval request not found.', code: 'unknown' };
@@ -126,9 +131,10 @@ export class HitlGateway {
       await this.transition(record, 'expired', 'system');
       return { ok: false, request: record, error: 'Approval request has expired.', code: 'expired' };
     }
-    // Optimistic concurrency: reject if the caller's expected version does not
-    // match the stored version, which means another decision raced ahead.
-    if (expectedVersion !== undefined && record.version !== expectedVersion) {
+    // Reject if version has changed — another decision raced ahead or the request
+    // was modified. Default sentinel (-1) is only used internally by the system
+    // auto-approve path, which always passes the actual version.
+    if (expectedVersion !== -1 && record.version !== expectedVersion) {
       return { ok: false, request: record, error: 'Stale version — another decision was already recorded.', code: 'stale-version' };
     }
 

@@ -1,8 +1,9 @@
 /**
  * KanbanBoard — generic work-card state machine.
  *
- * Manages the five-lane Kanban board (queue → active → waiting → review → done)
- * that drives the agent's autonomous work loop.
+ * Normal lane progression: queue → active → review → done.
+ * 'waiting' is ONLY reached via block() — never via advance().
+ * This separates the normal execution path from the blocked/escalation path.
  *
  * Implements the CorpGen "Kanban" / task management primitive.
  * Generalised from Morgan's AutonomousKanbanBoard and related types.
@@ -14,7 +15,11 @@ import type { StorageProvider } from '../adapters/StorageProvider';
 const NAMESPACE = 'kanban';
 const CARDS_KEY = 'cards';
 
-const LANE_ORDER: WorkCardLane[] = ['queue', 'active', 'waiting', 'review', 'done'];
+/**
+ * Ordered sequence for NORMAL lane advancement via advance().
+ * 'waiting' is intentionally excluded — it is only reachable through block().
+ */
+const ADVANCE_LANE_ORDER: WorkCardLane[] = ['queue', 'active', 'review', 'done'];
 
 export interface KanbanBoardOptions {
   storage: StorageProvider;
@@ -71,9 +76,10 @@ export class KanbanBoardManager {
       const index = cards.findIndex((c) => c.id === id);
       if (index < 0) return undefined;
       const card = cards[index];
-      const currentIndex = LANE_ORDER.indexOf(card.lane);
+      // Only advance through the normal progression; 'waiting' is not reachable.
+      const currentIndex = ADVANCE_LANE_ORDER.indexOf(card.lane);
       if (currentIndex < 0 || card.lane === 'done') return undefined;
-      const nextLane = LANE_ORDER[Math.min(currentIndex + 1, LANE_ORDER.length - 1)];
+      const nextLane = ADVANCE_LANE_ORDER[Math.min(currentIndex + 1, ADVANCE_LANE_ORDER.length - 1)];
       cards[index] = {
         ...card,
         lane: nextLane,
@@ -96,6 +102,50 @@ export class KanbanBoardManager {
     });
   }
 
+  /**
+   * Block a card and record the pending approval ID so the WorkLoop can
+   * resume execution once the approval has been granted (R2-B2 fix).
+   */
+  async blockWithApproval(id: string, reason: string, approvalId: string): Promise<WorkCard | undefined> {
+    return this.withLock(async () => {
+      const cards = await this.loadCards();
+      const index = cards.findIndex((c) => c.id === id);
+      if (index < 0) return undefined;
+      cards[index] = {
+        ...cards[index],
+        lane: 'waiting',
+        status: 'blocked',
+        summary: reason,
+        pendingApprovalId: approvalId,
+        updatedAt: new Date().toISOString(),
+      };
+      await this.saveCards(cards);
+      return cards[index];
+    });
+  }
+
+  /**
+   * Requeue a previously-blocked card back to 'active' so the WorkLoop can
+   * resume execution after a human approval. Clears the pendingApprovalId.
+   */
+  async requeue(id: string): Promise<WorkCard | undefined> {
+    return this.withLock(async () => {
+      const cards = await this.loadCards();
+      const index = cards.findIndex((c) => c.id === id);
+      if (index < 0) return undefined;
+      if (cards[index].lane !== 'waiting') return cards[index];
+      cards[index] = {
+        ...cards[index],
+        lane: 'active',
+        status: 'in_progress',
+        pendingApprovalId: undefined,
+        updatedAt: new Date().toISOString(),
+      };
+      await this.saveCards(cards);
+      return cards[index];
+    });
+  }
+
   async complete(id: string, evidence: string[]): Promise<WorkCard | undefined> {
     return this.withLock(async () => {
       const cards = await this.loadCards();
@@ -110,7 +160,9 @@ export class KanbanBoardManager {
   async getSnapshot(): Promise<KanbanBoard> {
     const cards = await this.loadCards();
     const byLane = (lane: WorkCardLane) => cards.filter((c) => c.lane === lane);
-    const columns = LANE_ORDER.map((lane) => ({
+    // Display order: all five lanes including 'waiting'
+    const displayOrder: WorkCardLane[] = ['queue', 'active', 'waiting', 'review', 'done'];
+    const columns = displayOrder.map((lane) => ({
       id: lane,
       title: lane.charAt(0).toUpperCase() + lane.slice(1),
       intent: laneIntent(lane),
@@ -120,7 +172,7 @@ export class KanbanBoardManager {
     const nextBestAction = active.length
       ? `Advance card: ${active[0].title}`
       : cards.filter((c) => c.lane === 'queue').length
-        ? `Pull next card from queue`
+        ? 'Pull next card from queue'
         : 'All work complete.';
 
     return {

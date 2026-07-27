@@ -32,7 +32,11 @@ export interface ToolDefinition<TParams = Record<string, unknown>, TResult = unk
   name: string;
   description: string;
   parameters: Record<string, ParameterSchema>;
-  /** Risk class used by the ToolPolicy gateway. Defaults to 'read-only'. */
+  /**
+   * Risk class used by the ToolPolicy gateway to decide allow / approval-required / deny.
+   * When omitted the gateway applies name-pattern heuristics; truly unclassified tools
+   * whose names do not match any known pattern are denied.
+   */
   riskClass?: ToolRiskClass;
   handler: (params: TParams, context: WorkCycleContext) => Promise<TResult>;
 }
@@ -137,6 +141,12 @@ export interface WorkCard {
   updatedAt?: string;
   /** If set, this card requires human approval before it can move to 'done'. */
   hitlLevel?: ApprovalLevel;
+  /**
+   * Set when a card is blocked pending a HITL approval.
+   * The WorkLoop will check this ID on future cycles and resume execution
+   * once the approval has been granted.
+   */
+  pendingApprovalId?: string;
 }
 
 export interface KanbanColumn {
@@ -287,6 +297,8 @@ export interface ApproverIdentity {
   tenantId?: string;
   email?: string;
   name?: string;
+  /** Identifies the category of approver. 'service-principal' is used for system/auto-approvals. */
+  kind?: 'human' | 'service-principal' | 'group';
 }
 
 export interface ApprovalRequest {

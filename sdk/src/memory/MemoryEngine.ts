@@ -61,8 +61,11 @@ export class MemoryEngine {
 
     // NB4 fix: reserve capacity for blockers first, then fill with completed.
     // This ensures "errors and blockers always retained" is actually true.
+    // NB3 fix: cap the blocker list itself at maxItems so the tier never grows
+    // unbounded when there are many stalled cards.
     const blocked = cards.filter((c) => c.lane === 'waiting');
-    const blockedEntries = blocked.map((c) => `BLOCKED [${c.id}] ${c.title}: ${c.summary}`);
+    const cappedBlockers = blocked.slice(-this.maxItems); // keep most recent N
+    const blockedEntries = cappedBlockers.map((c) => `BLOCKED [${c.id}] ${c.title}: ${c.summary}`);
     const remainingCapacity = Math.max(0, this.maxItems - blockedEntries.length);
     const completed = cards.filter((c) => c.lane === 'done').slice(-remainingCapacity);
     const structuredMemory = [
