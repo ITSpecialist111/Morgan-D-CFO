@@ -344,17 +344,38 @@ export class WorkLoop {
   /**
    * Runs all tools for an 'active' card, enforcing policy and HITL gates.
    * On success, advances the card to 'review'. On failure, blocks it.
+   *
+   * B-new-1 fix:
+   *   - Skips tools already recorded in card.executedTools (safe resume after requeue).
+   *   - If card.pendingApprovalId is set, loads the existing HitlGateway record and
+   *     uses it as pre-authorization for the matching tool (avoids a new approval loop).
+   *
+   * B-new-2 fix:
+   *   - After verifying an auto-approval via hitl.decide(), proceeds DIRECTLY to tool
+   *     execution without re-evaluating the policy gateway. The gateway does not accept
+   *     caller-supplied approval tokens (that bypass was removed from ToolPolicy.ts).
    */
   private async executeActiveCard(
     card: WorkCard,
     context: WorkCycleContext,
     rationale: string,
   ): Promise<{ completed: boolean; blocked: boolean }> {
-    const evidence: string[] = [];
+    const evidence: string[] = [...(card.evidence ?? [])];
     let blockReason: string | undefined;
     let pendingApprovalId: string | undefined;
 
     for (const toolName of card.tools) {
+      // B-new-1: skip tools already executed (e.g. when card was requeued after approval).
+      if (card.executedTools?.includes(toolName)) {
+        this.events.record({
+          kind: 'tool.call',
+          label: `Skipping already-executed tool: ${toolName}`,
+          status: 'ok',
+          correlationId: context.correlationId,
+        });
+        continue;
+      }
+
       const tool = this.toolMap.get(toolName);
       if (!tool) {
         blockReason = `Tool not registered: ${toolName}`;
@@ -398,80 +419,84 @@ export class WorkLoop {
       }
 
       if (evalResult.decision === 'approval-required') {
-        const approvalReq = await this.hitl.request({
-          level: evalResult.policy.approvalLevel ?? 'L2',
-          stage: card.lane,
-          title: `Approve: ${toolName} for card "${card.title}"`,
-          actionType: toolName,
-          recipient: this.config.contract.reportsTo,
-          bodyPreview: evalResult.actionSummary,
-          rationale,
-          triggeredBy: card.id,
-          tool: toolName,
-          toolParams: params,
-          evidence: card.evidence,
-        });
+        // B-new-1: check if a pre-existing approved record already covers this tool.
+        const preApproved = await this.checkPreExistingApproval(card, toolName, evalResult.actionDigest, context);
 
-        this.events.record({ kind: 'hitl.request', label: `Approval required: ${toolName} (id: ${approvalReq.id})`, status: 'partial', correlationId: context.correlationId });
-        this.audit.record({
-          correlationId: context.correlationId, category: 'approval-lifecycle', action: 'approval.requested',
-          status: 'info',
-          summary: `${evalResult.policy.approvalLevel ?? 'L2'} approval requested for ${toolName}.`,
-          details: { approvalId: approvalReq.id, digest: evalResult.actionDigest },
-        });
-
-        // Give the consumer the chance to auto-approve (e.g. in tests).
-        const autoApproved = this.config.onApprovalRequest
-          ? await this.config.onApprovalRequest(approvalReq)
-          : false;
-
-        if (!autoApproved) {
-          // R2-B2: record the approval ID on the card so future cycles can resume.
-          blockReason = `Awaiting ${evalResult.policy.approvalLevel ?? 'L2'} approval for ${toolName}.`;
-          pendingApprovalId = approvalReq.id;
-          break;
-        }
-
-        // R2-B1 fix: persist the approval in HitlGateway so that the state
-        // is authoritative. Pass the actual version to prevent replay.
-        const decideResult = await this.hitl.decide(
-          approvalReq.id,
-          'approve',
-          SYSTEM_APPROVER,
-          'Auto-approved via onApprovalRequest callback.',
-          approvalReq.version,
-        );
-        if (!decideResult.ok || !decideResult.request) {
-          blockReason = `Auto-approval state transition failed: ${decideResult.error}`;
-          break;
-        }
-
-        // Verify the digest matches what we are about to execute (replay prevention).
-        if (decideResult.request.actionDigest !== evalResult.actionDigest) {
-          blockReason = 'Approval digest mismatch — possible replay attack detected.';
+        if (preApproved === 'verified') {
+          // Falls through to tool execution below.
           this.audit.record({
-            correlationId: context.correlationId, category: 'security', action: 'approval.digest-mismatch',
-            status: 'failure', summary: blockReason,
-            details: { expected: evalResult.actionDigest, got: decideResult.request.actionDigest },
+            correlationId: context.correlationId, category: 'approval-lifecycle', action: 'approval.pre-verified',
+            status: 'success', summary: `Pre-existing approval valid for ${toolName}; skipping new request.`,
+            details: { approvalId: card.pendingApprovalId },
           });
+        } else if (preApproved === 'expired' || preApproved === 'denied') {
+          blockReason = `Pre-existing approval for ${toolName} is ${preApproved} — cannot resume execution.`;
           break;
-        }
+        } else {
+          // No valid pre-existing approval — request one.
+          const approvalReq = await this.hitl.request({
+            level: evalResult.policy.approvalLevel ?? 'L2',
+            stage: card.lane,
+            title: `Approve: ${toolName} for card "${card.title}"`,
+            actionType: toolName,
+            recipient: this.config.contract.reportsTo,
+            bodyPreview: evalResult.actionSummary,
+            rationale,
+            triggeredBy: card.id,
+            tool: toolName,
+            toolParams: params,
+            evidence: card.evidence,
+          });
 
-        this.audit.record({
-          correlationId: context.correlationId, category: 'approval-lifecycle', action: 'approval.auto-granted',
-          status: 'success',
-          summary: `Auto-approval granted for ${toolName} (id: ${approvalReq.id}).`,
-          details: { approvalId: approvalReq.id, digest: evalResult.actionDigest },
-        });
+          this.events.record({ kind: 'hitl.request', label: `Approval required: ${toolName} (id: ${approvalReq.id})`, status: 'partial', correlationId: context.correlationId });
+          this.audit.record({
+            correlationId: context.correlationId, category: 'approval-lifecycle', action: 'approval.requested',
+            status: 'info',
+            summary: `${evalResult.policy.approvalLevel ?? 'L2'} approval requested for ${toolName}.`,
+            details: { approvalId: approvalReq.id, digest: evalResult.actionDigest },
+          });
 
-        // Re-evaluate with the verified approval context.
-        const reEval = this.policy.evaluate(toolName, params, {
-          approvalId: approvalReq.id,
-          approvalActionDigest: evalResult.actionDigest,
-        });
-        if (reEval.decision !== 'allow') {
-          blockReason = `Re-evaluation after approval still denied: ${reEval.reason}`;
-          break;
+          const autoApproved = this.config.onApprovalRequest
+            ? await this.config.onApprovalRequest(approvalReq)
+            : false;
+
+          if (!autoApproved) {
+            blockReason = `Awaiting ${evalResult.policy.approvalLevel ?? 'L2'} approval for ${toolName}.`;
+            pendingApprovalId = approvalReq.id;
+            break;
+          }
+
+          // R2-B1: persist the approval; pass the actual version to prevent replay.
+          const decideResult = await this.hitl.decide(
+            approvalReq.id,
+            'approve',
+            SYSTEM_APPROVER,
+            'Auto-approved via onApprovalRequest callback.',
+            approvalReq.version,
+          );
+          if (!decideResult.ok || !decideResult.request) {
+            blockReason = `Auto-approval state transition failed: ${decideResult.error}`;
+            break;
+          }
+
+          // Verify digest (replay prevention).
+          if (decideResult.request.actionDigest !== evalResult.actionDigest) {
+            blockReason = 'Approval digest mismatch — possible replay attack detected.';
+            this.audit.record({
+              correlationId: context.correlationId, category: 'security', action: 'approval.digest-mismatch',
+              status: 'failure', summary: blockReason,
+              details: { expected: evalResult.actionDigest, got: decideResult.request.actionDigest },
+            });
+            break;
+          }
+
+          this.audit.record({
+            correlationId: context.correlationId, category: 'approval-lifecycle', action: 'approval.auto-granted',
+            status: 'success',
+            summary: `Auto-approval granted for ${toolName} (id: ${approvalReq.id}).`,
+            details: { approvalId: approvalReq.id, digest: evalResult.actionDigest },
+          });
+          // Falls through to tool execution — no policy re-check needed (B-new-2 fix).
         }
       }
 
@@ -496,6 +521,13 @@ export class WorkLoop {
           details: { durationMs }, durationMs,
         });
         evidence.push(`${toolName} completed in ${durationMs}ms`);
+
+        // B-new-1: record successful execution; clear any consumed approval context.
+        await this.kanban.recordToolExecution(card.id, toolName);
+        if (card.pendingApprovalId) {
+          await this.kanban.clearApprovalContext(card.id);
+          card = { ...card, pendingApprovalId: undefined }; // update local reference
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         this.events.record({ kind: 'tool.result', label: `Error: ${toolName}`, status: 'error', data: { error: msg }, correlationId: context.correlationId });
@@ -510,7 +542,6 @@ export class WorkLoop {
 
     if (blockReason) {
       if (pendingApprovalId) {
-        // R2-B2: record the approval ID so the requeue path can resume.
         await this.kanban.blockWithApproval(card.id, blockReason, pendingApprovalId);
       } else {
         await this.kanban.block(card.id, blockReason);
@@ -531,6 +562,57 @@ export class WorkLoop {
       summary: `Card "${card.title}" advanced to ${advanced?.lane ?? 'unknown'} with ${evidence.length} evidence item(s).`,
     });
     return { completed: false, blocked: false };
+  }
+
+  /**
+   * Check whether a pre-existing HitlGateway approval already covers a specific
+   * tool invocation for this card (B-new-1 resume-path check).
+   *
+   * Returns:
+   *   'verified'  — the stored approval is valid (approved, unexpired, digest matches).
+   *   'expired'   — the approval has expired, been declined, or cancelled.
+   *   'denied'    — the stored digest does not match this invocation (tamper attempt).
+   *   'none'      — no pre-existing approval found for this tool.
+   */
+  private async checkPreExistingApproval(
+    card: WorkCard,
+    toolName: string,
+    actionDigest: string,
+    context: WorkCycleContext,
+  ): Promise<'verified' | 'expired' | 'denied' | 'none'> {
+    if (!card.pendingApprovalId) return 'none';
+    const approval = await this.hitl.getById(card.pendingApprovalId);
+    if (!approval) return 'none';
+    if (approval.tool !== toolName) return 'none'; // different tool — not applicable
+
+    if (approval.status === 'expired' || approval.status === 'declined' || approval.status === 'cancelled') {
+      this.audit.record({
+        correlationId: context.correlationId, category: 'approval-lifecycle', action: 'approval.stale',
+        status: 'warning',
+        summary: `Pre-existing approval ${approval.id} for ${toolName} has status ${approval.status}.`,
+      });
+      return 'expired';
+    }
+
+    if (approval.status !== 'approved' && approval.status !== 'approved_with_edits') {
+      return 'none'; // still pending — caller must request fresh
+    }
+
+    if (new Date(approval.timeoutAt) < new Date()) {
+      return 'expired';
+    }
+
+    if (approval.actionDigest !== actionDigest) {
+      this.audit.record({
+        correlationId: context.correlationId, category: 'security', action: 'approval.digest-mismatch',
+        status: 'failure',
+        summary: `Pre-existing approval digest mismatch for ${toolName} — possible tamper.`,
+        details: { expected: actionDigest, stored: approval.actionDigest },
+      });
+      return 'denied';
+    }
+
+    return 'verified';
   }
 
   /**

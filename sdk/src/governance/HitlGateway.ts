@@ -128,8 +128,8 @@ export class HitlGateway {
     if (!record) return { ok: false, error: 'Approval request not found.', code: 'unknown' };
     if (record.status !== 'pending') return { ok: false, request: record, error: 'Already decided.', code: 'already-decided' };
     if (new Date(record.timeoutAt) < new Date()) {
-      await this.transition(record, 'expired', 'system');
-      return { ok: false, request: record, error: 'Approval request has expired.', code: 'expired' };
+      const expired = await this.transition(record, 'expired', 'system');
+      return { ok: false, request: expired, error: 'Approval request has expired.', code: 'expired' };
     }
     // Reject if version has changed — another decision raced ahead or the request
     // was modified. Default sentinel (-1) is only used internally by the system

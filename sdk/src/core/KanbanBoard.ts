@@ -80,9 +80,12 @@ export class KanbanBoardManager {
       const currentIndex = ADVANCE_LANE_ORDER.indexOf(card.lane);
       if (currentIndex < 0 || card.lane === 'done') return undefined;
       const nextLane = ADVANCE_LANE_ORDER[Math.min(currentIndex + 1, ADVANCE_LANE_ORDER.length - 1)];
+      // B-new-4 fix: keep status aligned with lane so consumers don't see done/in_progress.
+      const nextStatus: WorkCard['status'] = nextLane === 'done' ? 'completed' : 'in_progress';
       cards[index] = {
         ...card,
         lane: nextLane,
+        status: nextStatus,
         evidence: evidence ?? card.evidence,
         updatedAt: new Date().toISOString(),
       };
@@ -126,7 +129,12 @@ export class KanbanBoardManager {
 
   /**
    * Requeue a previously-blocked card back to 'active' so the WorkLoop can
-   * resume execution after a human approval. Clears the pendingApprovalId.
+   * resume execution after a human approval.
+   *
+   * B-new-1 fix: pendingApprovalId is intentionally RETAINED so that the
+   * WorkLoop can load the approval context and skip requesting a new approval
+   * for the already-approved tool. Clear it after the tool executes via
+   * clearApprovalContext().
    */
   async requeue(id: string): Promise<WorkCard | undefined> {
     return this.withLock(async () => {
@@ -138,11 +146,46 @@ export class KanbanBoardManager {
         ...cards[index],
         lane: 'active',
         status: 'in_progress',
-        pendingApprovalId: undefined,
+        // pendingApprovalId deliberately preserved — WorkLoop uses it to skip re-requesting approval.
         updatedAt: new Date().toISOString(),
       };
       await this.saveCards(cards);
       return cards[index];
+    });
+  }
+
+  /**
+   * Append a successfully-executed tool name to the card's executedTools list
+   * so that if the card is requeued the tool is not run again.
+   */
+  async recordToolExecution(id: string, toolName: string): Promise<WorkCard | undefined> {
+    return this.withLock(async () => {
+      const cards = await this.loadCards();
+      const index = cards.findIndex((c) => c.id === id);
+      if (index < 0) return undefined;
+      const existing = cards[index].executedTools ?? [];
+      if (existing.includes(toolName)) return cards[index]; // idempotent
+      cards[index] = {
+        ...cards[index],
+        executedTools: [...existing, toolName],
+        updatedAt: new Date().toISOString(),
+      };
+      await this.saveCards(cards);
+      return cards[index];
+    });
+  }
+
+  /**
+   * Clear the pending approval context after the approved tool has executed.
+   */
+  async clearApprovalContext(id: string): Promise<void> {
+    await this.withLock(async () => {
+      const cards = await this.loadCards();
+      const index = cards.findIndex((c) => c.id === id);
+      if (index < 0) return;
+      if (!cards[index].pendingApprovalId) return;
+      cards[index] = { ...cards[index], pendingApprovalId: undefined, updatedAt: new Date().toISOString() };
+      await this.saveCards(cards);
     });
   }
 

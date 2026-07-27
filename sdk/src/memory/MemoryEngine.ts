@@ -42,7 +42,12 @@ export class MemoryEngine {
   constructor(options: MemoryEngineOptions) {
     this.storage = options.storage;
     this.agentName = options.agentName;
-    this.maxItems = options.maxTierItems ?? MAX_TIER_ITEMS;
+    const rawMax = options.maxTierItems ?? MAX_TIER_ITEMS;
+    // NB-2 fix: reject non-positive or non-integer values; slice(-0) === slice(0) (keeps all).
+    if (!Number.isInteger(rawMax) || rawMax < 1) {
+      throw new Error(`MemoryEngine: maxTierItems must be a positive integer, got ${rawMax}.`);
+    }
+    this.maxItems = rawMax;
   }
 
   /**
@@ -63,11 +68,15 @@ export class MemoryEngine {
     // This ensures "errors and blockers always retained" is actually true.
     // NB3 fix: cap the blocker list itself at maxItems so the tier never grows
     // unbounded when there are many stalled cards.
-    const blocked = cards.filter((c) => c.lane === 'waiting');
-    const cappedBlockers = blocked.slice(-this.maxItems); // keep most recent N
+    // NB-3 sort fix: sort by updatedAt desc so the most recently active cards
+    // are kept rather than the last-inserted ones.
+    const sortByUpdated = (a: WorkCard, b: WorkCard) =>
+      new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime();
+    const blocked = cards.filter((c) => c.lane === 'waiting').sort(sortByUpdated);
+    const cappedBlockers = blocked.slice(0, this.maxItems); // most recent N
     const blockedEntries = cappedBlockers.map((c) => `BLOCKED [${c.id}] ${c.title}: ${c.summary}`);
     const remainingCapacity = Math.max(0, this.maxItems - blockedEntries.length);
-    const completed = cards.filter((c) => c.lane === 'done').slice(-remainingCapacity);
+    const completed = cards.filter((c) => c.lane === 'done').sort(sortByUpdated).slice(0, remainingCapacity);
     const structuredMemory = [
       ...blockedEntries,
       ...completed.map((c) => `DONE [${c.id}] ${c.title} — evidence: ${c.evidence.join(', ') || 'none'}`),

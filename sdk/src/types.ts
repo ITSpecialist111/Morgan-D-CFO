@@ -147,6 +147,11 @@ export interface WorkCard {
    * once the approval has been granted.
    */
   pendingApprovalId?: string;
+  /**
+   * Names of tools that have already been successfully executed for this card.
+   * Used to skip re-execution when a card is requeued after a HITL approval.
+   */
+  executedTools?: string[];
 }
 
 export interface KanbanColumn {

@@ -106,7 +106,7 @@ export class ToolPolicyGateway {
   evaluate(
     tool: string,
     params: Record<string, unknown>,
-    options: { discoveredMcp?: boolean; approvalId?: string; approvalActionDigest?: string } = {},
+    options: { discoveredMcp?: boolean } = {},
   ): ToolPolicyEvaluation {
     const policy = this.classify(tool, options.discoveredMcp);
     const digest = actionDigest(tool, params);
@@ -123,9 +123,9 @@ export class ToolPolicyGateway {
     if (policy.risk === 'read-only' || policy.risk === 'internal-write') {
       return { ...base, decision: 'allow', reason: policy.description };
     }
-    if (options.approvalId && options.approvalActionDigest === digest) {
-      return { ...base, decision: 'allow', reason: `Matching ${policy.approvalLevel ?? 'L2'} approval context supplied.` };
-    }
+    // External-communication / financial-commitment — always require explicit approval.
+    // Approval verification is handled by WorkLoop using HitlGateway; the policy
+    // gateway itself does NOT trust caller-supplied approval tokens.
     return {
       ...base,
       decision: 'approval-required',
