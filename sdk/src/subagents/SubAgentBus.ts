@@ -69,6 +69,8 @@ export class SubAgentBus {
         capabilities: agent.capabilities,
         status: endpoint ? 'configured' : 'missing_endpoint',
         endpoint,
+        // NB5 fix: retain the per-agent defaultPath so it is used in call()
+        defaultPath: agent.defaultPath,
       };
     });
   }
@@ -114,7 +116,10 @@ export class SubAgentBus {
       };
     }
 
-    const path = params.path ?? '/api/agent-messages';
+    // NB5 fix: use per-agent defaultPath if no caller override supplied
+    const registryEntry = this.registry.find((item) => item.id === params.agentId);
+    const agentDefaultPath = (registryEntry as SubAgentDefinition & { defaultPath?: string })?.defaultPath;
+    const path = params.path ?? agentDefaultPath ?? '/api/agent-messages';
     if (path && (!path.startsWith('/') || path.includes('..') || /^\/\//.test(path))) {
       return { success: false, agentId: params.agentId, error: 'Sub-agent path override must be a safe relative URL path.' };
     }

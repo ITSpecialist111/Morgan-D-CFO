@@ -93,6 +93,13 @@ export class ArtifactJudge {
   private readonly rubric: JudgeRubricItem[];
 
   constructor(rubric: JudgeRubricItem[] = DEFAULT_RUBRIC) {
+    // NB2 fix: reject empty rubrics and zero/negative weights to prevent NaN scores.
+    if (!rubric.length) throw new Error('ArtifactJudge rubric must contain at least one item.');
+    for (const item of rubric) {
+      if (!Number.isFinite(item.weight) || item.weight <= 0) {
+        throw new Error(`ArtifactJudge rubric item "${item.id}" has an invalid weight: ${item.weight}. Weight must be a positive finite number.`);
+      }
+    }
     this.rubric = rubric;
   }
 

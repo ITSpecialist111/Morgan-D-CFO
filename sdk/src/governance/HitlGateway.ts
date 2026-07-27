@@ -116,6 +116,8 @@ export class HitlGateway {
     decision: ApprovalDecision,
     identity: ApproverIdentity,
     rationaleFromApprover?: string,
+    /** Must match the stored version to prevent concurrent decisions. */
+    expectedVersion?: number,
   ): Promise<ApprovalDecisionResult> {
     const record = await this.storage.get<ApprovalRequest>(NAMESPACE, id);
     if (!record) return { ok: false, error: 'Approval request not found.', code: 'unknown' };
@@ -123,6 +125,11 @@ export class HitlGateway {
     if (new Date(record.timeoutAt) < new Date()) {
       await this.transition(record, 'expired', 'system');
       return { ok: false, request: record, error: 'Approval request has expired.', code: 'expired' };
+    }
+    // Optimistic concurrency: reject if the caller's expected version does not
+    // match the stored version, which means another decision raced ahead.
+    if (expectedVersion !== undefined && record.version !== expectedVersion) {
+      return { ok: false, request: record, error: 'Stale version — another decision was already recorded.', code: 'stale-version' };
     }
 
     const newStatus: ApprovalStatus = decision === 'approve'

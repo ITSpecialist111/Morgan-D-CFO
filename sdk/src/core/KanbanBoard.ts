@@ -22,6 +22,8 @@ export interface KanbanBoardOptions {
 
 export class KanbanBoardManager {
   private readonly storage: StorageProvider;
+  /** Simple mutex to serialize board mutations within a single process. */
+  private mutationLock: Promise<void> = Promise.resolve();
 
   constructor(options: KanbanBoardOptions) {
     this.storage = options.storage;
@@ -35,49 +37,74 @@ export class KanbanBoardManager {
     await this.storage.set(NAMESPACE, CARDS_KEY, cards);
   }
 
-  async addCard(card: Omit<WorkCard, 'lane' | 'updatedAt'>): Promise<WorkCard> {
-    const cards = await this.loadCards();
-    const newCard: WorkCard = {
-      ...card,
-      lane: 'queue',
-      updatedAt: new Date().toISOString(),
-    };
-    cards.push(newCard);
-    await this.saveCards(cards);
-    return newCard;
+  /** Acquire a serial mutation lock to prevent concurrent load-modify-save races. */
+  private async withLock<T>(fn: () => Promise<T>): Promise<T> {
+    let release!: () => void;
+    const acquired = new Promise<void>((resolve) => { release = resolve; });
+    const prior = this.mutationLock;
+    this.mutationLock = prior.then(() => acquired);
+    await prior;
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
   }
 
-  async advance(id: string, towardDone = true): Promise<WorkCard | undefined> {
-    const cards = await this.loadCards();
-    const index = cards.findIndex((c) => c.id === id);
-    if (index < 0) return undefined;
-    const card = cards[index];
-    const currentIndex = LANE_ORDER.indexOf(card.lane);
-    if (currentIndex < 0) return undefined;
-    const nextLane = towardDone
-      ? LANE_ORDER[Math.min(currentIndex + 1, LANE_ORDER.length - 1)]
-      : LANE_ORDER[Math.max(currentIndex - 1, 0)];
-    cards[index] = { ...card, lane: nextLane, updatedAt: new Date().toISOString() };
-    await this.saveCards(cards);
-    return cards[index];
+  async addCard(card: Omit<WorkCard, 'lane' | 'updatedAt'>): Promise<WorkCard> {
+    return this.withLock(async () => {
+      const cards = await this.loadCards();
+      const newCard: WorkCard = {
+        ...card,
+        lane: 'queue',
+        updatedAt: new Date().toISOString(),
+      };
+      cards.push(newCard);
+      await this.saveCards(cards);
+      return newCard;
+    });
+  }
+
+  async advance(id: string, evidence?: string[]): Promise<WorkCard | undefined> {
+    return this.withLock(async () => {
+      const cards = await this.loadCards();
+      const index = cards.findIndex((c) => c.id === id);
+      if (index < 0) return undefined;
+      const card = cards[index];
+      const currentIndex = LANE_ORDER.indexOf(card.lane);
+      if (currentIndex < 0 || card.lane === 'done') return undefined;
+      const nextLane = LANE_ORDER[Math.min(currentIndex + 1, LANE_ORDER.length - 1)];
+      cards[index] = {
+        ...card,
+        lane: nextLane,
+        evidence: evidence ?? card.evidence,
+        updatedAt: new Date().toISOString(),
+      };
+      await this.saveCards(cards);
+      return cards[index];
+    });
   }
 
   async block(id: string, reason: string): Promise<WorkCard | undefined> {
-    const cards = await this.loadCards();
-    const index = cards.findIndex((c) => c.id === id);
-    if (index < 0) return undefined;
-    cards[index] = { ...cards[index], lane: 'waiting', status: 'blocked', summary: reason, updatedAt: new Date().toISOString() };
-    await this.saveCards(cards);
-    return cards[index];
+    return this.withLock(async () => {
+      const cards = await this.loadCards();
+      const index = cards.findIndex((c) => c.id === id);
+      if (index < 0) return undefined;
+      cards[index] = { ...cards[index], lane: 'waiting', status: 'blocked', summary: reason, updatedAt: new Date().toISOString() };
+      await this.saveCards(cards);
+      return cards[index];
+    });
   }
 
   async complete(id: string, evidence: string[]): Promise<WorkCard | undefined> {
-    const cards = await this.loadCards();
-    const index = cards.findIndex((c) => c.id === id);
-    if (index < 0) return undefined;
-    cards[index] = { ...cards[index], lane: 'done', status: 'completed', evidence, updatedAt: new Date().toISOString() };
-    await this.saveCards(cards);
-    return cards[index];
+    return this.withLock(async () => {
+      const cards = await this.loadCards();
+      const index = cards.findIndex((c) => c.id === id);
+      if (index < 0) return undefined;
+      cards[index] = { ...cards[index], lane: 'done', status: 'completed', evidence, updatedAt: new Date().toISOString() };
+      await this.saveCards(cards);
+      return cards[index];
+    });
   }
 
   async getSnapshot(): Promise<KanbanBoard> {

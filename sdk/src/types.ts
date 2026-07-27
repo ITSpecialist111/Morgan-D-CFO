@@ -122,6 +122,12 @@ export interface WorkCard {
   reason?: string;
   /** Tool names the agent may call to advance this card. */
   tools: string[];
+  /**
+   * Typed parameters to pass to each named tool.
+   * Keys are tool names; values are the exact params the handler and policy
+   * digest will use. If absent for a tool, an empty object is used.
+   */
+  toolParams?: Record<string, Record<string, unknown>>;
   /** Sub-agent IDs the agent may delegate to. */
   subAgents: string[];
   /** Observable evidence produced when the card was last advanced. */

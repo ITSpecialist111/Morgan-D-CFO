@@ -55,17 +55,20 @@ export class MemoryEngine {
   async summarize(events: AgentEvent[], cards: WorkCard[]): Promise<MemorySummary> {
     const now = new Date().toISOString();
 
-    // --- Working context: active and recently-updated cards ---
+    // --- Working context: active and recently-updated cards (no cap) ---
     const active = cards.filter((c) => c.lane === 'active');
     const workingContext = active.map((c) => `[${c.id}] ${c.title}: ${c.summary}`);
 
-    // --- Structured memory: completed and blocked cards ---
-    const completed = cards.filter((c) => c.lane === 'done').slice(-this.maxItems);
+    // NB4 fix: reserve capacity for blockers first, then fill with completed.
+    // This ensures "errors and blockers always retained" is actually true.
     const blocked = cards.filter((c) => c.lane === 'waiting');
+    const blockedEntries = blocked.map((c) => `BLOCKED [${c.id}] ${c.title}: ${c.summary}`);
+    const remainingCapacity = Math.max(0, this.maxItems - blockedEntries.length);
+    const completed = cards.filter((c) => c.lane === 'done').slice(-remainingCapacity);
     const structuredMemory = [
+      ...blockedEntries,
       ...completed.map((c) => `DONE [${c.id}] ${c.title} — evidence: ${c.evidence.join(', ') || 'none'}`),
-      ...blocked.map((c) => `BLOCKED [${c.id}] ${c.title}: ${c.summary}`),
-    ].slice(0, this.maxItems);
+    ];
 
     // --- Semantic recall: cues derived from recent events ---
     const recentToolCalls = events
@@ -78,7 +81,7 @@ export class MemoryEngine {
 
     // --- Experiential trajectories: persisted from prior cycles ---
     const priorTrajectories = (await this.storage.get<string[]>(NAMESPACE, EXPERIENTIAL_KEY)) ?? [];
-    // Add any new patterns from cycle events (simple heuristic)
+    // Retain error events from this cycle; errors are important signals
     const errorEvents = events.filter((e) => e.status === 'error').map((e) => `ERROR: ${e.label}`);
     const newTrajectories = [...priorTrajectories, ...errorEvents].slice(-this.maxItems);
     await this.storage.set(NAMESPACE, EXPERIENTIAL_KEY, newTrajectories);
@@ -94,7 +97,7 @@ export class MemoryEngine {
       semanticRecall,
       experientialTrajectories: newTrajectories,
       preservedCriticalContent,
-      compressionPolicy: `Max ${this.maxItems} items per tier; errors and blockers always retained.`,
+      compressionPolicy: `Blockers reserved first (${blockedEntries.length}); completed fill remaining capacity of ${this.maxItems}. Errors always retained.`,
       recordsConsidered: cards.length,
       eventsConsidered: events.length,
     };
