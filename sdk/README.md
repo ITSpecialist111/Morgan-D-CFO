@@ -195,3 +195,19 @@ class AzureOpenAIProvider implements LlmProvider {
 ## License
 
 MIT
+
+---
+
+## Known Limitations
+
+### Authentication and authorization for HITL approvers
+
+`HitlGateway.decide()` accepts an `ApproverIdentity` record but does not authenticate the caller against an identity provider. In production, wrap the gateway behind an authenticated middleware (Azure AD, Azure B2C, Entra ID protected endpoint) and derive the identity server-side before calling `decide()`. Do not expose `decide()` directly to untrusted callers.
+
+### `approve_with_edits` does not rebind tool parameters
+
+The `approved_with_edits` approval decision is persisted in the approval record and its `transitionHistory`, but the SDK does not currently extract or apply edited parameters at execution time. A card resumed after an `approve_with_edits` decision will execute with its original `toolParams`. To implement edited-params execution in your consumer, override `onApprovalRequest`, capture the edited parameters, update the card's `toolParams` in your storage layer before calling `hitlGateway.decide('approve_with_edits', ...)`, and extend `WorkCard` with a typed `editedToolParams` field.
+
+### Single pending approval per card
+
+Each card supports one `pendingApprovalId` at a time. If a card has multiple L2/L3 tools, they will each go through sequential approval cycles. Parallel multi-tool approval is not yet supported.
