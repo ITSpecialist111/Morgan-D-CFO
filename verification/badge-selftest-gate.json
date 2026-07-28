@@ -1,0 +1,168 @@
+{
+  "capturedUtc": "2026-07-28T08:16:37.6512335Z",
+  "port": "COM7",
+  "gate": "PreSolder",
+  "simulationRequested": true,
+  "halModes": {
+    "event": "HAL",
+    "pinContractRev": 1,
+    "simulationBuild": true,
+    "peripherals": {
+      "display": {
+        "mode": "simulated",
+        "bus": "spi",
+        "evidence": "simulated on MCU, not electrically verified"
+      },
+      "microphone": {
+        "mode": "simulated",
+        "bus": "i2s",
+        "evidence": "simulated on MCU, not electrically verified"
+      },
+      "amplifier": {
+        "mode": "real",
+        "bus": "i2s",
+        "evidence": "i2s tx channel started"
+      },
+      "speaker": {
+        "mode": "simulated",
+        "bus": "analog",
+        "evidence": "simulated on MCU, not electrically verified"
+      },
+      "ptt": {
+        "mode": "real",
+        "bus": "gpio",
+        "evidence": "gpio with internal pull-up"
+      },
+      "battery": {
+        "mode": "real",
+        "bus": "adc",
+        "evidence": "on-module divider and load switch"
+      },
+      "nfc": {
+        "mode": "simulated",
+        "bus": "i2c",
+        "evidence": "simulated on MCU, not electrically verified"
+      },
+      "imu": {
+        "mode": "simulated",
+        "bus": "i2c",
+        "evidence": "simulated on MCU, not electrically verified"
+      },
+      "haptic": {
+        "mode": "simulated",
+        "bus": "i2c",
+        "evidence": "simulated on MCU, not electrically verified"
+      }
+    },
+    "simulated": 6,
+    "real": 3
+  },
+  "selfTest": {
+    "event": "SELFTEST",
+    "schemaVersion": 1,
+    "firmware": "0.2.0",
+    "pinContractRev": 1,
+    "chip": "ESP32-C5",
+    "chipRevision": 100,
+    "simulationBuild": true,
+    "checks": [
+      {
+        "id": "mcu.identity",
+        "mode": "real",
+        "verdict": "HW-PASS",
+        "evidence": "ESP32-C5 rev 1.0, 240 MHz, flash 8388608 B, psram 8388608 B"
+      },
+      {
+        "id": "mcu.strapping",
+        "mode": "real",
+        "verdict": "HW-PASS",
+        "evidence": "GPIO_STRAP 0x00000018, GPIO28 high (normal flash boot required)"
+      },
+      {
+        "id": "psram.framebuffer",
+        "mode": "real",
+        "verdict": "HW-PASS",
+        "evidence": "framebuffer 153600 B in PSRAM, free psram 8211472 B"
+      },
+      {
+        "id": "display.render",
+        "mode": "real",
+        "verdict": "HW-PASS",
+        "evidence": "crc32 0x9C684556, 38995/76800 px differ from background; layout only"
+      },
+      {
+        "id": "display.panel",
+        "mode": "absent",
+        "verdict": "SKIPPED",
+        "evidence": "no RDDID readback; SPI configured but panel not verified"
+      },
+      {
+        "id": "i2s.clock",
+        "mode": "real",
+        "verdict": "HW-PASS",
+        "evidence": "2400 frames in 99999 us (expected ~100000 us at 24000 Hz)"
+      },
+      {
+        "id": "audio.microphone",
+        "mode": "simulated",
+        "verdict": "SIM-PASS",
+        "evidence": "24-bit spread 0, last 240 frames rms 0.1759 peak 0.2499, clipped 0/2400 (synthetic PCM, no acoustic proof)"
+      },
+      {
+        "id": "audio.amplifierControl",
+        "mode": "real",
+        "verdict": "HW-PASS",
+        "evidence": "AMP_SD gpio0 toggled 1->0; no acoustic output implied"
+      },
+      {
+        "id": "audio.speaker",
+        "mode": "absent",
+        "verdict": "SKIPPED",
+        "evidence": "passive load, not observable without soldering"
+      },
+      {
+        "id": "input.ptt",
+        "mode": "real",
+        "verdict": "HW-PASS",
+        "evidence": "gpio1 reads HIGH with internal pull-up; consistent with released or unfitted switch"
+      },
+      {
+        "id": "power.batterySense",
+        "mode": "real",
+        "verdict": "HW-PASS",
+        "evidence": "3.997 V via 100k/100k divider after 20 ms settle; USB rail when no cell"
+      },
+      {
+        "id": "i2c.nfc",
+        "mode": "simulated",
+        "verdict": "SIM-PASS",
+        "evidence": "simulated tap path only; passive target polling not implemented"
+      },
+      {
+        "id": "i2c.imu",
+        "mode": "simulated",
+        "verdict": "SIM-PASS",
+        "evidence": "pitch 0.0 roll 0.0 interrupt false"
+      },
+      {
+        "id": "i2c.haptic",
+        "mode": "simulated",
+        "verdict": "SIM-PASS",
+        "evidence": "pattern click for 40 ms"
+      },
+      {
+        "id": "memory.headroom",
+        "mode": "real",
+        "verdict": "HW-PASS",
+        "evidence": "heap free 159496 B, min free 96860 B, psram free 8211472 B"
+      }
+    ],
+    "summary": {
+      "hardwarePass": 9,
+      "simulatedPass": 4,
+      "failed": 0,
+      "skipped": 2
+    }
+  },
+  "coverageNote": "Simulated results prove firmware logic only. They do not prove analogue levels, timing margin, current draw, thermal behaviour, RF performance, panel initialisation, acoustic response, speaker polarity, or the LiPo charge path."
+}

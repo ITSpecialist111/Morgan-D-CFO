@@ -70,13 +70,20 @@
     const grid = byId('component-grid');
     grid.replaceChildren(...snapshot.checks.map((check) => {
       const element = document.createElement('div');
-      element.className = `component ${check.pass ? 'pass' : 'fail'}`;
+      element.className = `component ${check.pass ? 'pass' : 'fail'}${check.optional ? ' optional' : ''}`;
       element.dataset.component = check.id;
-      element.innerHTML = `<div class="component-top"><span class="status-dot"></span><b>${escapeHtml(check.label)}</b></div><p>${escapeHtml(check.detail)}</p>`;
+      const suffix = check.optional ? ' <em>optional</em>' : '';
+      element.innerHTML = `<div class="component-top"><span class="status-dot"></span><b>${escapeHtml(check.label)}</b></div><p>${escapeHtml(check.detail)}${suffix}</p>`;
       return element;
     }));
-    const passed = snapshot.checks.filter((check) => check.pass).length;
-    byId('component-score').textContent = `${passed} / ${snapshot.checks.length}`;
+    // Core and optional are reported separately so a green core baseline is
+    // never read as verification of the optional Rev B daughterboard.
+    const core = snapshot.checks.filter((check) => !check.optional);
+    const optional = snapshot.checks.filter((check) => check.optional);
+    const corePassed = core.filter((check) => check.pass).length;
+    const optionalPassed = optional.filter((check) => check.pass).length;
+    byId('component-score').textContent =
+      `${corePassed} / ${core.length} core · ${optionalPassed} / ${optional.length} optional`;
   }
 
   function renderMetrics(snapshot) {
