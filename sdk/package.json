@@ -1,0 +1,42 @@
+{
+  "name": "@corpgen/agent-sdk",
+  "version": "0.1.0",
+  "description": "CorpGen Digital Worker SDK — build AI teammates for long-running agentic tasks. Implements the Microsoft CorpGen paper (arXiv:2602.14229) primitives as a reusable TypeScript SDK compatible with the GitHub Copilot SDK ergonomics.",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test dist/__tests__/**/*.test.js",
+    "clean": "rimraf dist",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "corpgen",
+    "agent",
+    "sdk",
+    "ai",
+    "digital-worker",
+    "agentic",
+    "kanban",
+    "hitl",
+    "microsoft"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "openai": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "openai": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "rimraf": "*",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
