@@ -14,19 +14,29 @@
     FAULT: 'FAULT',
   });
 
+  // Rev A.1 pin contract. Mirrors firmware/morgan_badge/board_config.h.
+  // ESP32-C5 strapping pins are GPIO2, 7, 25, 27 and 28, so only nets with no
+  // external pull resistor may sit on D2 (GPIO25) and D3 (GPIO7). The optional
+  // I2C bus and the display reset use the rear JTAG bonding pads.
   const PIN_MAP = Object.freeze({
     ptt: Object.freeze({ pad: 'D0', gpio: 1, net: 'PTT_N', direction: 'input' }),
-    displayCs: Object.freeze({ pad: 'D1', gpio: 0, net: 'LCD_CS', direction: 'output' }),
+    amplifierSd: Object.freeze({ pad: 'D1', gpio: 0, net: 'AMP_SD', direction: 'output' }),
     displayDc: Object.freeze({ pad: 'D2', gpio: 25, net: 'LCD_DC', direction: 'output' }),
-    amplifierSd: Object.freeze({ pad: 'D3', gpio: 7, net: 'AMP_SD', direction: 'output' }),
+    displayCs: Object.freeze({ pad: 'D3', gpio: 7, net: 'LCD_CS', direction: 'output' }),
     microphoneData: Object.freeze({ pad: 'D4', gpio: 23, net: 'MIC_SD', direction: 'input' }),
     i2sWordSelect: Object.freeze({ pad: 'D5', gpio: 24, net: 'I2S_LRCLK', direction: 'output' }),
     i2sBitClock: Object.freeze({ pad: 'D6', gpio: 11, net: 'I2S_BCLK', direction: 'output' }),
     amplifierData: Object.freeze({ pad: 'D7', gpio: 12, net: 'AMP_DIN', direction: 'output' }),
     displayClock: Object.freeze({ pad: 'D8', gpio: 8, net: 'LCD_SCK', direction: 'output' }),
-    statusLed: Object.freeze({ pad: 'D9', gpio: 9, net: 'STATUS_D9', direction: 'reserved' }),
+    displayMiso: Object.freeze({ pad: 'D9', gpio: 9, net: 'LCD_SDO', direction: 'input' }),
     displayMosi: Object.freeze({ pad: 'D10', gpio: 10, net: 'LCD_MOSI', direction: 'output' }),
+    i2cScl: Object.freeze({ pad: 'MTDI', gpio: 3, net: 'I2C_SCL', direction: 'output' }),
+    i2cSda: Object.freeze({ pad: 'MTCK', gpio: 4, net: 'I2C_SDA', direction: 'bidirectional' }),
+    displayReset: Object.freeze({ pad: 'MTDO', gpio: 5, net: 'LCD_RST', direction: 'output' }),
   });
+
+  // GPIO numbers that latch boot configuration on the ESP32-C5.
+  const STRAPPING_GPIOS = Object.freeze([2, 7, 25, 27, 28]);
 
   const DEFAULT_FAULTS = Object.freeze({
     mcuFault: false,
@@ -158,10 +168,13 @@
         lastHttpCode: 200,
         telemetryHttpCode: 202,
       };
+      // The optional Rev B daughterboard is not fitted by default, which is what
+      // the firmware reports on a bare board. Fit the modules explicitly from
+      // the Optional peripherals tab to exercise their behaviour.
       this.optionals = {
-        nfc: { connected: true, model: 'PN532', lastResult: 'idle' },
-        imu: { connected: true, model: 'MPU6050', pitch: 0, roll: 0, interrupt: false },
-        haptic: { connected: true, model: 'DRV2605L', lastEffect: null },
+        nfc: { connected: false, model: 'PN532', lastResult: 'idle' },
+        imu: { connected: false, model: 'MPU6050', pitch: 0, roll: 0, interrupt: false },
+        haptic: { connected: false, model: 'DRV2605L', lastEffect: null },
       };
       this.log('BOOT', 'ESP32-C5 emulator reset', 'ok');
       this.schedule(this.options.bootDelayMs, () => {
@@ -526,9 +539,9 @@
         { id: 'power', label: 'LiPo and SGM40567', pass: batteryPowered && batterySafe && !this.faults.chargerFault, detail: `${this.power.batteryVoltage.toFixed(2)} V, ${Math.round(this.power.batterySoc * 100)}%` },
         { id: 'wifi', label: 'Wi-Fi 6 radio', pass: wifiHealthy, detail: `${this.network.rssiDbm} dBm` },
         { id: 'cloud', label: 'TLS and badge API', pass: wifiHealthy && this.network.clockSynchronized && this.network.tlsValid && this.network.authenticated && this.network.cloudAvailable && !this.faults.tlsInvalid && !this.faults.authInvalid && !this.faults.cloudDown, detail: 'Pinned CA, HTTP 200 / telemetry 202' },
-        { id: 'nfc', label: 'PN532 NFC', pass: this.optionals.nfc.connected && !this.faults.nfcDisconnected, detail: 'Optional Rev B peripheral' },
-        { id: 'imu', label: 'MPU6050 IMU', pass: this.optionals.imu.connected && !this.faults.imuDisconnected, detail: 'Optional Rev B peripheral' },
-        { id: 'haptic', label: 'DRV2605L haptic', pass: this.optionals.haptic.connected && !this.faults.hapticDisconnected, detail: 'Optional Rev B peripheral' },
+        { id: 'nfc', label: 'PN532 NFC', optional: true, pass: this.optionals.nfc.connected && !this.faults.nfcDisconnected, detail: 'Optional Rev B, rear-pad I2C' },
+        { id: 'imu', label: 'MPU6050 IMU', optional: true, pass: this.optionals.imu.connected && !this.faults.imuDisconnected, detail: 'Optional Rev B, rear-pad I2C' },
+        { id: 'haptic', label: 'DRV2605L haptic', optional: true, pass: this.optionals.haptic.connected && !this.faults.hapticDisconnected, detail: 'Optional Rev B, rear-pad I2C' },
       ];
     }
 
@@ -550,14 +563,21 @@
         amplifier.pass = false;
         amplifier.detail = 'No audible PCM output';
       }
+      // Core components are the ones that must be soldered for the badge to
+      // work. Optional Rev B modules are scored separately so a green core
+      // baseline never implies the optional daughterboard was verified.
+      const coreChecks = checks.filter((check) => !check.optional);
+      const optionalChecks = checks.filter((check) => check.optional);
       const result = {
         atMs: this.clockMs,
-        pass: checks.every((check) => check.pass),
-        passed: checks.filter((check) => check.pass).length,
-        total: checks.length,
+        pass: coreChecks.every((check) => check.pass),
+        passed: coreChecks.filter((check) => check.pass).length,
+        total: coreChecks.length,
+        optionalPassed: optionalChecks.filter((check) => check.pass).length,
+        optionalTotal: optionalChecks.length,
         checks,
       };
-      this.log('TEST', `Full validation ${result.passed}/${result.total}`, result.pass ? 'ok' : 'error');
+      this.log('TEST', `Core validation ${result.passed}/${result.total} (optional ${result.optionalPassed}/${result.optionalTotal})`, result.pass ? 'ok' : 'error');
       this.amplifier.enabled = false;
       this.speaker.audible = false;
       this.emit();
@@ -594,6 +614,17 @@
       const originalFaults = { ...this.faults };
       const originalNetwork = { ...this.network };
       const originalVoltage = this.power.batteryVoltage;
+      // Temporarily fit the optional modules. Without this their checks already
+      // fail because nothing is connected, so their fault detectors would score
+      // as "detected" without the injected fault doing anything.
+      const originalOptionalConnected = {
+        nfc: this.optionals.nfc.connected,
+        imu: this.optionals.imu.connected,
+        haptic: this.optionals.haptic.connected,
+      };
+      this.optionals.nfc.connected = true;
+      this.optionals.imu.connected = true;
+      this.optionals.haptic.connected = true;
       const results = matrix.map(([fault, component]) => {
         this.faults[fault] = true;
         if (fault === 'wifiDown') this.network.connected = false;
@@ -612,6 +643,9 @@
       this.faults = originalFaults;
       Object.assign(this.network, originalNetwork);
       this.power.batteryVoltage = originalVoltage;
+      this.optionals.nfc.connected = originalOptionalConnected.nfc;
+      this.optionals.imu.connected = originalOptionalConnected.imu;
+      this.optionals.haptic.connected = originalOptionalConnected.haptic;
       const result = {
         pass: results.every((entry) => entry.detected),
         detected: results.filter((entry) => entry.detected).length,
