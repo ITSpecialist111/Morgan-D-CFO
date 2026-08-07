@@ -255,6 +255,8 @@ void handleSerialCommand(const String& command) {
     network.printDiagnostics();
   } else if (command == "wifi") {
     network.printDiagnostics();
+  } else if (command == "wifiscan") {
+    network.printScan();
   } else if (command.length()) {
     Serial.println(
         "{\"event\":\"ERROR\",\"message\":\"Unknown command; use diag, modes, scan, selftest, sim, tilt, tap, haptic, standby, listen, think, speak, voice, cancel, or wifi\"}");

@@ -218,6 +218,7 @@ Commands are newline-terminated and intended for bring-up only:
 | `haptic <click\|ramp\|alert>` | Trigger a haptic pattern. |
 | `pttwait` | Wait up to 10 s for a physical PTT press and release. |
 | `wifi` | Print non-secret network readiness and RSSI. |
+| `wifiscan` | Scan for access points and report whether the configured SSID is visible, plus its best RSSI, channel, and AP count. The SSID itself is never printed. |
 | `standby` | Force standby UI. |
 | `listen` | Force listening UI without opening the cloud socket. |
 | `think` | Exercise local thinking-to-speaking fallback. |

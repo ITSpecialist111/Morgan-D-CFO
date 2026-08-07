@@ -26,6 +26,11 @@ class BadgeNetwork {
   void finishVoiceInput();
   void printDiagnostics() const;
 
+  // Scans for access points and reports whether the configured SSID is
+  // visible, without ever printing the SSID itself. This is what separates
+  // "radio cannot see the AP" from "AP is visible but the join fails".
+  void printScan() const;
+
  private:
   BadgeAudio* audio_ = nullptr;
   StateHandler stateHandler_;
