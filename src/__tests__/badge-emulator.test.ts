@@ -6,39 +6,132 @@ import test from 'node:test';
 const emulatorModule = require('../badge-emulator/emulator-core.js') as {
   BadgeEmulator: new () => any;
   STATES: Record<string, string>;
-  PIN_MAP: Record<string, { pad: string; gpio: number; direction: string }>;
+  PIN_MAP: Record<string, { pad: string; gpio: number; direction: string; net: string }>;
 };
 
 const { BadgeEmulator, STATES, PIN_MAP } = emulatorModule;
 
+// Pad aliases from the Arduino XIAO_ESP32C5 variant (variants/XIAO_ESP32C5/pins_arduino.h).
+const XIAO_PAD_TO_GPIO: Record<string, number> = {
+  D0: 1, D1: 0, D2: 25, D3: 7, D4: 23, D5: 24,
+  D6: 11, D7: 12, D8: 8, D9: 9, D10: 10,
+};
+
+// Maps the firmware constant to the emulator pin-map key it must agree with.
+const FIRMWARE_PIN_BINDINGS: Record<string, string> = {
+  kPttPin: 'ptt',
+  kAmplifierSdPin: 'amplifierSd',
+  kDisplayDcPin: 'displayDc',
+  kDisplayCsPin: 'displayCs',
+  kMicrophoneDataPin: 'microphoneData',
+  kI2sWordSelectPin: 'i2sWordSelect',
+  kI2sBitClockPin: 'i2sBitClock',
+  kAmplifierDataPin: 'amplifierData',
+  kDisplayClockPin: 'displayClock',
+  kDisplayMisoPin: 'displayMiso',
+  kDisplayMosiPin: 'displayMosi',
+  kI2cSclPin: 'i2cScl',
+  kI2cSdaPin: 'i2cSda',
+  kDisplayResetPin: 'displayReset',
+};
+
+const repositoryRoot = path.join(__dirname, '..', '..');
+
+function parseFirmwarePinContract(): Record<string, number> {
+  const headerPath = path.join(repositoryRoot, 'firmware', 'morgan_badge', 'board_config.h');
+  const header = fs.readFileSync(headerPath, 'utf8');
+  const pattern = /constexpr\s+(?:uint8_t|int8_t)\s+(k\w+Pin)\s*=\s*(D\d+|\d+)\s*;/g;
+  const resolved: Record<string, number> = {};
+  for (const match of header.matchAll(pattern)) {
+    const [, name, value] = match;
+    const gpio = value.startsWith('D') ? XIAO_PAD_TO_GPIO[value] : Number(value);
+    assert.ok(gpio !== undefined, `Unknown pad alias ${value} for ${name}`);
+    resolved[name] = gpio;
+  }
+  return resolved;
+}
+
 test('badge component emulator', async (suite) => {
-  await suite.test('matches the Rev A XIAO pin contract', () => {
+  await suite.test('firmware header, emulator map, and wiring CSV agree', () => {
+    // board_config.h is the authoritative pin contract. This closes the loop so
+    // that editing the header without updating the emulator or the document the
+    // badge is soldered from fails the build instead of drifting silently.
+    const firmwarePins = parseFirmwarePinContract();
+
+    for (const [constant, pinName] of Object.entries(FIRMWARE_PIN_BINDINGS)) {
+      assert.ok(constant in firmwarePins, `board_config.h is missing ${constant}`);
+      assert.equal(
+        firmwarePins[constant],
+        PIN_MAP[pinName].gpio,
+        `${constant} resolves to gpio${firmwarePins[constant]} but the emulator says gpio${PIN_MAP[pinName].gpio}`,
+      );
+    }
+
+    const csv = fs.readFileSync(
+      path.join(repositoryRoot, 'hardware', 'morgan-badge-rev-a-wiring.csv'),
+      'utf8',
+    );
+    for (const [pinName, pin] of Object.entries(PIN_MAP)) {
+      if (pinName === 'displayMiso') continue; // Optional readback line.
+      // Delimited match so GPIO1 cannot be satisfied by GPIO10/11/12.
+      assert.ok(
+        new RegExp(`GPIO${pin.gpio}(?!\\d)`).test(csv),
+        `wiring CSV never mentions GPIO${pin.gpio} for ${pinName}`,
+      );
+      assert.ok(
+        csv.includes(pin.net),
+        `wiring CSV never mentions net ${pin.net}`,
+      );
+    }
+  });
+
+  await suite.test('matches the Rev A.1 XIAO pin contract', () => {
     assert.deepEqual(
       Object.fromEntries(Object.entries(PIN_MAP).map(([name, pin]) => [name, [pin.pad, pin.gpio, pin.direction]])),
       {
         ptt: ['D0', 1, 'input'],
-        displayCs: ['D1', 0, 'output'],
+        amplifierSd: ['D1', 0, 'output'],
         displayDc: ['D2', 25, 'output'],
-        amplifierSd: ['D3', 7, 'output'],
+        displayCs: ['D3', 7, 'output'],
         microphoneData: ['D4', 23, 'input'],
         i2sWordSelect: ['D5', 24, 'output'],
         i2sBitClock: ['D6', 11, 'output'],
         amplifierData: ['D7', 12, 'output'],
         displayClock: ['D8', 8, 'output'],
-        statusLed: ['D9', 9, 'reserved'],
+        displayMiso: ['D9', 9, 'input'],
         displayMosi: ['D10', 10, 'output'],
+        i2cScl: ['MTDI', 3, 'output'],
+        i2cSda: ['MTCK', 4, 'bidirectional'],
+        displayReset: ['MTDO', 5, 'output'],
       },
     );
   });
 
-  await suite.test('boots and passes every component baseline check', () => {
+  await suite.test('keeps externally pulled nets off ESP32-C5 strapping pins', () => {
+    // GPIO2, 7, 25, 27 and 28 latch boot configuration. Only nets that drive a
+    // high-impedance module input may use them, because the chip's ~45k
+    // internal pull would fight any external resistor at reset.
+    const strapping = new Set([2, 7, 25, 27, 28]);
+    const externallyPulled = ['ptt', 'amplifierSd', 'i2cScl', 'i2cSda', 'displayReset'];
+    for (const name of externallyPulled) {
+      assert.ok(
+        !strapping.has(PIN_MAP[name].gpio),
+        `${name} carries an external pull and must not use strapping gpio${PIN_MAP[name].gpio}`,
+      );
+    }
+  });
+
+  await suite.test('boots and passes every core component baseline check', () => {
     const emulator = new BadgeEmulator();
     emulator.advance(500);
     assert.equal(emulator.state, STATES.STANDBY);
     const result = emulator.runValidation();
     assert.equal(result.pass, true);
-    assert.equal(result.passed, 12);
-    assert.equal(result.total, 12);
+    // Core components must be soldered for the badge to work; the optional Rev B
+    // modules are counted separately so they cannot inflate the baseline.
+    assert.equal(result.passed, 9);
+    assert.equal(result.total, 9);
+    assert.equal(result.optionalTotal, 3);
   });
 
   await suite.test('runs the local PTT fallback with firmware timings', () => {
@@ -112,9 +205,26 @@ test('badge component emulator', async (suite) => {
     assert.equal(emulator.checkById('power').pass, false);
   });
 
-  await suite.test('exercises optional NFC, IMU, and haptic behaviors', () => {
+  await suite.test('reports optional peripherals as unfitted until they are added', () => {
     const emulator = new BadgeEmulator();
     emulator.advance(500);
+    // The Rev B daughterboard is not fitted by default, matching what the
+    // firmware reports on a bare board. Nothing may claim these are working.
+    for (const id of ['nfc', 'imu', 'haptic']) {
+      const check = emulator.checkById(id);
+      assert.equal(check.pass, false, `${id} must not pass while unfitted`);
+      assert.equal(check.optional, true, `${id} must be marked optional`);
+    }
+    assert.equal(emulator.tapNfc(true), false);
+    assert.equal(emulator.setTilt(40, 0), false);
+  });
+
+  await suite.test('exercises optional NFC, IMU, and haptic behaviors once fitted', () => {
+    const emulator = new BadgeEmulator();
+    emulator.advance(500);
+    emulator.optionals.nfc.connected = true;
+    emulator.optionals.imu.connected = true;
+    emulator.optionals.haptic.connected = true;
     assert.equal(emulator.tapNfc(true), true);
     assert.equal(emulator.overlay, 'ACCESS');
     emulator.advance(1800);

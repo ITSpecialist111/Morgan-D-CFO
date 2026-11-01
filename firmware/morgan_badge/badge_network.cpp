@@ -82,6 +82,16 @@ void BadgeNetwork::begin(BadgeAudio* audio,
 
   WiFi.mode(WIFI_STA);
   WiFi.setHostname("morgan-badge");
+  // Surface the driver's disconnect reason code. "Timed out" alone cannot tell
+  // a wrong passphrase (reason 15) from an AP that never answered (201) or a
+  // handshake/association rejection, and guessing between those wastes time.
+  WiFi.onEvent(
+      [](WiFiEvent_t, WiFiEventInfo_t info) {
+        Serial.printf(
+            "{\"event\":\"NET\",\"status\":\"wifi-disconnected\",\"reason\":%u}\n",
+            static_cast<unsigned>(info.wifi_sta_disconnected.reason));
+      },
+      ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   connectWifi(millis());
 }
 
@@ -207,6 +217,58 @@ void BadgeNetwork::printDiagnostics() const {
       statusAuthenticated_ ? "true" : "false",
       voiceConfigured_ ? "true" : "false",
       WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0);
+}
+
+void BadgeNetwork::printScan() const {
+  Serial.println("{\"event\":\"WIFISCAN\",\"status\":\"scanning\"}");
+  const int16_t found = WiFi.scanNetworks();
+  if (found <= 0) {
+    Serial.printf(
+        "{\"event\":\"WIFISCAN\",\"networksFound\":%d,"
+        "\"configuredSsidVisible\":false,\"note\":\"radio saw no access points\"}\n",
+        found < 0 ? 0 : found);
+    WiFi.scanDelete();
+    return;
+  }
+
+  // The comparison happens here so the configured SSID never reaches the log.
+  bool configuredVisible = false;
+  int32_t configuredRssi = -127;
+  int32_t configuredChannel = 0;
+  int32_t configuredMatches = 0;
+  int32_t strongestRssi = -127;
+  int32_t band24 = 0;
+  int32_t band5 = 0;
+
+  for (int16_t index = 0; index < found; ++index) {
+    const int32_t channel = WiFi.channel(index);
+    const int32_t rssi = WiFi.RSSI(index);
+    if (channel >= 1 && channel <= 14) ++band24; else ++band5;
+    if (rssi > strongestRssi) strongestRssi = rssi;
+    if (MORGAN_BADGE_HAS_SECRETS &&
+        WiFi.SSID(index) == String(BadgeSecrets::kWifiSsid)) {
+      ++configuredMatches;
+      // Keep the strongest match: a dual-band SSID appears more than once and
+      // reporting the last one would understate the usable signal.
+      if (!configuredVisible || rssi > configuredRssi) {
+        configuredRssi = rssi;
+        configuredChannel = channel;
+      }
+      configuredVisible = true;
+    }
+  }
+
+  Serial.printf(
+      "{\"event\":\"WIFISCAN\",\"networksFound\":%d,"
+      "\"configuredSsidVisible\":%s,\"configuredBestRssiDbm\":%d,"
+      "\"configuredBestChannel\":%d,\"configuredApCount\":%d,"
+      "\"strongestRssiDbm\":%d,\"apsOn2g4\":%d,\"apsOn5g\":%d}\n",
+      found, configuredVisible ? "true" : "false",
+      static_cast<int>(configuredVisible ? configuredRssi : 0),
+      static_cast<int>(configuredChannel), static_cast<int>(configuredMatches),
+      static_cast<int>(strongestRssi), static_cast<int>(band24),
+      static_cast<int>(band5));
+  WiFi.scanDelete();
 }
 
 bool BadgeNetwork::configurationPresent() const {
