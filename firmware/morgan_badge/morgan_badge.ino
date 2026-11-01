@@ -155,7 +155,10 @@ bool applySimulation(const String& target, bool enabled) {
 }
 
 void handleSerialCommand(const String& command) {
-  if (command == "standby") {
+  if (command == "colortest") {
+    badgeDisplay.showColorBars();
+    Serial.println("{\"event\":\"DISPLAY\",\"pattern\":\"RGB565 color bars\"}");
+  } else if (command == "standby") {
     enterState(BadgeState::Standby, "Serial command");
   } else if (command == "listen") {
     enterState(BadgeState::Listening, "Serial command");
@@ -259,7 +262,7 @@ void handleSerialCommand(const String& command) {
     network.printScan();
   } else if (command.length()) {
     Serial.println(
-        "{\"event\":\"ERROR\",\"message\":\"Unknown command; use diag, modes, scan, selftest, sim, tilt, tap, haptic, standby, listen, think, speak, voice, cancel, or wifi\"}");
+        "{\"event\":\"ERROR\",\"message\":\"Unknown command; use colortest, diag, modes, scan, selftest, sim, tilt, tap, haptic, standby, listen, think, speak, voice, cancel, or wifi\"}");
   }
 }
 

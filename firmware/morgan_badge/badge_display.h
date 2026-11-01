@@ -19,7 +19,10 @@ class BadgeDisplay {
  public:
   // Base colour of the badge UI. Exposed so a test can distinguish a genuinely
   // rendered frame from one that is merely filled with the background.
-  static constexpr uint16_t kBackgroundColor = 0x0861;
+  static constexpr uint16_t kBackgroundColor = 0x0000;
+
+  // Non-background pixels in the generated portrait asset.
+  static uint32_t portraitContentPixels();
 
   BadgeDisplay();
 
@@ -29,6 +32,7 @@ class BadgeDisplay {
               float batteryVoltage,
               const char* detail);
   void animate(uint32_t nowMs);
+  void showColorBars();
 
   bool panelDetected() const { return panelDetected_; }
   uint8_t readbackId() const { return readbackId_; }
@@ -51,7 +55,9 @@ class BadgeDisplay {
   void present();
   void blitRegion(int16_t x, int16_t y, int16_t width, int16_t height);
 
-  void drawHeader(Adafruit_GFX& target, bool cloudConnected, float batteryVoltage);
-  void drawAvatarPortrait(Adafruit_GFX& target);
-  void drawStateLabel(Adafruit_GFX& target, BadgeState state, const char* detail);
+  void drawIdentity(Adafruit_GFX& target);
+  void drawPortrait(Adafruit_GFX& target);
+  void drawFooter(Adafruit_GFX& target, BadgeState state, bool cloudConnected,
+                  float batteryVoltage, const char* detail);
+  void drawActivityBars(Adafruit_GFX& target);
 };

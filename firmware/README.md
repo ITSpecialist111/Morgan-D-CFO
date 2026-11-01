@@ -52,6 +52,19 @@ reset.
 Using the rear pads costs external JTAG debug only. USB flashing and the serial
 console run on the USB Serial/JTAG controller (GPIO13/GPIO14) and are unaffected.
 
+### Seven-pin ST7789 modules
+
+Seven-pin modules such as the GMT020-02-7P V1.3 (GND, VCC, SCL, SDA, RST, DC,
+CS) have no SDO, so `display.panel` reports SKIPPED. That is expected and does
+not mean the panel is absent. Wire SCL to `D8`, SDA to `D10`, DC to `D2`, and
+CS to `D3`. If the rear `MTDO` pad is not reachable, tie RST to the module's
+VCC, because the driver sends a software reset during initialization. Never put
+RST on a front pad. `D0` is PTT, so pressing the button would reset the panel.
+`D1` is `AMP_SD`, held low while idle, which holds the panel in reset. `D5` is
+the I2S word-select clock, which keeps resetting it. A lit backlight on a blank
+panel means the controller never initialized, so reseat the signal jumpers
+before suspecting firmware.
+
 ## Toolchain
 
 The prototype was built and flashed with:
@@ -119,9 +132,35 @@ Regenerate the display bitmap after changing the source portrait:
 .\scripts\prepare-badge-avatar.ps1
 ```
 
-This center-crops `firmware/assets/morgan-portrait.png` to 168 x 168 and writes
-`morgan_badge/morgan_avatar_rgb565.h`. The generated array contains 28,224
-RGB565 pixels and occupies about 56 KB in firmware flash.
+The screen follows the Solara reference and the browser emulator: a black
+display, a centered mark, `Morgan` and `Digital CFO` at the top, a full-width
+portrait that fades into black, and state, detail, and battery in the footer.
+There is no frame or drawn outline around the portrait.
+
+The generator combines `firmware/assets/morgan-portrait.png` with the soft
+alpha matte `firmware/assets/morgan-portrait-matte.png`, fades the sides and
+bottom to black, and writes a 240 x 188 portrait to
+`morgan_badge/morgan_avatar_rgb565.h` with its screen row and visible-pixel
+count. The self-test uses that count as its minimum rendered content. The crop
+constants in the script are measured from the current photo and must be retuned
+if the photo changes.
+
+The matte is a one-off asset, so the build has no machine-learning dependency.
+It was produced with [rembg](https://github.com/danielgatis/rembg): the
+`isnet-general-use` mask above the shoulders, for clean hair edges, blended
+into the `u2net_human_seg` mask below them, which keeps the blazer. The result
+was eroded by one pixel and feathered with a 1.2 px Gaussian blur. Do not trace
+a polygon by hand; that produced a visibly rough cutout.
+
+RGB565 uses `R5:G6:B5`, packed as `((int(R) >> 3) << 11) | ((int(G) >> 2) << 5) | (int(B) >> 3)`.
+The converter must widen each `System.Drawing.Color` byte to `[int]` before
+left-shifting. PowerShell otherwise keeps the byte type and truncates red and
+green bits, producing a blue/black portrait. The known pixel `#C8B8AB` must pack
+as `0xCDD5`. Keep the ST7789V in RGB order; the GMT020-02-7P V1.3 reference
+initialization uses RGB, and a BGR override made the portrait red. The fix was
+verified on the physical TFT after regeneration and reflashing. See the
+[module reference implementation](https://github.com/SAIRPi/st7789v-gmt020-02-7p)
+and [manufacturer specification](https://goldenmorninglcd.com/tft-display-module/2-inch-240x320-st7789v-gmt020-02/).
 
 ## Build And Flash
 
@@ -207,6 +246,7 @@ Commands are newline-terminated and intended for bring-up only:
 
 | Command | Action |
 | --- | --- |
+| `colortest` | Draw RGB565 red, green, blue, cyan, magenta, yellow, and white bands to verify panel color order. Reset the board to restore the normal badge screen. |
 | `diag` | Print chip, flash, PSRAM, power, peripheral modes, Wi-Fi, clock, API, and voice readiness. |
 | `selftest` | Run the structured pre-solder self-test and emit JSON. |
 | `modes` | Print the mode and evidence for every badge component. |
@@ -252,7 +292,11 @@ where server-side governance and HITL controls apply.
 - Badge API HTTP 200 and telemetry HTTP 202 from the XIAO.
 - Authenticated WSS opened, reached `Speak now`, and closed cleanly.
 - Offline state cycle completed and returned to standby.
+- A GMT020-02-7P V1.3 ST7789V panel on jumper wires, with RST tied to VCC,
+  renders the badge UI. `colortest` shows correct RGB primaries, and the
+  portrait colors are correct after the RGB565 packing fix (visual check,
+  2026-11-01).
 
-External display, microphone, amplifier, speaker, PTT switch, and LiPo behavior
-remain electrically unverified until those parts are soldered. See
+Microphone, amplifier, speaker, PTT switch, and LiPo behavior remain
+electrically unverified until those parts are soldered. See
 `../hardware/README.md` for the net table and safe bring-up sequence.

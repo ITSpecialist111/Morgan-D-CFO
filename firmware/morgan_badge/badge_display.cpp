@@ -1,5 +1,8 @@
 #include "badge_display.h"
 
+#include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSansBold12pt7b.h>
+#include <Fonts/FreeSansBold9pt7b.h>
 #include <SPI.h>
 
 #include "board_config.h"
@@ -7,13 +10,43 @@
 
 namespace {
 constexpr uint16_t kBackground = BadgeDisplay::kBackgroundColor;
-constexpr uint16_t kPanel = 0x10E3;
-constexpr uint16_t kMuted = 0x9CF3;
+constexpr uint16_t kInk = 0xF7BE;
+constexpr uint16_t kMuted = 0xB5B6;
 constexpr uint16_t kStandby = 0xE6B5;
 constexpr uint16_t kListening = 0x3D7F;
 constexpr uint16_t kThinking = 0x717D;
 constexpr uint16_t kSpeaking = 0x2E8B;
 constexpr uint16_t kFault = 0xF986;
+
+// Footer rows sit below the portrait's fade so text never overlaps the face.
+constexpr int16_t kStateBaseline = 297;
+constexpr int16_t kDetailBaseline = 312;
+constexpr int16_t kBarsX = 192;
+constexpr int16_t kBarsY = 284;
+constexpr int16_t kBarsHeight = 14;
+
+static_assert(kMorganAvatarTop + kMorganAvatarHeight <= BadgeConfig::kDisplayHeight,
+              "Portrait must fit on the panel");
+
+int16_t textWidth(Adafruit_GFX& target, const char* text) {
+  int16_t x = 0;
+  int16_t y = 0;
+  uint16_t width = 0;
+  uint16_t height = 0;
+  target.getTextBounds(text, 0, 0, &x, &y, &width, &height);
+  return static_cast<int16_t>(width);
+}
+
+void printCentered(Adafruit_GFX& target, const char* text, int16_t baseline) {
+  int16_t x = 0;
+  int16_t y = 0;
+  uint16_t width = 0;
+  uint16_t height = 0;
+  target.getTextBounds(text, 0, baseline, &x, &y, &width, &height);
+  target.setCursor((BadgeConfig::kDisplayWidth - static_cast<int16_t>(width)) / 2 - x,
+                   baseline);
+  target.print(text);
+}
 
 uint16_t colorForState(BadgeState state) {
   switch (state) {
@@ -38,6 +71,10 @@ BadgeDisplay::BadgeDisplay()
                BadgeConfig::kDisplayCsPin,
                BadgeConfig::kDisplayDcPin,
                BadgeConfig::kDisplayResetPin) {}
+
+uint32_t BadgeDisplay::portraitContentPixels() {
+  return kMorganAvatarContentPixels;
+}
 
 bool BadgeDisplay::probePanel() {
   // With no panel fitted the MISO line floats, which reads back as all-zero or
@@ -82,6 +119,25 @@ void BadgeDisplay::present() {
   blitRegion(0, 0, BadgeConfig::kDisplayWidth, BadgeConfig::kDisplayHeight);
 }
 
+void BadgeDisplay::showColorBars() {
+  if (canvas_ == nullptr || !canvas_->ready()) return;
+
+  constexpr uint16_t colors[] = {
+      ST77XX_RED, ST77XX_GREEN, ST77XX_BLUE, ST77XX_CYAN,
+      ST77XX_MAGENTA, ST77XX_YELLOW, ST77XX_WHITE,
+  };
+  constexpr uint8_t colorCount = sizeof(colors) / sizeof(colors[0]);
+  const int16_t bandHeight = BadgeConfig::kDisplayHeight / colorCount;
+  for (uint8_t index = 0; index < colorCount; ++index) {
+    const int16_t top = static_cast<int16_t>(index) * bandHeight;
+    const int16_t height = index == colorCount - 1
+                               ? BadgeConfig::kDisplayHeight - top
+                               : bandHeight;
+    canvas_->fillRect(0, top, BadgeConfig::kDisplayWidth, height, colors[index]);
+  }
+  present();
+}
+
 void BadgeDisplay::blitRegion(int16_t x, int16_t y, int16_t width, int16_t height) {
   // Blitting is deliberately NOT gated on panel detection. Many ST7789
   // breakouts omit the SDO line, so readback can fail on a perfectly good
@@ -110,9 +166,9 @@ void BadgeDisplay::render(BadgeState state,
   if (canvas_ == nullptr || !canvas_->ready()) return;
 
   canvas_->fillScreen(kBackground);
-  drawHeader(*canvas_, cloudConnected, batteryVoltage);
-  drawAvatarPortrait(*canvas_);
-  drawStateLabel(*canvas_, state, detail);
+  drawPortrait(*canvas_);
+  drawIdentity(*canvas_);
+  drawFooter(*canvas_, state, cloudConnected, batteryVoltage, detail);
   present();
 }
 
@@ -120,82 +176,82 @@ void BadgeDisplay::animate(uint32_t nowMs) {
   if (nowMs - lastAnimationMs_ < 120) return;
   lastAnimationMs_ = nowMs;
   if (canvas_ == nullptr || !canvas_->ready()) return;
+  if (state_ != BadgeState::Listening && state_ != BadgeState::Thinking &&
+      state_ != BadgeState::Speaking) {
+    return;
+  }
   pulseStep_ = (pulseStep_ + 1) % 12;
-
-  const int16_t pulse = (pulseStep_ <= 6 ? pulseStep_ : 12 - pulseStep_) / 2;
-  // These bands must clear every pulse position (x 29..210, y 42..223 at max
-  // pulse) while staying clear of the static UI: the accent frame occupies
-  // x 34..205 / y 47..218, the avatar x 36..203 / y 49..216, and the STATE
-  // label starts at y 224. Widening them further erases artwork that only a
-  // full render() would restore.
-  canvas_->fillRect(27, 40, 186, 7, kBackground);
-  canvas_->fillRect(27, 219, 186, 5, kBackground);
-  canvas_->fillRect(27, 40, 7, 186, kBackground);
-  canvas_->fillRect(206, 40, 7, 186, kBackground);
-  canvas_->drawRoundRect(32 - pulse, 45 - pulse,
-                         176 + pulse * 2, 176 + pulse * 2,
-                         10, stateColor_);
-  // Only the animated band is pushed to the panel, not the whole frame.
-  blitRegion(27, 40, 186, 186);
-
-  if (state_ == BadgeState::Listening || state_ == BadgeState::Speaking) {
-    for (uint8_t bar = 0; bar < 5; ++bar) {
-      const uint8_t phase = (pulseStep_ + bar * 2) % 12;
-      const int16_t height = 3 + (phase <= 6 ? phase : 12 - phase) * 2;
-      const int16_t x = 96 + bar * 12;
-      canvas_->fillRect(x, 271, 5, 15, kBackground);
-      canvas_->fillRoundRect(x, 286 - height, 5, height, 2, stateColor_);
-    }
-    blitRegion(96, 271, 60, 15);
-  }
+  // Only the footer bar strip changes, so the portrait is never redrawn.
+  drawActivityBars(*canvas_);
+  blitRegion(kBarsX, kBarsY, 30, kBarsHeight);
 }
 
-void BadgeDisplay::drawHeader(Adafruit_GFX& target, bool cloudConnected,
-                              float batteryVoltage) {
-  target.fillRect(0, 0, BadgeConfig::kDisplayWidth, 36, kPanel);
-  target.setTextColor(ST77XX_WHITE);
-  target.setTextSize(2);
-  target.setCursor(12, 10);
-  target.print("MORGAN");
+void BadgeDisplay::drawIdentity(Adafruit_GFX& target) {
+  constexpr int16_t markLeft = 113;
+  constexpr int16_t markTop = 26;
+  target.fillRect(markLeft, markTop, 6, 6, kInk);
+  target.fillRect(markLeft + 7, markTop, 6, 6, kInk);
+  target.fillRect(markLeft, markTop + 7, 6, 6, kInk);
+  target.fillRect(markLeft + 7, markTop + 7, 6, 6, kInk);
 
-  target.setTextSize(1);
-  target.setTextColor(cloudConnected ? kSpeaking : kMuted);
-  target.setCursor(150, 7);
-  target.print(cloudConnected ? "CLOUD" : "LOCAL");
+  target.setTextColor(kInk);
+  target.setFont(&FreeSansBold12pt7b);
+  printCentered(target, "Morgan", 66);
+
   target.setTextColor(kMuted);
-  target.setCursor(150, 21);
-  if (batteryVoltage > 2.5F && batteryVoltage < 4.5F) {
-    target.print(batteryVoltage, 2);
-    target.print("V");
-  } else {
-    target.print("BAT --");
-  }
+  target.setFont(&FreeSans9pt7b);
+  printCentered(target, "Digital CFO", 86);
+  target.setFont(nullptr);
 }
 
-void BadgeDisplay::drawAvatarPortrait(Adafruit_GFX& target) {
-  constexpr int16_t avatarX =
-      (BadgeConfig::kDisplayWidth - kMorganAvatarWidth) / 2;
-  constexpr int16_t avatarY = 49;
-  target.drawRGBBitmap(avatarX, avatarY, kMorganAvatarRgb565,
+void BadgeDisplay::drawPortrait(Adafruit_GFX& target) {
+  target.drawRGBBitmap(0, kMorganAvatarTop, kMorganAvatarRgb565,
                        kMorganAvatarWidth, kMorganAvatarHeight);
-  target.drawRoundRect(34, 47, 172, 172, 8, stateColor_);
 }
 
-void BadgeDisplay::drawStateLabel(Adafruit_GFX& target, BadgeState state,
-                                  const char* detail) {
+void BadgeDisplay::drawFooter(Adafruit_GFX& target, BadgeState state,
+                              bool cloudConnected, float batteryVoltage,
+                              const char* detail) {
   target.setTextColor(stateColor_);
-  target.setTextSize(2);
-  const char* label = badgeStateName(state);
-  const int16_t labelWidth = strlen(label) * 12;
-  target.setCursor((BadgeConfig::kDisplayWidth - labelWidth) / 2, 224);
-  target.print(label);
+  target.setFont(&FreeSansBold9pt7b);
+  target.setCursor(12, kStateBaseline);
+  target.print(badgeStateName(state));
+  target.setFont(nullptr);
 
-  target.setTextColor(kMuted);
   target.setTextSize(1);
-  target.setCursor(12, 249);
+  target.setTextColor(kMuted);
   String detailText = detail && detail[0] ? detail : "Digital CFO";
-  if (detailText.length() > 34) {
-    detailText = detailText.substring(0, 31) + "...";
+  if (detailText.length() > 24) {
+    detailText = detailText.substring(0, 21) + "...";
   }
+  target.setCursor(12, kDetailBaseline - 7);
   target.print(detailText);
+
+  char meta[20];
+  if (batteryVoltage > 2.5F && batteryVoltage < 4.5F) {
+    snprintf(meta, sizeof(meta), "%s %.2fV", cloudConnected ? "CLOUD" : "LOCAL",
+             batteryVoltage);
+  } else {
+    snprintf(meta, sizeof(meta), "%s BAT--", cloudConnected ? "CLOUD" : "LOCAL");
+  }
+  target.setTextColor(cloudConnected ? kSpeaking : kMuted);
+  target.setCursor(BadgeConfig::kDisplayWidth - 12 - textWidth(target, meta),
+                   kDetailBaseline - 7);
+  target.print(meta);
+
+  drawActivityBars(target);
+}
+
+void BadgeDisplay::drawActivityBars(Adafruit_GFX& target) {
+  target.fillRect(kBarsX, kBarsY, 30, kBarsHeight, kBackground);
+  if (state_ != BadgeState::Listening && state_ != BadgeState::Thinking &&
+      state_ != BadgeState::Speaking) {
+    return;
+  }
+  for (uint8_t bar = 0; bar < 5; ++bar) {
+    const uint8_t phase = (pulseStep_ + bar * 2) % 12;
+    const int16_t height = 3 + (phase <= 6 ? phase : 12 - phase) * 2;
+    target.fillRoundRect(kBarsX + bar * 6, kBarsY + kBarsHeight - height, 4,
+                         height, 2, stateColor_);
+  }
 }

@@ -142,9 +142,11 @@ void BadgeSelfTest::run(Print& out,
         canvas.countPixelsDifferentFrom(BadgeDisplay::kBackgroundColor);
     const uint32_t total =
         static_cast<uint32_t>(BadgeConfig::kDisplayWidth) * BadgeConfig::kDisplayHeight;
-    // The portrait alone is 168x168 = 28,224 px, so require at least that much
-    // content while rejecting a frame with no background left at all.
-    const bool pass = crc != 0 && painted >= 28224 && painted < total;
+    // Require at least the portrait's own visible pixels, while rejecting a
+    // frame with no background left at all.
+    const bool pass = crc != 0 &&
+                      painted >= BadgeDisplay::portraitContentPixels() &&
+                      painted < total;
     snprintf(evidence, sizeof(evidence),
              "crc32 0x%08lX, %lu/%lu px differ from background; layout only",
              static_cast<unsigned long>(crc), static_cast<unsigned long>(painted),
